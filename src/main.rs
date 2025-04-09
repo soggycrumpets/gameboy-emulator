@@ -1,5 +1,6 @@
 mod cpu;
-use cpu::CPU;
+mod registers;
+mod memory;
 
 fn main() {
 }
