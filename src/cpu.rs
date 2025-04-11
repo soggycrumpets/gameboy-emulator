@@ -59,7 +59,7 @@ impl CPU {
         }
     }
 
-    // LD Instructions
+    // LD instructions
     fn ld_r8_r8(&mut self, r1: R8, r2: R8) {
         let r2_value = self.reg.get(r2);
         self.reg.set(r1, r2_value);
@@ -86,6 +86,8 @@ impl CPU {
 
     fn ld_r8_hl(&mut self, r8: R8) {
         let addr = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(addr);
+        self.reg.set(r8, value);
     }
 
     fn ld_r16_a(&mut self, r16: R16) {
@@ -99,9 +101,17 @@ impl CPU {
         self.mmu.writebyte(n16, ra);
     }
 
+    fn ldh_n8_a(&mut self, n8: u8) {
+        let ra = self.reg.get(R8::A);
+        let addr = 0xFF00 + (n8 as u16);
+        self.mmu.writebyte(addr, ra);
+    }
+
     fn ldh_c_a(&mut self) {
         let ra = self.reg.get(R8::A);
-        self.mmu.writebyte(0xFF00 + 0xC, ra);
+        let rc = self.reg.get(R8::C);
+        let addr = 0xFF00 + (rc as u16);
+        self.mmu.writebyte(addr, ra);
     }
 
     fn ld_a_r16(&mut self, r16: R16) {
@@ -110,6 +120,89 @@ impl CPU {
         self.reg.set(R8::A, value);
     }
 
+    fn ld_a_n16(&mut self, n16: u16) {
+        let value = self.mmu.readbyte(n16);
+        self.reg.set(R8::A, value);
+    }
+
+    fn ldh_a_n8(&mut self, n8: u8) {
+        let addr = 0xFF00 + (n8 as u16);
+        let value = self.mmu.readbyte(addr);
+        self.reg.set(R8::A, value);
+    }
+
+    fn ldh_a_c(&mut self) {
+        let rc = self.reg.get(R8::C);
+        let addr = 0xFF00 + (rc as u16);
+        let value = self.mmu.readbyte(addr);
+        self.reg.set(R8::A, value);
+    }
+
+    fn ld_hli_a(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let a = self.reg.get(R8::A);
+
+        self.mmu.writebyte(hl, a);
+
+        self.reg.set16(R16::HL, hl + 1);
+    }
+
+    fn ld_hld_a(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let a = self.reg.get(R8::A);
+
+        self.mmu.writebyte(hl, a);
+
+        self.reg.set16(R16::HL, hl - 1);
+    }
+
+    fn ld_a_hld(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(hl);
+
+        self.reg.set(R8::A, value);
+
+        self.reg.set16(R16::HL, hl - 1);
+    }
+
+    fn ld_a_hli(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(hl);
+
+        self.reg.set(R8::A, value);
+
+        self.reg.set16(R16::HL, hl - 1);
+    }
+
+    fn ld_sp_n16(&mut self, n16: u16) {
+        self.reg.set16(R16::SP, n16);
+    }
+
+    fn ld_n16_sp(&mut self, n16: u16) {
+        let sp = self.reg.get16(R16::SP);
+        self.mmu.writeword(n16, sp);
+    }
+
+    fn ld_hl_sp_e8(&mut self, n8: u8) {
+        let sp = self.reg.get16(R16::SP);
+        let e8 = (n8 as i8) as i16;
+
+        let result = (sp as i16).wrapping_add(e8) as u16;
+
+        let sp_low = (sp & 0x00FF) as u8;
+
+        self.reg.set_flag(Z, false);
+        self.reg.set_flag(N, false);
+        self.reg.set_flag(H, (sp_low & 0x0F) + (n8 & 0x0F) > 0x0F);
+        self.reg.set_flag(
+            C,
+            ((sp_low as u16) & 0x00FF) + ((n8 as u16) & 0x00FF) > 0xFF,
+        );
+
+        self.reg.set16(R16::HL, result);
+    }
+
+    // Stack instructions
     fn push(&mut self, r16: R16) {
         // Ensure push target is valid
         match r16 {
