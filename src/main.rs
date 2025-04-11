@@ -33,5 +33,4 @@ fn main() {
     // for byte in &gameboy.ram.memory {
         // print!("{:x}", byte);
     // }
-    println!("{}", gameboy.ram.memory[0x1234]);
 }

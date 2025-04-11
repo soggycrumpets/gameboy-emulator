@@ -29,21 +29,22 @@ impl Registers {
             f: 0.into(),
             h: 0,
             l: 0,
-            sp: 0xFFFF, // Starts at the top of the stack
+            sp: 0xFFFF,             // Starts at the top of the stack
             pc: PROGRAM_START_ADDR, // Program counter always starts here when the device is powered on
         }
     }
 
     pub fn get16(&self, register: R16) -> u16 {
         let (high_register, low_register) = match register {
+            R16::AF => (R8::A, R8::F),
             R16::BC => (R8::B, R8::C),
             R16::DE => (R8::D, R8::E),
             R16::HL => (R8::H, R8::L),
             R16::SP => return self.sp,
         };
 
-        let high= self.get(high_register);
-        let low= self.get(low_register);
+        let high = self.get(high_register);
+        let low = self.get(low_register);
 
         let mut combined: u16 = 0;
         combined |= (high as u16) << 8;
@@ -51,19 +52,20 @@ impl Registers {
         combined
     }
 
-    pub fn set16(&mut self, bits: u16, register: R16) {
+    pub fn set16(&mut self, register: R16, value: u16) {
         let (high, low) = match register {
+            R16::AF => (R8::A, R8::F),
             R16::BC => (R8::B, R8::C),
             R16::DE => (R8::D, R8::E),
             R16::HL => (R8::H, R8::L),
             R16::SP => {
-                self.sp = bits;
+                self.sp = value;
                 return;
             }
         };
 
-        let high_value = (bits >> 8) as u8;
-        let low_value = bits as u8;
+        let high_value = (value >> 8) as u8;
+        let low_value = value as u8;
         self.set(high, high_value);
         self.set(low, low_value);
     }
@@ -75,6 +77,7 @@ impl Registers {
             R8::C => self.c,
             R8::D => self.d,
             R8::E => self.e,
+            R8::F => self.f.into(),
             R8::H => self.h,
             R8::L => self.l,
         }
@@ -87,6 +90,7 @@ impl Registers {
             R8::C => self.c = value,
             R8::D => self.d = value,
             R8::E => self.e = value,
+            R8::F => self.f = (value & 0xF0).into(),
             R8::H => self.h = value,
             R8::L => self.l = value,
         };
@@ -130,12 +134,14 @@ pub enum R8 {
     C,
     D,
     E,
+    F,
     H,
     L,
 }
 
 #[derive(Clone, Copy)]
 pub enum R16 {
+    AF,
     BC,
     DE,
     HL,
@@ -148,18 +154,18 @@ mod tests {
 
     #[test]
     fn test_register_functions() {
-        let mut R8 = Registers::new();
-        R8.b = 4;
-        R8.c = 8;
+        let mut r8 = Registers::new();
+        r8.b = 4;
+        r8.c = 8;
 
-        assert_eq!(R8.get(R8::B), 4);
-        assert_eq!(R8.get(R8::C), 8);
+        assert_eq!(r8.get(R8::B), 4);
+        assert_eq!(r8.get(R8::C), 8);
 
-        assert_eq!(R8.get16(R16::BC), 1032, "get_bc failed");
+        assert_eq!(r8.get16(R16::BC), 1032, "get_bc failed");
 
         let value = 1234;
-        R8.set16(value, R16::BC);
-        assert_eq!(R8.get16(R16::BC), value, "set_bc failed");
+        r8.set16(R16::BC, value);
+        assert_eq!(r8.get16(R16::BC), value, "set_bc failed");
     }
 
     #[test]

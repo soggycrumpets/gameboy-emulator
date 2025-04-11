@@ -20,24 +20,20 @@ impl MMU {
         true
     }
 
-    // Read byte
     pub fn readbyte(&self, addr: u16) -> u8 {
         self.memory[addr as usize]
     }
 
-    // Write byte
     pub fn writebyte(&mut self, addr: u16, byte: u8) {
         self.memory[addr as usize] = byte;
     }
 
-    // Read word
     pub fn readword(&self, addr: u16) -> u16 {
         let lowbyte = self.readbyte(addr);
         let highbyte = self.readbyte(addr + 1);
         lowbyte as u16 | ((highbyte as u16) << 8)
     }
 
-    // Write word
     pub fn writeword(&mut self, addr: u16, word: u16) {
         let lowbyte = word as u8;
         let highbyte = (word >> 8) as u8;
