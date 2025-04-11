@@ -1,0 +1,1 @@
+pub const PROGRAM_START_ADDR: u16 = 0x0100;

@@ -3,6 +3,8 @@ const SUBTRACT_FLAG: u8 = 6;
 const HALF_CARRY_FLAG: u8 = 5;
 const CARRY_FLAG: u8 = 4;
 
+use crate::constants::PROGRAM_START_ADDR;
+
 pub struct Registers {
     pub a: u8,
     pub b: u8,
@@ -27,17 +29,17 @@ impl Registers {
             f: 0.into(),
             h: 0,
             l: 0,
-            sp: 0xFFFE, // Starts at the top of the stack
-            pc: 0x100,  // Program counter always starts here when the device is powered on
+            sp: 0xFFFF, // Starts at the top of the stack
+            pc: PROGRAM_START_ADDR, // Program counter always starts here when the device is powered on
         }
     }
 
-    pub fn get_16(&self, register: Register16) -> u16 {
+    pub fn get16(&self, register: R16) -> u16 {
         let (high_register, low_register) = match register {
-            Register16::BC => (Register::B, Register::C),
-            Register16::DE => (Register::D, Register::E),
-            Register16::HL => (Register::H, Register::L),
-            Register16::SP => return self.sp,
+            R16::BC => (R8::B, R8::C),
+            R16::DE => (R8::D, R8::E),
+            R16::HL => (R8::H, R8::L),
+            R16::SP => return self.sp,
         };
 
         let high= self.get(high_register);
@@ -49,12 +51,12 @@ impl Registers {
         combined
     }
 
-    pub fn set_16(&mut self, bits: u16, register: Register16) {
+    pub fn set16(&mut self, bits: u16, register: R16) {
         let (high, low) = match register {
-            Register16::BC => (Register::B, Register::C),
-            Register16::DE => (Register::D, Register::E),
-            Register16::HL => (Register::H, Register::L),
-            Register16::SP => {
+            R16::BC => (R8::B, R8::C),
+            R16::DE => (R8::D, R8::E),
+            R16::HL => (R8::H, R8::L),
+            R16::SP => {
                 self.sp = bits;
                 return;
             }
@@ -66,27 +68,27 @@ impl Registers {
         self.set(low, low_value);
     }
 
-    pub fn get(&self, register: Register) -> u8 {
+    pub fn get(&self, register: R8) -> u8 {
         match register {
-            Register::A => self.a,
-            Register::B => self.b,
-            Register::C => self.c,
-            Register::D => self.d,
-            Register::E => self.e,
-            Register::H => self.h,
-            Register::L => self.l,
+            R8::A => self.a,
+            R8::B => self.b,
+            R8::C => self.c,
+            R8::D => self.d,
+            R8::E => self.e,
+            R8::H => self.h,
+            R8::L => self.l,
         }
     }
 
-    pub fn set(&mut self, register: Register, value: u8) {
+    pub fn set(&mut self, register: R8, value: u8) {
         match register {
-            Register::A => self.a = value,
-            Register::B => self.b = value,
-            Register::C => self.c = value,
-            Register::D => self.d = value,
-            Register::E => self.e = value,
-            Register::H => self.h = value,
-            Register::L => self.l = value,
+            R8::A => self.a = value,
+            R8::B => self.b = value,
+            R8::C => self.c = value,
+            R8::D => self.d = value,
+            R8::E => self.e = value,
+            R8::H => self.h = value,
+            R8::L => self.l = value,
         };
     }
 }
@@ -122,7 +124,7 @@ impl From<Flags> for u8 {
 }
 
 #[derive(Clone, Copy)]
-pub enum Register {
+pub enum R8 {
     A,
     B,
     C,
@@ -133,7 +135,7 @@ pub enum Register {
 }
 
 #[derive(Clone, Copy)]
-pub enum Register16 {
+pub enum R16 {
     BC,
     DE,
     HL,
@@ -146,18 +148,18 @@ mod tests {
 
     #[test]
     fn test_register_functions() {
-        let mut registers = Registers::new();
-        registers.b = 4;
-        registers.c = 8;
+        let mut R8 = Registers::new();
+        R8.b = 4;
+        R8.c = 8;
 
-        assert_eq!(registers.get(Register::B), 4);
-        assert_eq!(registers.get(Register::C), 8);
+        assert_eq!(R8.get(R8::B), 4);
+        assert_eq!(R8.get(R8::C), 8);
 
-        assert_eq!(registers.get_16(Register16::BC), 1032, "get_bc failed");
+        assert_eq!(R8.get16(R16::BC), 1032, "get_bc failed");
 
         let value = 1234;
-        registers.set_16(value, Register16::BC);
-        assert_eq!(registers.get_16(Register16::BC), value, "set_bc failed");
+        R8.set16(value, R16::BC);
+        assert_eq!(R8.get16(R16::BC), value, "set_bc failed");
     }
 
     #[test]

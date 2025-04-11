@@ -1,6 +1,47 @@
-pub struct RAM {
-    memory: [u8; 0xFFFF],
+use crate::constants::PROGRAM_START_ADDR;
+
+pub struct MMU {
+    pub memory: [u8; 65536],
 }
 
-impl RAM {
+impl MMU {
+    pub fn new() -> MMU {
+        MMU { memory: [0; 65536] }
+    }
+
+    // Load rom into memory
+    pub fn load_rom(&mut self, path: &str) -> bool {
+        let rom = match std::fs::read(path) {
+            Ok(result) => result,
+            Err(..) => return false,
+        };
+        self.memory[(PROGRAM_START_ADDR as usize)..(PROGRAM_START_ADDR as usize + rom.len())]
+            .copy_from_slice(&rom);
+        true
+    }
+
+    // Read byte
+    pub fn readbyte(&self, addr: u16) -> u8 {
+        self.memory[addr as usize]
+    }
+
+    // Write byte
+    pub fn writebyte(&mut self, addr: u16, byte: u8) {
+        self.memory[addr as usize] = byte;
+    }
+
+    // Read word
+    pub fn readword(&self, addr: u16) -> u16 {
+        let lowbyte = self.readbyte(addr);
+        let highbyte = self.readbyte(addr + 1);
+        lowbyte as u16 | ((highbyte as u16) << 8)
+    }
+
+    // Write word
+    pub fn writeword(&mut self, addr: u16, word: u16) {
+        let lowbyte = word as u8;
+        let highbyte = (word >> 8) as u8;
+        self.writebyte(addr, lowbyte);
+        self.writebyte(addr+1, highbyte);
+    }
 }
