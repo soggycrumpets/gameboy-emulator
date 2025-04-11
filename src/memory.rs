@@ -10,12 +10,12 @@ impl MMU {
     }
 
     // Load rom into memory
-    pub fn load_rom(&mut self, path: &str) -> bool {
+    pub fn load_rom(&mut self, path: &str, load_start_address: u16) -> bool {
         let rom = match std::fs::read(path) {
             Ok(result) => result,
             Err(..) => return false,
         };
-        self.memory[(PROGRAM_START_ADDR as usize)..(PROGRAM_START_ADDR as usize + rom.len())]
+        self.memory[(load_start_address as usize)..(load_start_address as usize + rom.len())]
             .copy_from_slice(&rom);
         true
     }
@@ -38,6 +38,6 @@ impl MMU {
         let lowbyte = word as u8;
         let highbyte = (word >> 8) as u8;
         self.writebyte(addr, lowbyte);
-        self.writebyte(addr+1, highbyte);
+        self.writebyte(addr + 1, highbyte);
     }
 }

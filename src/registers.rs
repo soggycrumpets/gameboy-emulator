@@ -6,16 +6,16 @@ const CARRY_FLAG: u8 = 4;
 use crate::constants::PROGRAM_START_ADDR;
 
 pub struct Registers {
-    pub a: u8,
-    pub b: u8,
-    pub c: u8,
-    pub d: u8,
-    pub e: u8,
-    pub f: Flags,
-    pub h: u8,
-    pub l: u8,
-    pub sp: u16,
-    pub pc: u16,
+    a: u8,
+    b: u8,
+    c: u8,
+    d: u8,
+    e: u8,
+    f: Flags,
+    h: u8,
+    l: u8,
+    sp: u16,
+    pc: u16,
 }
 
 impl Registers {
@@ -29,8 +29,8 @@ impl Registers {
             f: 0.into(),
             h: 0,
             l: 0,
-            sp: 0xFFFF,             // Starts at the top of the stack
-            pc: PROGRAM_START_ADDR, // Program counter always starts here when the device is powered on
+            sp: 0xFFFE, // Starts at the top of the stack
+            pc: 0x0000, // Starts at the beginning of the bootrom
         }
     }
 
@@ -41,6 +41,7 @@ impl Registers {
             R16::DE => (R8::D, R8::E),
             R16::HL => (R8::H, R8::L),
             R16::SP => return self.sp,
+            R16::PC => return self.pc,
         };
 
         let high = self.get(high_register);
@@ -60,6 +61,10 @@ impl Registers {
             R16::HL => (R8::H, R8::L),
             R16::SP => {
                 self.sp = value;
+                return;
+            }
+            R16::PC => {
+                self.pc = value;
                 return;
             }
         };
@@ -95,14 +100,32 @@ impl Registers {
             R8::L => self.l = value,
         };
     }
+
+    pub fn get_flag(&self, flag: Flag) -> bool {
+        match flag {
+            Flag::Z => self.f.zero,
+            Flag::N => self.f.subtract,
+            Flag::H => self.f.half_carry,
+            Flag::C => self.f.carry,
+        }
+    }
+
+    pub fn set_flag(&mut self, flag: Flag, value: bool) {
+        match flag {
+            Flag::Z => self.f.zero = value,
+            Flag::N => self.f.subtract = value,
+            Flag::H => self.f.half_carry = value,
+            Flag::C => self.f.carry = value,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
-pub struct Flags {
-    pub zero: bool,
-    pub subtract: bool,
-    pub carry: bool,
-    pub half_carry: bool,
+struct Flags {
+    zero: bool,
+    subtract: bool,
+    carry: bool,
+    half_carry: bool,
 }
 
 impl From<u8> for Flags {
@@ -127,7 +150,7 @@ impl From<Flags> for u8 {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum R8 {
     A,
     B,
@@ -139,13 +162,21 @@ pub enum R8 {
     L,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum R16 {
     AF,
     BC,
     DE,
     HL,
     SP,
+    PC,
+}
+
+pub enum Flag {
+    Z,
+    N,
+    H,
+    C,
 }
 
 #[cfg(test)]
@@ -154,18 +185,18 @@ mod tests {
 
     #[test]
     fn test_register_functions() {
-        let mut r8 = Registers::new();
-        r8.b = 4;
-        r8.c = 8;
+        let mut registers = Registers::new();
+        registers.set(R8::B, 4);
+        registers.set(R8::C, 8);
 
-        assert_eq!(r8.get(R8::B), 4);
-        assert_eq!(r8.get(R8::C), 8);
+        assert_eq!(registers.get(R8::B), 4);
+        assert_eq!(registers.get(R8::C), 8);
 
-        assert_eq!(r8.get16(R16::BC), 1032, "get_bc failed");
+        assert_eq!(registers.get16(R16::BC), 1032, "get_bc failed");
 
         let value = 1234;
-        r8.set16(R16::BC, value);
-        assert_eq!(r8.get16(R16::BC), value, "set_bc failed");
+        registers.set16(R16::BC, value);
+        assert_eq!(registers.get16(R16::BC), value, "set_bc failed");
     }
 
     #[test]

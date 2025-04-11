@@ -1,1 +1,2 @@
 pub const PROGRAM_START_ADDR: u16 = 0x0100;
+pub const BOOTROM_START_ADDR: u16 = 0x0000;
