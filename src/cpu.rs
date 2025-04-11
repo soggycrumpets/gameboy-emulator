@@ -171,7 +171,7 @@ impl CPU {
 
         self.reg.set(R8::A, value);
 
-        self.reg.set16(R16::HL, hl - 1);
+        self.reg.set16(R16::HL, hl + 1);
     }
 
     fn ld_sp_n16(&mut self, n16: u16) {
@@ -189,7 +189,7 @@ impl CPU {
 
         let result = (sp as i16).wrapping_add(e8) as u16;
 
-        let sp_low = (sp & 0x00FF) as u8;
+        let sp_low = sp as u8;
 
         self.reg.set_flag(Z, false);
         self.reg.set_flag(N, false);
@@ -200,6 +200,11 @@ impl CPU {
         );
 
         self.reg.set16(R16::HL, result);
+    }
+
+    fn ld_sp_hl(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        self.reg.set16(R16::SP, hl);
     }
 
     // Stack instructions
