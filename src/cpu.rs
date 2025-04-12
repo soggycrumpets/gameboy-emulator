@@ -87,7 +87,7 @@ impl CPU {
             0x27 => todo!("DAA"),             // DAA
             0x28 => todo!("JR Z e8"),         // JR Z e8
             0x29 => todo!("ADD HL, HL"),      // ADD HL, HL
-            0x2A => self.ld_a_hli(),          // LD A, [HL+]
+            0x2A => self.ld_a_at_hli(),          // LD A, [HL+]
             0x2B => todo!("DEC HL"),          // DEC HL
             0x2C => self.inc_r8(R8::L),       // INC L
             0x2D => self.dec_r8(R8::L),       // DEC L
@@ -96,7 +96,7 @@ impl CPU {
 
             0x30 => todo!("JR NZ, e8"),       // JR NZ, e8
             0x31 => self.ld_r16_n16(R16::SP), // LD SP, n16
-            0x32 => self.ld_hld_a(),          // LD [HL-], A
+            0x32 => self.ld_at_hld_a(),          // LD [HL-], A
             0x33 => todo!("INC SP"),          // INC SP
             0x34 => todo!("INC HL"),          // INC HL
             0x35 => todo!("DEC HL"),          // DEC HL
@@ -104,7 +104,7 @@ impl CPU {
             0x37 => todo!("SFC"),             // SFC
             0x38 => todo!("JR C, e8"),        // JR C, e8
             0x39 => todo!("ADD HL, SP"),      // ADD HL, SP
-            0x3A => self.ld_a_hld(),          // LD A, [HL-]
+            0x3A => self.ld_a_at_hld(),          // LD A, [HL-]
             0x3B => todo!("DEC SP"),          // DEC SP
             0x3C => self.inc_r8(R8::A),       // INC A
             0x3D => self.dec_r8(R8::A),       // DEC A
@@ -186,18 +186,77 @@ impl CPU {
             0x84 => self.add_a_r8(R8::H), // ADD A, H
             0x85 => self.add_a_r8(R8::L), // ADD A, L
             0x86 => self.add_a_at_hl(),   // ADD A, [HL]
-            0x87 => self.add_a_r8(R8::A), // ADD A, A
+            0x87 => self.add_a_r8(R8::A), // ADC A, A
+            0x88 => self.adc_a_r8(R8::B), // ADC A, B
+            0x89 => self.adc_a_r8(R8::C), // ADC A, C
+            0x8A => self.adc_a_r8(R8::D), // ADC A, D
+            0x8B => self.adc_a_r8(R8::E), // ADC A, E
+            0x8C => self.adc_a_r8(R8::H), // ADC A, H
+            0x8D => self.adc_a_r8(R8::L), // ADC A, L
+            0x8E => self.adc_a_at_hl(),   // ADC A, [HL]
+            0x8F => self.adc_a_r8(R8::A), // ADC A, A
 
-            0xC3 => self.jp_n16(),        // JP n16
+            0x90 => self.sub_a_r8(R8::B), // SUB A, B
+            0x91 => self.sub_a_r8(R8::C), // SUB A, C
+            0x92 => self.sub_a_r8(R8::D), // SUB A, D
+            0x93 => self.sub_a_r8(R8::E), // SUB A, E
+            0x94 => self.sub_a_r8(R8::H), // SUB A, H
+            0x95 => self.sub_a_r8(R8::L), // SUB A, L
+            0x96 => self.sub_a_at_hl(),   // SUB A, [HL]
+            0x97 => self.sub_a_r8(R8::A), // SUB A, A
+            0x98 => self.sbc_a_r8(R8::B), // SBC A, B
+            0x99 => self.sbc_a_r8(R8::C), // SBC A, C
+            0x9A => self.sbc_a_r8(R8::D), // SBC A, D
+            0x9B => self.sbc_a_r8(R8::E), // SBC A, E
+            0x9C => self.sbc_a_r8(R8::H), // SBC A, H
+            0x9D => self.sbc_a_r8(R8::L), // SBC A, L
+            0x9E => self.sbc_a_at_hl(),   // SBC A, [HL]
+            0x9F => self.sbc_a_r8(R8::A), // SBC A, A
+
+            0xA0 => self.and_a_r8(R8::B), // AND A, B
+            0xA1 => self.and_a_r8(R8::C), // AND A, C
+            0xA2 => self.and_a_r8(R8::D), // AND A, D
+            0xA3 => self.and_a_r8(R8::E), // AND A, E
+            0xA4 => self.and_a_r8(R8::H), // AND A, H
+            0xA5 => self.and_a_r8(R8::L), // AND A, L
+            0xA6 => self.and_a_at_hl(),   // AND A, [HL]
+            0xA7 => self.and_a_r8(R8::A), // AND A, A
+            0xA8 => self.xor_a_r8(R8::B), // XOR A, B
+            0xA9 => self.xor_a_r8(R8::C), // XOR A, C
+            0xAA => self.xor_a_r8(R8::D), // XOR A, D
+            0xAB => self.xor_a_r8(R8::E), // XOR A, E
+            0xAC => self.xor_a_r8(R8::H), // XOR A, H
+            0xAD => self.xor_a_r8(R8::L), // XOR A, L
+            0xAE => self.xor_a_at_hl(),   // XOR A, [HL]
             0xAF => self.xor_a_r8(R8::A), // XOR A, A
-            0xC1 => self.pop(R16::BC),    // POP BC
-            0xC5 => self.push(R16::BC),   // PUSH BC
-            0xD1 => self.pop(R16::DE),    // POP DE
-            0xE1 => self.pop(R16::HL),    // POP HL
-            0xF1 => self.pop(R16::AF),    // POP AF
-            0xD5 => self.push(R16::DE),   // PUSH DE
-            0xE5 => self.push(R16::HL),   // PUSH HL
-            0xF5 => self.push(R16::AF),   // PUSH AF
+
+            0xB0 => self.or_a_r8(R8::B), // OR A, B
+            0xB1 => self.or_a_r8(R8::C), // OR A, C
+            0xB2 => self.or_a_r8(R8::D), // OR A, D
+            0xB3 => self.or_a_r8(R8::E), // OR A, E
+            0xB4 => self.or_a_r8(R8::H), // OR A, H
+            0xB5 => self.or_a_r8(R8::L), // OR A, L
+            0xB6 => self.or_a_at_hl(),   // OR A, [HL]
+            0xB7 => self.or_a_r8(R8::A), // OR A, A
+            0xB8 => self.cp_a_r8(R8::B), // CP A, B
+            0xB9 => self.cp_a_r8(R8::C), // CP A, C
+            0xBA => self.cp_a_r8(R8::D), // CP A, D
+            0xBB => self.cp_a_r8(R8::E), // CP A, E
+            0xBC => self.cp_a_r8(R8::H), // CP A, H
+            0xBD => self.cp_a_r8(R8::L), // CP A, L
+            0xBE => self.cp_a_at_hl(),   // CP A, [HL]
+            0xBF => self.cp_a_r8(R8::A), // CP A, A
+            
+            0xC3 => self.jp_n16(),      // JP n16
+            0xC1 => self.pop(R16::BC),  // POP BC
+            0xC5 => self.push(R16::BC), // PUSH BC
+            0xD1 => self.pop(R16::DE),  // POP DE
+            0xE1 => self.pop(R16::HL),  // POP HL
+            0xF1 => self.pop(R16::AF),  // POP AF
+            0xD5 => self.push(R16::DE), // PUSH DE
+            0xE5 => self.push(R16::HL), // PUSH HL
+            0xF5 => self.push(R16::AF), // PUSH AF
+
             _ => panic!("Unknown instruction: {:02x}", opcode),
         }
     }
@@ -294,7 +353,7 @@ impl CPU {
         self.reg.set16(R16::HL, hl + 1);
     }
 
-    fn ld_hld_a(&mut self) {
+    fn ld_at_hld_a(&mut self) {
         let hl = self.reg.get16(R16::HL);
         let a = self.reg.get(R8::A);
 
@@ -303,7 +362,7 @@ impl CPU {
         self.reg.set16(R16::HL, hl - 1);
     }
 
-    fn ld_a_hld(&mut self) {
+    fn ld_a_at_hld(&mut self) {
         let hl = self.reg.get16(R16::HL);
         let value = self.mmu.readbyte(hl);
 
@@ -312,7 +371,7 @@ impl CPU {
         self.reg.set16(R16::HL, hl - 1);
     }
 
-    fn ld_a_hli(&mut self) {
+    fn ld_a_at_hli(&mut self) {
         let hl = self.reg.get16(R16::HL);
         let value = self.mmu.readbyte(hl);
 
@@ -398,10 +457,22 @@ impl CPU {
         self.reg.set16(R16::PC, n16);
     }
 
-    /* ----- 8-bit ALU ----- */
+    /* ----- ALU ----- */
 
-    // 8-bit ALU ops generally have three extra
-    // associated functions (with a couple exceptions):
+    // Each ALU op has an 8-bit and 16-bit version:
+
+    // 8bit:
+    // fn OP_a_u8(&mut self, value: u8) {
+    // ...
+    // }
+
+    // 16bit:
+    // fn OP_a_r16(&mut self, value: u16) {
+    // ...
+    // }
+
+    // 8-bit ALU ops generally have three extraassociated functions
+    // (INC and DEC are a bit different, but similar):
 
     // fn OP_a_r8(&mut self, r8: R8) {
     //     let value = self.reg.get(r8);
@@ -432,6 +503,21 @@ impl CPU {
         self.reg.set_flag(N, false);
         self.reg.set_flag(H, (ra & 0xF) + (value & 0xF) > 0xF);
         self.reg.set_flag(C, sum > 0xFF);
+    }
+
+    fn add_hl_r16(&mut self, r16: R16) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.reg.get16(r16);
+
+        let result = hl.wrapping_add(value);
+
+        // Zero flag untouched
+        self.reg.set_flag(N, false);
+        self.reg
+            .set_flag(H, (hl & 0x0FFF) + (value & 0x0FFF) > 0x0FFF);
+        self.reg.set_flag(C, (hl as u32) + (value as u32) > 0xFFFF);
+
+        self.reg.set16(R16::HL, result);
     }
 
     fn add_a_r8(&mut self, r8: R8) {
@@ -715,22 +801,6 @@ impl CPU {
         let result = self.dec_u8(value);
 
         self.mmu.writebyte(hl, result);
-    }
-
-    /* ----- 16-bit ALU ----- */
-    fn add_hl_r16(&mut self, r16: R16) {
-        let hl = self.reg.get16(R16::HL);
-        let value = self.reg.get16(r16);
-
-        let result = hl.wrapping_add(value);
-
-        // Zero flag untouched
-        self.reg.set_flag(N, false);
-        self.reg
-            .set_flag(H, (hl & 0x0FFF) + (value & 0x0FFF) > 0x0FFF);
-        self.reg.set_flag(C, (hl as u32) + (value as u32) > 0xFFFF);
-
-        self.reg.set16(R16::HL, result);
     }
 }
 
