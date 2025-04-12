@@ -1,5 +1,3 @@
-use crate::constants::PROGRAM_START_ADDR;
-
 pub struct MMU {
     pub memory: [u8; 65536],
 }

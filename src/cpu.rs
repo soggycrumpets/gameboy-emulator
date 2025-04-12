@@ -8,6 +8,7 @@ pub struct CPU {
     reg: Registers,
     pub mmu: MMU,
 }
+
 impl CPU {
     pub fn new() -> CPU {
         CPU {
@@ -16,7 +17,7 @@ impl CPU {
         }
     }
 
-    pub fn fetchbyte(&mut self) -> u8 {
+    pub fn fetch_byte(&mut self) -> u8 {
         let pc = self.reg.get16(R16::PC);
         let byte = self.mmu.readbyte(pc);
 
@@ -25,7 +26,7 @@ impl CPU {
         byte
     }
 
-    pub fn fetchword(&mut self) -> u16 {
+    pub fn fetch_word(&mut self) -> u16 {
         let pc = self.reg.get16(R16::PC);
         let word = self.mmu.readword(pc);
 
@@ -35,8 +36,11 @@ impl CPU {
     }
 
     pub fn execute(&mut self) {
-        let opcode = self.fetchbyte();
+        let opcode = self.fetch_byte();
         println!("{:02x}", opcode);
+
+        // Note: Every instruction that contains an n8 or e8 will fetch a byte.
+        // Every instruction that contains an n16 will fetch a word.
 
         match opcode {
             0x00 => {}                         // NOP
@@ -49,7 +53,7 @@ impl CPU {
             0x07 => todo!("RLCA"),             // RLCA
             0x08 => self.ld_at_n16_sp(),       // LD [n16], SP
             0x09 => self.add_hl_r16(R16::BC),  // ADD HL, BC
-            0x0A => self.ld_a_at_r16(R16::BC), // LD A, R16
+            0x0A => self.ld_a_at_r16(R16::BC), // LD A, [BC]
             0x0B => todo!("DEC BC"),           // DEC BC
             0x0C => self.inc_r8(R8::C),        // INC C
             0x0D => self.dec_r8(R8::C),        // DEC C
@@ -124,6 +128,66 @@ impl CPU {
             0x4E => self.ld_r8_at_hl(R8::C),     // LD C, [HL]
             0x4F => self.ld_r8_r8(R8::C, R8::A), // LD C, A
 
+            0x50 => self.ld_r8_r8(R8::D, R8::B), // LD D, B
+            0x51 => self.ld_r8_r8(R8::D, R8::C), // LD D, C
+            0x52 => self.ld_r8_r8(R8::D, R8::D), // LD D, D
+            0x53 => self.ld_r8_r8(R8::D, R8::E), // LD D, E
+            0x54 => self.ld_r8_r8(R8::D, R8::H), // LD D, H
+            0x55 => self.ld_r8_r8(R8::D, R8::L), // LD D, L
+            0x56 => self.ld_r8_at_hl(R8::D),     // LD D, [HL]
+            0x57 => self.ld_r8_r8(R8::D, R8::A), // LD D, A
+            0x58 => self.ld_r8_r8(R8::E, R8::B), // LD E, B
+            0x59 => self.ld_r8_r8(R8::E, R8::C), // LD E, C
+            0x5A => self.ld_r8_r8(R8::E, R8::D), // LD E, D
+            0x5B => self.ld_r8_r8(R8::E, R8::E), // LD E, E
+            0x5C => self.ld_r8_r8(R8::E, R8::H), // LD E, H
+            0x5D => self.ld_r8_r8(R8::E, R8::L), // LD E, L
+            0x5E => self.ld_r8_at_hl(R8::E),     // LD E, [HL]
+            0x5F => self.ld_r8_r8(R8::E, R8::A), // LD E, A
+
+            0x60 => self.ld_r8_r8(R8::H, R8::B), // LD H, B
+            0x61 => self.ld_r8_r8(R8::H, R8::C), // LD H, C
+            0x62 => self.ld_r8_r8(R8::H, R8::D), // LD H, D
+            0x63 => self.ld_r8_r8(R8::H, R8::E), // LD H, E
+            0x64 => self.ld_r8_r8(R8::H, R8::H), // LD H, H
+            0x65 => self.ld_r8_r8(R8::H, R8::L), // LD H, L
+            0x66 => self.ld_r8_at_hl(R8::H),     // LD H, [HL]
+            0x67 => self.ld_r8_r8(R8::H, R8::A), // LD H, A
+            0x68 => self.ld_r8_r8(R8::L, R8::B), // LD L, B
+            0x69 => self.ld_r8_r8(R8::L, R8::C), // LD L, C
+            0x6A => self.ld_r8_r8(R8::L, R8::D), // LD L, D
+            0x6B => self.ld_r8_r8(R8::L, R8::E), // LD L, E
+            0x6C => self.ld_r8_r8(R8::L, R8::H), // LD L, H
+            0x6D => self.ld_r8_r8(R8::L, R8::L), // LD L, L
+            0x6E => self.ld_r8_at_hl(R8::L),     // LD L, [HL]
+            0x6F => self.ld_r8_r8(R8::L, R8::A), // LD L, A
+
+            0x70 => self.ld_at_hl_r8(R8::B),     // LD [HL], B
+            0x71 => self.ld_at_hl_r8(R8::C),     // LD [HL], C
+            0x72 => self.ld_at_hl_r8(R8::D),     // LD [HL], D
+            0x73 => self.ld_at_hl_r8(R8::E),     // LD [HL], E
+            0x74 => self.ld_at_hl_r8(R8::H),     // LD [HL], H
+            0x75 => self.ld_at_hl_r8(R8::L),     // LD [HL], L
+            0x76 => todo!("HALT"),               // HALT
+            0x77 => self.ld_at_hl_r8(R8::A),     // LD [HL], A
+            0x78 => self.ld_r8_r8(R8::A, R8::B), // LD A, B
+            0x79 => self.ld_r8_r8(R8::A, R8::C), // LD A, C
+            0x7A => self.ld_r8_r8(R8::A, R8::D), // LD A, D
+            0x7B => self.ld_r8_r8(R8::A, R8::E), // LD A, E
+            0x7C => self.ld_r8_r8(R8::A, R8::H), // LD A, H
+            0x7D => self.ld_r8_r8(R8::A, R8::L), // LD A, L
+            0x7E => self.ld_r8_at_hl(R8::A),     // LD A, [HL]
+            0x7F => self.ld_r8_r8(R8::A, R8::A), // LD A, A
+
+            0x80 => self.add_a_r8(R8::B), // ADD A, B
+            0x81 => self.add_a_r8(R8::C), // ADD A, C
+            0x82 => self.add_a_r8(R8::D), // ADD A, D
+            0x83 => self.add_a_r8(R8::E), // ADD A, E
+            0x84 => self.add_a_r8(R8::H), // ADD A, H
+            0x85 => self.add_a_r8(R8::L), // ADD A, L
+            0x86 => self.add_a_at_hl(),   // ADD A, [HL]
+            0x87 => self.add_a_r8(R8::A), // ADD A, A
+
             0xC3 => self.jp_n16(),        // JP n16
             0xAF => self.xor_a_r8(R8::A), // XOR A, A
             0xC1 => self.pop(R16::BC),    // POP BC
@@ -145,23 +209,23 @@ impl CPU {
     }
 
     fn ld_r8_n8(&mut self, r8: R8) {
-        let n8 = self.fetchbyte();
+        let n8 = self.fetch_byte();
         self.reg.set(r8, n8);
     }
 
     fn ld_r16_n16(&mut self, r16: R16) {
-        let n16 = self.fetchword();
+        let n16 = self.fetch_word();
         self.reg.set16(r16, n16);
     }
 
-    fn ld_hl_r8(&mut self, r8: R8) {
+    fn ld_at_hl_r8(&mut self, r8: R8) {
         let addr = self.reg.get16(R16::HL);
         let value = self.reg.get(r8);
         self.mmu.writebyte(addr, value);
     }
 
     fn ld_hl_n8(&mut self) {
-        let n8 = self.fetchbyte();
+        let n8 = self.fetch_byte();
         let addr = self.reg.get16(R16::HL);
         self.mmu.writebyte(addr, n8);
     }
@@ -208,7 +272,7 @@ impl CPU {
     }
 
     fn ldh_a_n8(&mut self) {
-        let n8 = self.fetchbyte();
+        let n8 = self.fetch_byte();
         let addr = 0xFF00 + (n8 as u16);
         let value = self.mmu.readbyte(addr);
         self.reg.set(R8::A, value);
@@ -262,13 +326,16 @@ impl CPU {
     }
 
     fn ld_at_n16_sp(&mut self) {
-        let n16 = self.fetchword();
+        let n16 = self.fetch_word();
         let sp = self.reg.get16(R16::SP);
         self.mmu.writeword(n16, sp);
     }
 
-    fn ld_hl_sp_e8(&mut self, n8: u8) {
+    fn ld_hl_sp_e8(&mut self) {
         let sp = self.reg.get16(R16::SP);
+        let n8 = self.fetch_byte();
+
+        // Casting this way allows e8 to be negative if n8 is big enough
         let e8 = (n8 as i8) as i16;
 
         let result = (sp as i16).wrapping_add(e8) as u16;
@@ -327,41 +394,97 @@ impl CPU {
 
     /*----- Jump Instructions ----- */
     fn jp_n16(&mut self) {
-        let n16 = self.fetchword();
+        let n16 = self.fetch_word();
         self.reg.set16(R16::PC, n16);
     }
 
     /* ----- 8-bit ALU ----- */
-    fn add(&mut self, value: u8) {
+
+    // 8-bit ALU ops generally have three extra
+    // associated functions (with a couple exceptions):
+
+    // fn OP_a_r8(&mut self, r8: R8) {
+    //     let value = self.reg.get(r8);
+    //     self.OP_a_u8(value);
+    // }
+
+    // fn OP_a_at_hl(&mut self) {
+    //     let hl = self.reg.get16(R16::HL);
+    //     let value = self.mmu.readbyte(hl);
+    //     self.OP_a_u8(value);
+    // }
+
+    // fn OP_a_n8(&mut self) {
+    //     let n8 = self.fetch_byte();
+    //     self.OP_a_u8(n8);
+    // }
+
+    // ADD
+    fn add_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
-        let result = ra.wrapping_add(value);
+        let sum = ra as u16 + value as u16;
+        let result = sum as u8;
 
         self.reg.set(R8::A, result);
 
         self.reg.set_flag(Z, result == 0);
         self.reg.set_flag(N, false);
         self.reg.set_flag(H, (ra & 0xF) + (value & 0xF) > 0xF);
-        self.reg.set_flag(C, (ra as u16) + (value as u16) > 0xFF);
+        self.reg.set_flag(C, sum > 0xFF);
     }
 
-    fn adc(&mut self, value: u8) {
+    fn add_a_r8(&mut self, r8: R8) {
+        let value = self.reg.get(r8);
+        self.add_a_u8(value);
+    }
+
+    fn add_a_at_hl(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(hl);
+        self.add_a_u8(value);
+    }
+
+    fn add_a_n8(&mut self) {
+        let n8 = self.fetch_byte();
+        self.add_a_u8(n8);
+    }
+
+    // ADC
+    fn adc_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
         let carry = self.reg.get_flag(C) as u8;
 
-        let result = ra.wrapping_add(carry).wrapping_add(value);
+        let sum = ra as u16 + carry as u16 + value as u16;
+        let result = sum as u8;
 
         self.reg.set_flag(Z, result == 0);
         self.reg.set_flag(N, false);
         self.reg
             .set_flag(H, (ra & 0xF) + (value & 0xF) + carry > 0xF);
-        self.reg
-            .set_flag(C, (ra as u16) + (value as u16) + (carry as u16) > 0xFF);
+        self.reg.set_flag(C, sum > 0xFF);
 
         self.reg.set(R8::A, result);
     }
 
-    fn sub(&mut self, value: u8) {
+    fn adc_a_r8(&mut self, r8: R8) {
+        let value = self.reg.get(r8);
+        self.adc_a_u8(value);
+    }
+
+    fn adc_a_at_hl(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(hl);
+        self.adc_a_u8(value);
+    }
+
+    fn adc_a_n8(&mut self) {
+        let n8 = self.fetch_byte();
+        self.adc_a_u8(n8);
+    }
+
+    // SUB
+    fn sub_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
         let result = ra.wrapping_sub(value);
@@ -374,11 +497,28 @@ impl CPU {
         self.reg.set(R8::A, result);
     }
 
-    fn sbc(&mut self, value: u8) {
+    fn sub_a_r8(&mut self, r8: R8) {
+        let value = self.reg.get(r8);
+        self.sub_a_u8(value);
+    }
+
+    fn sub_a_at_hl(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(hl);
+        self.sub_a_u8(value);
+    }
+
+    fn sub_a_n8(&mut self) {
+        let n8 = self.fetch_byte();
+        self.sub_a_u8(n8);
+    }
+
+    // SBC
+    fn sbc_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
         let carry = self.reg.get_flag(C) as u8;
 
-        let result = ra.wrapping_sub(carry).wrapping_sub(value);
+        let result = ra.wrapping_sub(value).wrapping_sub(carry);
 
         self.reg.set_flag(Z, result == 0);
         self.reg.set_flag(N, true);
@@ -389,7 +529,24 @@ impl CPU {
         self.reg.set(R8::A, result);
     }
 
-    fn and(&mut self, value: u8) {
+    fn sbc_a_r8(&mut self, r8: R8) {
+        let value = self.reg.get(r8);
+        self.sbc_a_u8(value);
+    }
+
+    fn sbc_a_at_hl(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(hl);
+        self.sbc_a_u8(value);
+    }
+
+    fn sbc_a_n8(&mut self) {
+        let n8 = self.fetch_byte();
+        self.sbc_a_u8(n8);
+    }
+
+    // AND
+    fn and_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
         let result = ra & value;
@@ -402,7 +559,24 @@ impl CPU {
         self.reg.set(R8::A, result);
     }
 
-    fn or(&mut self, value: u8) {
+    fn and_a_r8(&mut self, r8: R8) {
+        let value = self.reg.get(r8);
+        self.and_a_u8(value);
+    }
+
+    fn and_a_at_hl(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(hl);
+        self.and_a_u8(value);
+    }
+
+    fn and_a_n8(&mut self) {
+        let n8 = self.fetch_byte();
+        self.and_a_u8(n8);
+    }
+
+    // OR
+    fn or_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
         let result = ra | value;
@@ -413,6 +587,22 @@ impl CPU {
         self.reg.set_flag(C, false);
 
         self.reg.set(R8::A, result);
+    }
+
+    fn or_a_r8(&mut self, r8: R8) {
+        let value = self.reg.get(r8);
+        self.or_a_u8(value);
+    }
+
+    fn or_a_at_hl(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(hl);
+        self.or_a_u8(value);
+    }
+
+    fn or_a_n8(&mut self) {
+        let n8 = self.fetch_byte();
+        self.or_a_u8(n8);
     }
 
     // XOR
@@ -435,7 +625,7 @@ impl CPU {
     }
 
     fn xor_a_n8(&mut self) {
-        let n8 = self.fetchbyte();
+        let n8 = self.fetch_byte();
         self.xor_a_u8(n8);
     }
 
@@ -446,7 +636,7 @@ impl CPU {
     }
 
     // CP
-    fn cp(&mut self, value: u8) {
+    fn cp_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
         let result = ra.wrapping_sub(value);
@@ -457,10 +647,24 @@ impl CPU {
         self.reg.set_flag(C, ra < value);
     }
 
-    // INC
-    fn inc_r8(&mut self, r8: R8) {
+    fn cp_a_r8(&mut self, r8: R8) {
         let value = self.reg.get(r8);
+        self.cp_a_u8(value);
+    }
 
+    fn cp_a_at_hl(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(hl);
+        self.cp_a_u8(value);
+    }
+
+    fn cp_a_n8(&mut self) {
+        let n8 = self.fetch_byte();
+        self.cp_a_u8(n8);
+    }
+
+    // INC
+    fn inc_u8(&mut self, value: u8) -> u8 {
         let result = value.wrapping_add(1);
 
         self.reg.set_flag(Z, result == 0);
@@ -468,20 +672,49 @@ impl CPU {
         self.reg.set_flag(H, ((value & 0x0F) + 1) > 0x0F);
         // Carry flag untouched
 
+        result
+    }
+
+    fn inc_r8(&mut self, r8: R8) {
+        let value = self.reg.get(r8);
+        let result = self.inc_u8(value);
+
         self.reg.set(r8, result);
     }
 
-    fn dec_r8(&mut self, r8: R8) {
-        let value = self.reg.get(R8::A);
+    fn inc_at_hl(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(hl);
+        let result = self.inc_u8(value);
 
+        self.mmu.writebyte(hl, result);
+    }
+
+    // DEC
+    fn dec_u8(&mut self, value: u8) -> u8 {
         let result = value.wrapping_sub(1);
 
         self.reg.set_flag(Z, result == 0);
-        self.reg.set_flag(N, false);
-        self.reg.set_flag(H, value == 0);
+        self.reg.set_flag(N, true);
+        self.reg.set_flag(H, (value & 0x0F) == 0);
         // Carry flag untouched
 
+        result
+    }
+
+    fn dec_r8(&mut self, r8: R8) {
+        let value = self.reg.get(r8);
+        let result = self.dec_u8(value);
+
         self.reg.set(r8, result);
+    }
+
+    fn dec_at_hl(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(hl);
+        let result = self.dec_u8(value);
+
+        self.mmu.writebyte(hl, result);
     }
 
     /* ----- 16-bit ALU ----- */
@@ -505,17 +738,7 @@ impl CPU {
 mod tests {
     use super::*;
     #[test]
-    fn test_add() {
-        // let mut cpu = CPU::new();
-        // cpu.reg.a = 100;
-        // cpu.reg.c = 75;
-        // let instruction = Instruction::ADD(R8::C);
-        // cpu.execute(instruction);
-
-        // assert_eq!(cpu.reg.a, 175);
-        // assert!(!cpu.reg.f.carry);
-        // assert!(!cpu.reg.f.half_carry);
-        // assert!(!cpu.reg.f.subtract);
-        // assert!(!cpu.reg.f.zero);
+    fn test() {
+        todo!("Write CPU test cases");
     }
 }
