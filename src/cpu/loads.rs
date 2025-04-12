@@ -144,10 +144,6 @@ impl Cpu {
         self.reg.set16(R16::HL, hl + 1);
     }
 
-    pub fn ld_sp_n16(&mut self, n16: u16) {
-        self.reg.set16(R16::SP, n16);
-    }
-
     pub fn ld_at_n16_sp(&mut self) {
         let n16 = self.fetch_word();
         let sp = self.reg.get16(R16::SP);
