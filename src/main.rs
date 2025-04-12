@@ -9,19 +9,6 @@ mod registers;
 const GAME_PATH: &str = "./roms/tetris.gb";
 const BOOTROM_PATH: &str = "./roms/dmg_boot.gb";
 
-// struct Gameboy {
-//     cpu: CPU,
-// }
-
-// impl Gameboy {
-//     fn new() -> Self {
-//         Gameboy {
-//             cpu: CPU::new(),
-//             ram: RAM::new(),
-//         }
-//     }
-// }
-
 fn main() {
     let mut cpu = Cpu::new();
     if !cpu.mmu.load_rom(BOOTROM_PATH, BOOTROM_START_ADDR) {
@@ -37,7 +24,4 @@ fn main() {
     loop {
         cpu.execute();
     }
-    // for byte in &gameboy.ram.memory {
-    // print!("{:x}", byte);
-    // }
 }

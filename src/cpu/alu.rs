@@ -3,40 +3,37 @@ use crate::registers;
 use registers::Flag;
 use registers::{R8, R16};
 
-// Each ALU op has an 8-bit and 16-bit version.
-// ADD also has an extra 16-but op (ADD SP, e8)
+/*
 
-// 8bit (This one is private - should not be called directly) :
-// fn OP_a_u8(&mut self, value: u8) {
-// ...
-// }
+Each ALU op has an 8-bit version. Some have a one or two 16-bit versions.
+They generally follow this pattern (INC and DEC are slightly different)
 
-// 16bit:
-// pub fn OP_a_r16(&mut self, value: u16) {
-// ...
-// }
+fn {OPNAME}_a_u8(&mut self, value: u8) {
+...
+}
 
-// 8-bit ALU ops generally have three extra associated functions
-// (INC and DEC are a bit different, but similar):
+pub fn {OPNAME}_a_r8(&mut self, r8: R8) {
+    let value = self.reg.get(r8);
+    self.{OPNAME}_a_u8(value);
+}
 
-// pub fn {OPNAME}_a_r8(&mut self, r8: R8) {
-//     let value = self.reg.get(r8);
-//     self.{OPNAME}_a_u8(value);
-// }
+pub fn {OPNAME}_a_at_hl(&mut self) {
+    let hl = self.reg.get16(R16::HL);
+    let value = self.mmu.readbyte(hl);
+    self.{OPNAME}_a_u8(value);
+}
 
-// pub fn {OPNAME}_a_at_hl(&mut self) {
-//     let hl = self.reg.get16(R16::HL);
-//     let value = self.mmu.readbyte(hl);
-//     self.{OPNAME}_a_u8(value);
-// }
+pub fn {OPNAME}P_a_n8(&mut self) {
+    let n8 = self.fetch_byte();
+    self.{OPNAME}_a_u8(n8);
+}
 
-// pub fn {OPNAME}P_a_n8(&mut self) {
-//     let n8 = self.fetch_byte();
-//     self.{OPNAME}_a_u8(n8);
-// }
+16 bit functions here, if any...
+
+*/
 
 impl Cpu {
-    // ADD
+    // ----- ADD -----
     fn add_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
@@ -49,22 +46,6 @@ impl Cpu {
         self.reg.set_flag(Flag::N, false);
         self.reg.set_flag(Flag::H, (ra & 0xF) + (value & 0xF) > 0xF);
         self.reg.set_flag(Flag::C, sum > 0xFF);
-    }
-
-    pub fn add_hl_r16(&mut self, r16: R16) {
-        let hl = self.reg.get16(R16::HL);
-        let value = self.reg.get16(r16);
-
-        let result = hl.wrapping_add(value);
-
-        // Zero flag untouched
-        self.reg.set_flag(Flag::N, false);
-        self.reg
-            .set_flag(Flag::H, (hl & 0x0FFF) + (value & 0x0FFF) > 0x0FFF);
-        self.reg
-            .set_flag(Flag::C, (hl as u32) + (value as u32) > 0xFFFF);
-
-        self.reg.set16(R16::HL, result);
     }
 
     pub fn add_a_r8(&mut self, r8: R8) {
@@ -83,7 +64,53 @@ impl Cpu {
         self.add_a_u8(n8);
     }
 
-    // ADC
+    // 16-bit
+    pub fn add_hl_r16(&mut self, r16: R16) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.reg.get16(r16);
+
+        let result = hl.wrapping_add(value);
+
+        // Zero flag untouched
+        self.reg.set_flag(Flag::N, false);
+        self.reg
+            .set_flag(Flag::H, (hl & 0x0FFF) + (value & 0x0FFF) > 0x0FFF);
+        self.reg
+            .set_flag(Flag::C, (hl as u32) + (value as u32) > 0xFFFF);
+
+        self.reg.set16(R16::HL, result);
+    }
+
+    // This contains the core functionality of add_sp_e8, as well as ld_hl_sp_e8 from load.rs
+    pub fn calc_sp_plus_e8(&mut self) -> u16 {
+        let sp = self.reg.get16(R16::SP);
+        let n8 = self.fetch_byte();
+
+        // Casting this way allows e8 to be negative if n8 is big enough
+        let e8 = (n8 as i8) as i16;
+
+        let result = (sp as i16).wrapping_add(e8) as u16;
+
+        let sp_low = sp as u8;
+
+        self.reg.set_flag(Flag::Z, false);
+        self.reg.set_flag(Flag::N, false);
+        self.reg
+            .set_flag(Flag::H, (sp_low & 0x0F) + (n8 & 0x0F) > 0x0F);
+        self.reg.set_flag(
+            Flag::C,
+            ((sp_low as u16) & 0x00FF) + ((n8 as u16) & 0x00FF) > 0xFF,
+        );
+
+        result
+    }
+
+    pub fn add_sp_e8(&mut self) {
+        let result = self.calc_sp_plus_e8();
+        self.reg.set16(R16::SP, result);
+    }
+
+    // ----- ADC -----
     fn adc_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
         let carry = self.reg.get_flag(Flag::C) as u8;
@@ -116,7 +143,7 @@ impl Cpu {
         self.adc_a_u8(n8);
     }
 
-    // SUB
+    // ----- SUB -----
     fn sub_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
@@ -146,7 +173,7 @@ impl Cpu {
         self.sub_a_u8(n8);
     }
 
-    // SBC
+    // ----- SBC -----
     fn sbc_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
         let carry = self.reg.get_flag(Flag::C) as u8;
@@ -179,7 +206,7 @@ impl Cpu {
         self.sbc_a_u8(n8);
     }
 
-    // AND
+    // ----- AND -----
     fn and_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
@@ -209,7 +236,7 @@ impl Cpu {
         self.and_a_u8(n8);
     }
 
-    // OR
+    // ----- OR -----
     fn or_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
@@ -239,7 +266,7 @@ impl Cpu {
         self.or_a_u8(n8);
     }
 
-    // XOR
+    //  ----- XOR -----
     fn xor_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
@@ -269,7 +296,7 @@ impl Cpu {
         self.xor_a_u8(value);
     }
 
-    // CP
+    // ----- CP -----
     fn cp_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
@@ -297,7 +324,7 @@ impl Cpu {
         self.cp_a_u8(n8);
     }
 
-    // INC
+    // ----- INC -----
     fn inc_u8(&mut self, value: u8) -> u8 {
         let result = value.wrapping_add(1);
 
@@ -324,7 +351,16 @@ impl Cpu {
         self.mmu.writebyte(hl, result);
     }
 
-    // DEC
+    // 16-bit
+    fn inc_r16(&mut self, r16: R16) {
+        let value = self.reg.get16(r16);
+        let result = value.wrapping_add(1);
+        self.reg.set16(r16, result);
+
+        // Flags untouched
+    }
+
+    // ----- DEC -----
     fn dec_u8(&mut self, value: u8) -> u8 {
         let result = value.wrapping_sub(1);
 
@@ -349,5 +385,14 @@ impl Cpu {
         let result = self.dec_u8(value);
 
         self.mmu.writebyte(hl, result);
+    }
+
+    // 16-bit
+    fn dec_r16(&mut self, r16: R16) {
+        let value = self.reg.get16(r16);
+        let result = value.wrapping_sub(1);
+        self.reg.set16(r16, result);
+
+        // Flags untouched
     }
 }

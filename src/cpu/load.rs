@@ -1,6 +1,5 @@
 use super::*;
 impl Cpu {
-
     // 2-byte PUSH
     pub fn push_r16(&mut self, r16: R16) {
         // Decrement sp
@@ -155,26 +154,9 @@ impl Cpu {
         self.mmu.writeword(n16, sp);
     }
 
+    // This is a weird one. I'm having it use a function from alu.rs ADD 16-bit
     pub fn ld_hl_sp_e8(&mut self) {
-        let sp = self.reg.get16(R16::SP);
-        let n8 = self.fetch_byte();
-
-        // Casting this way allows e8 to be negative if n8 is big enough
-        let e8 = (n8 as i8) as i16;
-
-        let result = (sp as i16).wrapping_add(e8) as u16;
-
-        let sp_low = sp as u8;
-
-        self.reg.set_flag(Flag::Z, false);
-        self.reg.set_flag(Flag::N, false);
-        self.reg
-            .set_flag(Flag::H, (sp_low & 0x0F) + (n8 & 0x0F) > 0x0F);
-        self.reg.set_flag(
-            Flag::C,
-            ((sp_low as u16) & 0x00FF) + ((n8 as u16) & 0x00FF) > 0xFF,
-        );
-
+        let result = self.calc_sp_plus_e8();
         self.reg.set16(R16::HL, result);
     }
 
