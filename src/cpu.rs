@@ -39,79 +39,80 @@ impl CPU {
         println!("{:02x}", opcode);
 
         match opcode {
-            0x00 => {}                                    // NOP
-            0x01 => self.ld_r16_n16(R16::BC),             // LD BC, n16
-            0x02 => self.ld_r16_a(R16::BC),               // LD BC, A
-            0x03 => todo!("INC BC"),                      // INC BC
-            0x04 => self.inc(R8::B),                      // INC B
-            0x05 => self.dec(R8::B),                      // DEC B
-            0x06 => self.ld_r8_n8(R8::B),                 // LD B, n8
-            0x07 => todo!("RLCA"),                        // RLCA
-            0x08 => self.ld_n16_sp(),                     // LD [n16], SP
-            0x09 => self.add_hl(self.reg.get16(R16::BC)), // ADD HL, BC
-            0x0A => self.ld_a_r16(R16::BC),               // LD A, R16
-            0x0B => todo!("DEC BC"),                      // DEC BC
-            0x0C => self.inc(R8::C),                      // INC C
-            0x0D => self.dec(R8::C),                      // DEC C
-            0x0E => self.ld_r8_n8(R8::C),                 // LD C, n8
-            0x0F => todo!("RRCA"),                        // RRCA
-            0x10 => todo!("STOP n8"),                     // STOP n8
-            0x11 => self.ld_r16_n16(R16::DE),             // LD DE, n16
-            0x12 => self.ld_r16_a(R16::DE),               // LD DE, A
-            0x13 => todo!("INC DE"),                      // INC DE
-            0x14 => self.inc(R8::D),                      // INC D
-            0x15 => self.dec(R8::D),                      // INC D
-            0x16 => self.ld_r8_n8(R8::D),                 // LD D, n8
-            0x17 => todo!("RLA"),                         // RLA
-            0x18 => todo!("JR e8"),                       // JR e8
-            0x19 => todo!("ADD HL, DE"),                  // ADD HL, DE
-            0x1A => self.ld_a_r16(R16::DE),               // LD A, [DE]
-            0x1B => todo!("DEC DE"),                      // DEC DE
-            0x1C => self.inc(R8::E),                      // INC E
-            0x1D => self.dec(R8::E),                      // DEC E
-            0x1E => self.ld_r8_n8(R8::E),                 // LD E, n8
-            0x1F => todo!("RRRA"),                        // RRRA
-            0x20 => todo!("JR NZ, e8"),                   // JR NZ, e8
-            0x21 => self.ld_r16_n16(R16::HL),             // LD HL, n16
-            0x22 => self.ld_hli_a(),                      // LD [HL+], A
-            0x23 => todo!("INC HL"),                      // INC HL
-            0x24 => self.inc(R8::H),                      // INC H
-            0x25 => self.dec(R8::H),                      // DEC H
-            0x26 => self.ld_hl_n8(),                      // LD H, n8
-            0x27 => todo!("DAA"),                         // DAA
-            0x28 => todo!("JR Z e8"),                     // JR Z e8
-            0x29 => todo!("ADD HL, HL"),                  // ADD HL, HL
-            0x2A => self.ld_a_hli(),                      // LD A, [HL+]
-            0x2B => todo!("DEC HL"),                      // DEC HL
-            0x2C => self.inc(R8::L),                      // INC L
-            0x2D => self.dec(R8::L),                      // DEC L
-            0x2E => self.ld_r8_n8(R8::L),                 // LD L, n8
-            0x2F => todo!("CPL"),                         // CPL
-            0x30 => todo!("JR NZ, e8"),                   // JR NZ, e8
-            0x31 => self.ld_r16_n16(R16::SP),             // LD SP, n16
-            0x32 => self.ld_hld_a(),                      // LD [HL-], A
-            0x33 => todo!("INC SP"),                      // INC SP
-            0x34 => todo!("INC HL"),                      // INC HL
-            0x35 => todo!("DEC HL"),                      // DEC HL
-            0x36 => self.ld_hl_n8(),                      // LD [HL], n8
-            0x37 => todo!("SFC"),                         // SFC
-            0x38 => todo!("JR C, e8"),                    // JR C, e8
-            0x39 => todo!("ADD HL, SP"),                  // ADD HL, SP
-            0x3A => self.ld_a_hld(),                      // LD A, [HL-]
-            0x3B => todo!("DEC SP"),                      // DEC SP
-            0x3C => self.inc(R8::A),                      // INC A
-            0x3D => self.dec(R8::A),                      // DEC A
-            0x3E => self.ldh_a_n8(),                      // LD A, n8
-            0xC3 => self.jp_n16(),                        // JP n16
-            0xAF => self.xor(self.reg.get(R8::A)),        // XOR A, A
-            0xC1 => self.pop(R16::BC),                    // POP BC
-            0xC5 => self.push(R16::BC),                   // PUSH BC
-            0xD1 => self.pop(R16::DE),                    // POP DE
-            0xE1 => self.pop(R16::HL),                    // POP HL
-            0xF1 => self.pop(R16::AF),                    // POP AF
-            0xD5 => self.push(R16::DE),                   // PUSH DE
-            0xE5 => self.push(R16::HL),                   // PUSH HL
-            0xF5 => self.push(R16::AF),                   // PUSH AF
+            0x00 => {}                         // NOP
+            0x01 => self.ld_r16_n16(R16::BC),  // LD BC, n16
+            0x02 => self.ld_r16_a(R16::BC),    // LD BC, A
+            0x03 => todo!("INC BC"),           // INC BC
+            0x04 => self.inc_r8(R8::B),        // INC B
+            0x05 => self.dec_r8(R8::B),        // DEC B
+            0x06 => self.ld_r8_n8(R8::B),      // LD B, n8
+            0x07 => todo!("RLCA"),             // RLCA
+            0x08 => self.ld_at_n16_sp(),       // LD [n16], SP
+            0x09 => self.add_hl_r16(R16::BC),  // ADD HL, BC
+            0x0A => self.ld_a_at_r16(R16::BC), // LD A, R16
+            0x0B => todo!("DEC BC"),           // DEC BC
+            0x0C => self.inc_r8(R8::C),        // INC C
+            0x0D => self.dec_r8(R8::C),        // DEC C
+            0x0E => self.ld_r8_n8(R8::C),      // LD C, n8
+            0x0F => todo!("RRCA"),             // RRCA
+            0x10 => todo!("STOP n8"),          // STOP n8
+            0x11 => self.ld_r16_n16(R16::DE),  // LD DE, n16
+            0x12 => self.ld_r16_a(R16::DE),    // LD DE, A
+            0x13 => todo!("INC DE"),           // INC DE
+            0x14 => self.inc_r8(R8::D),        // INC D
+            0x15 => self.dec_r8(R8::D),        // DEC D
+            0x16 => self.ld_r8_n8(R8::D),      // LD D, n8
+            0x17 => todo!("RLA"),              // RLA
+            0x18 => todo!("JR e8"),            // JR e8
+            0x19 => todo!("ADD HL, DE"),       // ADD HL, DE
+            0x1A => self.ld_a_at_r16(R16::DE), // LD A, [DE]
+            0x1B => todo!("DEC DE"),           // DEC DE
+            0x1C => self.inc_r8(R8::E),        // INC E
+            0x1D => self.dec_r8(R8::E),        // DEC E
+            0x1E => self.ld_r8_n8(R8::E),      // LD E, n8
+            0x1F => todo!("RRRA"),             // RRRA
+            0x20 => todo!("JR NZ, e8"),        // JR NZ, e8
+            0x21 => self.ld_r16_n16(R16::HL),  // LD HL, n16
+            0x22 => self.ld_at_hli_a(),        // LD [HL+], A
+            0x23 => todo!("INC HL"),           // INC HL
+            0x24 => self.inc_r8(R8::H),        // INC H
+            0x25 => self.dec_r8(R8::H),        // DEC H
+            0x26 => self.ld_hl_n8(),           // LD H, n8
+            0x27 => todo!("DAA"),              // DAA
+            0x28 => todo!("JR Z e8"),          // JR Z e8
+            0x29 => todo!("ADD HL, HL"),       // ADD HL, HL
+            0x2A => self.ld_a_hli(),           // LD A, [HL+]
+            0x2B => todo!("DEC HL"),           // DEC HL
+            0x2C => self.inc_r8(R8::L),        // INC L
+            0x2D => self.dec_r8(R8::L),        // DEC L
+            0x2E => self.ld_r8_n8(R8::L),      // LD L, n8
+            0x2F => todo!("CPL"),              // CPL
+            0x30 => todo!("JR NZ, e8"),        // JR NZ, e8
+            0x31 => self.ld_r16_n16(R16::SP),  // LD SP, n16
+            0x32 => self.ld_hld_a(),           // LD [HL-], A
+            0x33 => todo!("INC SP"),           // INC SP
+            0x34 => todo!("INC HL"),           // INC HL
+            0x35 => todo!("DEC HL"),           // DEC HL
+            0x36 => self.ld_hl_n8(),           // LD [HL], n8
+            0x37 => todo!("SFC"),              // SFC
+            0x38 => todo!("JR C, e8"),         // JR C, e8
+            0x39 => todo!("ADD HL, SP"),       // ADD HL, SP
+            0x3A => self.ld_a_hld(),           // LD A, [HL-]
+            0x3B => todo!("DEC SP"),           // DEC SP
+            0x3C => self.inc_r8(R8::A),        // INC A
+            0x3D => self.dec_r8(R8::A),        // DEC A
+            0x3E => self.ldh_a_n8(),           // LD A, n8
+            0x3F => todo!("CCF"),              // CCF
+            0xC3 => self.jp_n16(),             // JP n16
+            0xAF => self.xor_a_r8(R8::A),      // XOR A, A
+            0xC1 => self.pop(R16::BC),         // POP BC
+            0xC5 => self.push(R16::BC),        // PUSH BC
+            0xD1 => self.pop(R16::DE),         // POP DE
+            0xE1 => self.pop(R16::HL),         // POP HL
+            0xF1 => self.pop(R16::AF),         // POP AF
+            0xD5 => self.push(R16::DE),        // PUSH DE
+            0xE5 => self.push(R16::HL),        // PUSH HL
+            0xF5 => self.push(R16::AF),        // PUSH AF
             _ => panic!("Unknown instruction: {:02x}", opcode),
         }
     }
@@ -174,7 +175,7 @@ impl CPU {
         self.mmu.writebyte(addr, ra);
     }
 
-    fn ld_a_r16(&mut self, r16: R16) {
+    fn ld_a_at_r16(&mut self, r16: R16) {
         let addr = self.reg.get16(r16);
         let value = self.mmu.readbyte(addr);
         self.reg.set(R8::A, value);
@@ -199,7 +200,7 @@ impl CPU {
         self.reg.set(R8::A, value);
     }
 
-    fn ld_hli_a(&mut self) {
+    fn ld_at_hli_a(&mut self) {
         let hl = self.reg.get16(R16::HL);
         let a = self.reg.get(R8::A);
 
@@ -239,7 +240,7 @@ impl CPU {
         self.reg.set16(R16::SP, n16);
     }
 
-    fn ld_n16_sp(&mut self) {
+    fn ld_at_n16_sp(&mut self) {
         let n16 = self.fetchword();
         let sp = self.reg.get16(R16::SP);
         self.mmu.writeword(n16, sp);
@@ -392,7 +393,8 @@ impl CPU {
         self.reg.set(R8::A, result);
     }
 
-    fn xor(&mut self, value: u8) {
+    // XOR
+    fn xor_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
         let result = ra ^ value;
@@ -405,6 +407,23 @@ impl CPU {
         self.reg.set(R8::A, result);
     }
 
+    fn xor_a_r8(&mut self, r8: R8) {
+        let value = self.reg.get(r8);
+        self.xor_a_u8(value);
+    }
+
+    fn xor_a_n8(&mut self) {
+        let n8 = self.fetchbyte();
+        self.xor_a_u8(n8);
+    }
+
+    fn xor_a_at_hl(&mut self) {
+        let hl = self.reg.get16(R16::HL);
+        let value = self.mmu.readbyte(hl);
+        self.xor_a_u8(value);
+    }
+
+    // CP
     fn cp(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
@@ -416,7 +435,8 @@ impl CPU {
         self.reg.set_flag(C, ra < value);
     }
 
-    fn inc(&mut self, r8: R8) {
+    // INC
+    fn inc_r8(&mut self, r8: R8) {
         let value = self.reg.get(r8);
 
         let result = value.wrapping_add(1);
@@ -429,7 +449,7 @@ impl CPU {
         self.reg.set(r8, result);
     }
 
-    fn dec(&mut self, r8: R8) {
+    fn dec_r8(&mut self, r8: R8) {
         let value = self.reg.get(R8::A);
 
         let result = value.wrapping_sub(1);
@@ -443,8 +463,9 @@ impl CPU {
     }
 
     /* ----- 16-bit ALU ----- */
-    fn add_hl(&mut self, value: u16) {
+    fn add_hl_r16(&mut self, r16: R16) {
         let hl = self.reg.get16(R16::HL);
+        let value = self.reg.get16(r16);
 
         let result = hl.wrapping_add(value);
 
