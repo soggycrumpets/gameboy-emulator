@@ -42,8 +42,75 @@ impl CPU {
 
         match opcode {
             0x00 => {} // NOP
+            0x01 => {
+                // LD BC, n16
+                let n16 = self.fetchword();
+                self.ld_r16_n16(R16::BC, n16);
+            }
+            0x02 => self.ld_r16_a(R16::BC), // LD BC, A
+            0x03 => todo!("INC BC"), // INC BC
+            0x04 => self.inc(R8::B), // INC B
+            0x05 => self.dec(R8::B), // DEC B
+            0x06 => {
+                // LD B, n8
+                let n8 = self.fetchbyte();
+                self.ld_r8_n8(R8::B, n8);
+            }
+            0x07 => todo!("RLCA"),// RLCA
+            0x08 => {
+                // LD [n16], SP
+                let n16 = self.fetchword();
+                self.ld_n16_sp(n16);
+            }
+            0x09 => {
+                // ADD HL, BC
+                let bc = self.reg.get16(R16::BC);
+                self.add_hl(bc);
+            }
+            0x0A => self.ld_a_r16(R16::BC), // LD A, R16
+            0x0B => todo!("DEC BC"),
+            0x0C => self.inc(R8::C), // INC C
+            0x0D => self.dec(R8::C), // DEC C
+            0x0E =>  {
+                // LD C, n8
+                let n8 = self.fetchbyte();
+                self.ld_r8_n8(R8::C, n8);
+            }
+            0x0F => todo!("RRCS"),// RRCS
+            0x10 => todo!("STOP n8"), // STOP n8
+            0x11 => {
+                // LD DE, n16
+                let n16 = self.fetchword();
+                self.ld_r16_n16(R16::DE, n16);
+            }
+            0x12 => self.ld_r16_a(R16::DE), // LD DE, A
+            0x13 => todo!("INC DE"), // INC DE
+            0x14 => self.inc(R8::D), // INC D
+            0x15 => self.dec(R8::D),
+            0x16 => {
+                // LD D, n8
+                let n8 = self.fetchbyte();
+                self.ld_r8_n8(R8::D, n8);
+            }
+            0x17 => todo!("RLA"), // RLA
+            0x18 => todo!("JR e8"), // JR e8
+            0x19 => todo!("ADD HL, DE"), // ADD HL, DE
+            0x1A => self.ld_a_r16(R16::DE), // LD A, [DE]
+            0x1B => todo!("DEC DE"), // DEC DE
+            0x1C => self.inc(R8::E), // INC E
+            0x01D => self.dec(R8::E), // DEC E
+            0x21 => {
+                // LD HL, n16
+                let n16 = self.fetchword();
+                self.ld_r16_n16(R16::HL, n16);
+            }
+            0x31 => {
+                // LD SP, n16
+                let n16 = self.fetchword();
+                self.ld_r16_n16(R16::SP, n16);
+            }
             0xC3 => {
-                // jp n16
+                // JP n16
                 let n16 = self.fetchword();
                 self.jp_n16(n16)
             }
@@ -353,30 +420,30 @@ impl CPU {
         self.reg.set_flag(C, ra < value);
     }
 
-    fn inc(&mut self) {
-        let ra = self.reg.get(R8::A);
+    fn inc(&mut self, r8: R8) {
+        let value = self.reg.get(r8);
 
-        let result = ra.wrapping_add(1);
+        let result = value.wrapping_add(1);
 
         self.reg.set_flag(Z, result == 0);
         self.reg.set_flag(N, false);
-        self.reg.set_flag(H, ((ra & 0x0F) + 1) > 0x0F);
+        self.reg.set_flag(H, ((value & 0x0F) + 1) > 0x0F);
         // Carry flag untouched
 
-        self.reg.set(R8::A, result);
+        self.reg.set(r8, result);
     }
 
-    fn dec(&mut self) {
-        let ra = self.reg.get(R8::A);
+    fn dec(&mut self, r8: R8) {
+        let value = self.reg.get(R8::A);
 
-        let result = ra.wrapping_sub(1);
+        let result = value.wrapping_sub(1);
 
         self.reg.set_flag(Z, result == 0);
         self.reg.set_flag(N, false);
-        self.reg.set_flag(H, ra == 0);
+        self.reg.set_flag(H, value == 0);
         // Carry flag untouched
 
-        self.reg.set(R8::A, result);
+        self.reg.set(r8, result);
     }
 
     /* ----- 16-bit ALU ----- */
@@ -393,10 +460,6 @@ impl CPU {
 
         self.reg.set16(R16::HL, result);
     }
-
-    // fn add_sp(&mut self, value: u8) {
-    // let sp = self.reg.get16(SP);
-    // }
 }
 
 #[cfg(test)]
