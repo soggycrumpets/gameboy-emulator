@@ -3,6 +3,9 @@ use crate::registers;
 use registers::Flag;
 use registers::{R8, R16};
 
+// TODO: Separate out r8 / hl operations like in bits.rs
+// This will remove a lot of repeat logic
+
 /*
 
 Each ALU op has an 8-bit version. Some have a one or two 16-bit versions.
