@@ -55,6 +55,7 @@ impl CPU {
             0x0D => self.dec_r8(R8::C),        // DEC C
             0x0E => self.ld_r8_n8(R8::C),      // LD C, n8
             0x0F => todo!("RRCA"),             // RRCA
+
             0x10 => todo!("STOP n8"),          // STOP n8
             0x11 => self.ld_r16_n16(R16::DE),  // LD DE, n16
             0x12 => self.ld_r16_a(R16::DE),    // LD DE, A
@@ -71,48 +72,68 @@ impl CPU {
             0x1D => self.dec_r8(R8::E),        // DEC E
             0x1E => self.ld_r8_n8(R8::E),      // LD E, n8
             0x1F => todo!("RRRA"),             // RRRA
-            0x20 => todo!("JR NZ, e8"),        // JR NZ, e8
-            0x21 => self.ld_r16_n16(R16::HL),  // LD HL, n16
-            0x22 => self.ld_at_hli_a(),        // LD [HL+], A
-            0x23 => todo!("INC HL"),           // INC HL
-            0x24 => self.inc_r8(R8::H),        // INC H
-            0x25 => self.dec_r8(R8::H),        // DEC H
-            0x26 => self.ld_hl_n8(),           // LD H, n8
-            0x27 => todo!("DAA"),              // DAA
-            0x28 => todo!("JR Z e8"),          // JR Z e8
-            0x29 => todo!("ADD HL, HL"),       // ADD HL, HL
-            0x2A => self.ld_a_hli(),           // LD A, [HL+]
-            0x2B => todo!("DEC HL"),           // DEC HL
-            0x2C => self.inc_r8(R8::L),        // INC L
-            0x2D => self.dec_r8(R8::L),        // DEC L
-            0x2E => self.ld_r8_n8(R8::L),      // LD L, n8
-            0x2F => todo!("CPL"),              // CPL
-            0x30 => todo!("JR NZ, e8"),        // JR NZ, e8
-            0x31 => self.ld_r16_n16(R16::SP),  // LD SP, n16
-            0x32 => self.ld_hld_a(),           // LD [HL-], A
-            0x33 => todo!("INC SP"),           // INC SP
-            0x34 => todo!("INC HL"),           // INC HL
-            0x35 => todo!("DEC HL"),           // DEC HL
-            0x36 => self.ld_hl_n8(),           // LD [HL], n8
-            0x37 => todo!("SFC"),              // SFC
-            0x38 => todo!("JR C, e8"),         // JR C, e8
-            0x39 => todo!("ADD HL, SP"),       // ADD HL, SP
-            0x3A => self.ld_a_hld(),           // LD A, [HL-]
-            0x3B => todo!("DEC SP"),           // DEC SP
-            0x3C => self.inc_r8(R8::A),        // INC A
-            0x3D => self.dec_r8(R8::A),        // DEC A
-            0x3E => self.ldh_a_n8(),           // LD A, n8
-            0x3F => todo!("CCF"),              // CCF
-            0xC3 => self.jp_n16(),             // JP n16
-            0xAF => self.xor_a_r8(R8::A),      // XOR A, A
-            0xC1 => self.pop(R16::BC),         // POP BC
-            0xC5 => self.push(R16::BC),        // PUSH BC
-            0xD1 => self.pop(R16::DE),         // POP DE
-            0xE1 => self.pop(R16::HL),         // POP HL
-            0xF1 => self.pop(R16::AF),         // POP AF
-            0xD5 => self.push(R16::DE),        // PUSH DE
-            0xE5 => self.push(R16::HL),        // PUSH HL
-            0xF5 => self.push(R16::AF),        // PUSH AF
+
+            0x20 => todo!("JR NZ, e8"),       // JR NZ, e8
+            0x21 => self.ld_r16_n16(R16::HL), // LD HL, n16
+            0x22 => self.ld_at_hli_a(),       // LD [HL+], A
+            0x23 => todo!("INC HL"),          // INC HL
+            0x24 => self.inc_r8(R8::H),       // INC H
+            0x25 => self.dec_r8(R8::H),       // DEC H
+            0x26 => self.ld_hl_n8(),          // LD H, n8
+            0x27 => todo!("DAA"),             // DAA
+            0x28 => todo!("JR Z e8"),         // JR Z e8
+            0x29 => todo!("ADD HL, HL"),      // ADD HL, HL
+            0x2A => self.ld_a_hli(),          // LD A, [HL+]
+            0x2B => todo!("DEC HL"),          // DEC HL
+            0x2C => self.inc_r8(R8::L),       // INC L
+            0x2D => self.dec_r8(R8::L),       // DEC L
+            0x2E => self.ld_r8_n8(R8::L),     // LD L, n8
+            0x2F => todo!("CPL"),             // CPL
+
+            0x30 => todo!("JR NZ, e8"),       // JR NZ, e8
+            0x31 => self.ld_r16_n16(R16::SP), // LD SP, n16
+            0x32 => self.ld_hld_a(),          // LD [HL-], A
+            0x33 => todo!("INC SP"),          // INC SP
+            0x34 => todo!("INC HL"),          // INC HL
+            0x35 => todo!("DEC HL"),          // DEC HL
+            0x36 => self.ld_hl_n8(),          // LD [HL], n8
+            0x37 => todo!("SFC"),             // SFC
+            0x38 => todo!("JR C, e8"),        // JR C, e8
+            0x39 => todo!("ADD HL, SP"),      // ADD HL, SP
+            0x3A => self.ld_a_hld(),          // LD A, [HL-]
+            0x3B => todo!("DEC SP"),          // DEC SP
+            0x3C => self.inc_r8(R8::A),       // INC A
+            0x3D => self.dec_r8(R8::A),       // DEC A
+            0x3E => self.ldh_a_n8(),          // LD A, n8
+            0x3F => todo!("CCF"),             // CCF
+
+            0x40 => self.ld_r8_r8(R8::B, R8::B), // LD B, B
+            0x41 => self.ld_r8_r8(R8::B, R8::C), // LD B, C
+            0x42 => self.ld_r8_r8(R8::B, R8::D), // LD B, D
+            0x43 => self.ld_r8_r8(R8::B, R8::E), // LD B, E
+            0x44 => self.ld_r8_r8(R8::B, R8::H), // LD B, H
+            0x45 => self.ld_r8_r8(R8::B, R8::L), // LD B, L
+            0x46 => self.ld_r8_at_hl(R8::B),     // LD B, [HL]
+            0x47 => self.ld_r8_r8(R8::B, R8::A), // LD B, A
+            0x48 => self.ld_r8_r8(R8::C, R8::B), // LD C, B
+            0x49 => self.ld_r8_r8(R8::C, R8::C), // LD C, C
+            0x4A => self.ld_r8_r8(R8::C, R8::D), // LD C, D
+            0x4B => self.ld_r8_r8(R8::C, R8::E), // LD C, E
+            0x4C => self.ld_r8_r8(R8::C, R8::H), // LD C, H
+            0x4D => self.ld_r8_r8(R8::C, R8::L), // LD C, L
+            0x4E => self.ld_r8_at_hl(R8::C),     // LD C, [HL]
+            0x4F => self.ld_r8_r8(R8::C, R8::A), // LD C, A
+
+            0xC3 => self.jp_n16(),        // JP n16
+            0xAF => self.xor_a_r8(R8::A), // XOR A, A
+            0xC1 => self.pop(R16::BC),    // POP BC
+            0xC5 => self.push(R16::BC),   // PUSH BC
+            0xD1 => self.pop(R16::DE),    // POP DE
+            0xE1 => self.pop(R16::HL),    // POP HL
+            0xF1 => self.pop(R16::AF),    // POP AF
+            0xD5 => self.push(R16::DE),   // PUSH DE
+            0xE5 => self.push(R16::HL),   // PUSH HL
+            0xF5 => self.push(R16::AF),   // PUSH AF
             _ => panic!("Unknown instruction: {:02x}", opcode),
         }
     }
@@ -145,7 +166,7 @@ impl CPU {
         self.mmu.writebyte(addr, n8);
     }
 
-    fn ld_r8_hl(&mut self, r8: R8) {
+    fn ld_r8_at_hl(&mut self, r8: R8) {
         let addr = self.reg.get16(R16::HL);
         let value = self.mmu.readbyte(addr);
         self.reg.set(r8, value);
@@ -270,7 +291,7 @@ impl CPU {
         self.reg.set16(R16::SP, hl);
     }
 
-    // Stack instructions
+    /* ----- Stack Instructions ----- */
     fn push(&mut self, r16: R16) {
         // Ensure push target is valid
         match r16 {
@@ -304,6 +325,7 @@ impl CPU {
         self.reg.set16(R16::SP, sp + 2);
     }
 
+    /*----- Jump Instructions ----- */
     fn jp_n16(&mut self) {
         let n16 = self.fetchword();
         self.reg.set16(R16::PC, n16);
