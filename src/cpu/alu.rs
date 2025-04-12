@@ -1,45 +1,43 @@
-use super::CPU;
+use super::Cpu;
 use crate::registers;
-use registers::Flag::{Z, N, H, C};
+use registers::Flag;
 use registers::{R8, R16};
 
-   /* ----- ALU ----- */
+// Each ALU op has an 8-bit and 16-bit version.
+// ADD also has an extra 16-but op (ADD SP, e8)
 
-    // Each ALU op has an 8-bit and 16-bit version.
-    // ADD also has an extra 16-but op (ADD SP, e8)
+// 8bit (This one is private - should not be called directly) :
+// fn OP_a_u8(&mut self, value: u8) {
+// ...
+// }
 
-    // 8bit:
-    // pub fn OP_a_u8(&mut self, value: u8) {
-    // ...
-    // }
+// 16bit:
+// pub fn OP_a_r16(&mut self, value: u16) {
+// ...
+// }
 
-    // 16bit:
-    // pub fn OP_a_r16(&mut self, value: u16) {
-    // ...
-    // }
+// 8-bit ALU ops generally have three extra associated functions
+// (INC and DEC are a bit different, but similar):
 
-    // 8-bit ALU ops generally have three extraassociated functions
-    // (INC and DEC are a bit different, but similar):
+// pub fn {OPNAME}_a_r8(&mut self, r8: R8) {
+//     let value = self.reg.get(r8);
+//     self.{OPNAME}_a_u8(value);
+// }
 
-    // pub fn OP_a_r8(&mut self, r8: R8) {
-    //     let value = self.reg.get(r8);
-    //     self.OP_a_u8(value);
-    // }
+// pub fn {OPNAME}_a_at_hl(&mut self) {
+//     let hl = self.reg.get16(R16::HL);
+//     let value = self.mmu.readbyte(hl);
+//     self.{OPNAME}_a_u8(value);
+// }
 
-    // pub fn OP_a_at_hl(&mut self) {
-    //     let hl = self.reg.get16(R16::HL);
-    //     let value = self.mmu.readbyte(hl);
-    //     self.OP_a_u8(value);
-    // }
+// pub fn {OPNAME}P_a_n8(&mut self) {
+//     let n8 = self.fetch_byte();
+//     self.{OPNAME}_a_u8(n8);
+// }
 
-    // pub fn OP_a_n8(&mut self) {
-    //     let n8 = self.fetch_byte();
-    //     self.OP_a_u8(n8);
-    // }
-
-impl CPU {
+impl Cpu {
     // ADD
-    pub fn add_a_u8(&mut self, value: u8) {
+    fn add_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
         let sum = ra as u16 + value as u16;
@@ -47,10 +45,10 @@ impl CPU {
 
         self.reg.set(R8::A, result);
 
-        self.reg.set_flag(Z, result == 0);
-        self.reg.set_flag(N, false);
-        self.reg.set_flag(H, (ra & 0xF) + (value & 0xF) > 0xF);
-        self.reg.set_flag(C, sum > 0xFF);
+        self.reg.set_flag(Flag::Z, result == 0);
+        self.reg.set_flag(Flag::N, false);
+        self.reg.set_flag(Flag::H, (ra & 0xF) + (value & 0xF) > 0xF);
+        self.reg.set_flag(Flag::C, sum > 0xFF);
     }
 
     pub fn add_hl_r16(&mut self, r16: R16) {
@@ -60,10 +58,11 @@ impl CPU {
         let result = hl.wrapping_add(value);
 
         // Zero flag untouched
-        self.reg.set_flag(N, false);
+        self.reg.set_flag(Flag::N, false);
         self.reg
-            .set_flag(H, (hl & 0x0FFF) + (value & 0x0FFF) > 0x0FFF);
-        self.reg.set_flag(C, (hl as u32) + (value as u32) > 0xFFFF);
+            .set_flag(Flag::H, (hl & 0x0FFF) + (value & 0x0FFF) > 0x0FFF);
+        self.reg
+            .set_flag(Flag::C, (hl as u32) + (value as u32) > 0xFFFF);
 
         self.reg.set16(R16::HL, result);
     }
@@ -85,18 +84,18 @@ impl CPU {
     }
 
     // ADC
-    pub fn adc_a_u8(&mut self, value: u8) {
+    fn adc_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
-        let carry = self.reg.get_flag(C) as u8;
+        let carry = self.reg.get_flag(Flag::C) as u8;
 
         let sum = ra as u16 + carry as u16 + value as u16;
         let result = sum as u8;
 
-        self.reg.set_flag(Z, result == 0);
-        self.reg.set_flag(N, false);
+        self.reg.set_flag(Flag::Z, result == 0);
+        self.reg.set_flag(Flag::N, false);
         self.reg
-            .set_flag(H, (ra & 0xF) + (value & 0xF) + carry > 0xF);
-        self.reg.set_flag(C, sum > 0xFF);
+            .set_flag(Flag::H, (ra & 0xF) + (value & 0xF) + carry > 0xF);
+        self.reg.set_flag(Flag::C, sum > 0xFF);
 
         self.reg.set(R8::A, result);
     }
@@ -118,15 +117,15 @@ impl CPU {
     }
 
     // SUB
-    pub fn sub_a_u8(&mut self, value: u8) {
+    fn sub_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
         let result = ra.wrapping_sub(value);
 
-        self.reg.set_flag(Z, result == 0);
-        self.reg.set_flag(N, true);
-        self.reg.set_flag(H, (ra & 0xF) < (value & 0xF));
-        self.reg.set_flag(C, ra < value);
+        self.reg.set_flag(Flag::Z, result == 0);
+        self.reg.set_flag(Flag::N, true);
+        self.reg.set_flag(Flag::H, (ra & 0xF) < (value & 0xF));
+        self.reg.set_flag(Flag::C, ra < value);
 
         self.reg.set(R8::A, result);
     }
@@ -148,17 +147,18 @@ impl CPU {
     }
 
     // SBC
-    pub fn sbc_a_u8(&mut self, value: u8) {
+    fn sbc_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
-        let carry = self.reg.get_flag(C) as u8;
+        let carry = self.reg.get_flag(Flag::C) as u8;
 
         let result = ra.wrapping_sub(value).wrapping_sub(carry);
 
-        self.reg.set_flag(Z, result == 0);
-        self.reg.set_flag(N, true);
-        self.reg.set_flag(H, (ra & 0xF) < ((value & 0xF) + carry));
+        self.reg.set_flag(Flag::Z, result == 0);
+        self.reg.set_flag(Flag::N, true);
         self.reg
-            .set_flag(C, (ra as u16) < (value as u16 + carry as u16));
+            .set_flag(Flag::H, (ra & 0xF) < ((value & 0xF) + carry));
+        self.reg
+            .set_flag(Flag::C, (ra as u16) < (value as u16 + carry as u16));
 
         self.reg.set(R8::A, result);
     }
@@ -180,15 +180,15 @@ impl CPU {
     }
 
     // AND
-    pub fn and_a_u8(&mut self, value: u8) {
+    fn and_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
         let result = ra & value;
 
-        self.reg.set_flag(Z, result == 0);
-        self.reg.set_flag(N, false);
-        self.reg.set_flag(H, true);
-        self.reg.set_flag(C, false);
+        self.reg.set_flag(Flag::Z, result == 0);
+        self.reg.set_flag(Flag::N, false);
+        self.reg.set_flag(Flag::H, true);
+        self.reg.set_flag(Flag::C, false);
 
         self.reg.set(R8::A, result);
     }
@@ -210,15 +210,15 @@ impl CPU {
     }
 
     // OR
-    pub fn or_a_u8(&mut self, value: u8) {
+    fn or_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
         let result = ra | value;
 
-        self.reg.set_flag(Z, result == 0);
-        self.reg.set_flag(N, false);
-        self.reg.set_flag(H, false);
-        self.reg.set_flag(C, false);
+        self.reg.set_flag(Flag::Z, result == 0);
+        self.reg.set_flag(Flag::N, false);
+        self.reg.set_flag(Flag::H, false);
+        self.reg.set_flag(Flag::C, false);
 
         self.reg.set(R8::A, result);
     }
@@ -240,15 +240,15 @@ impl CPU {
     }
 
     // XOR
-    pub fn xor_a_u8(&mut self, value: u8) {
+    fn xor_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
         let result = ra ^ value;
 
-        self.reg.set_flag(Z, result == 0);
-        self.reg.set_flag(N, false);
-        self.reg.set_flag(H, false);
-        self.reg.set_flag(C, false);
+        self.reg.set_flag(Flag::Z, result == 0);
+        self.reg.set_flag(Flag::N, false);
+        self.reg.set_flag(Flag::H, false);
+        self.reg.set_flag(Flag::C, false);
 
         self.reg.set(R8::A, result);
     }
@@ -270,15 +270,15 @@ impl CPU {
     }
 
     // CP
-    pub fn cp_a_u8(&mut self, value: u8) {
+    fn cp_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
 
         let result = ra.wrapping_sub(value);
 
-        self.reg.set_flag(Z, result == 0);
-        self.reg.set_flag(N, true);
-        self.reg.set_flag(H, (ra & 0xF) < (value & 0xF));
-        self.reg.set_flag(C, ra < value);
+        self.reg.set_flag(Flag::Z, result == 0);
+        self.reg.set_flag(Flag::N, true);
+        self.reg.set_flag(Flag::H, (ra & 0xF) < (value & 0xF));
+        self.reg.set_flag(Flag::C, ra < value);
     }
 
     pub fn cp_a_r8(&mut self, r8: R8) {
@@ -298,12 +298,12 @@ impl CPU {
     }
 
     // INC
-    pub fn inc_u8(&mut self, value: u8) -> u8 {
+    fn inc_u8(&mut self, value: u8) -> u8 {
         let result = value.wrapping_add(1);
 
-        self.reg.set_flag(Z, result == 0);
-        self.reg.set_flag(N, false);
-        self.reg.set_flag(H, ((value & 0x0F) + 1) > 0x0F);
+        self.reg.set_flag(Flag::Z, result == 0);
+        self.reg.set_flag(Flag::N, false);
+        self.reg.set_flag(Flag::H, ((value & 0x0F) + 1) > 0x0F);
         // Carry flag untouched
 
         result
@@ -325,12 +325,12 @@ impl CPU {
     }
 
     // DEC
-    pub fn dec_u8(&mut self, value: u8) -> u8 {
+    fn dec_u8(&mut self, value: u8) -> u8 {
         let result = value.wrapping_sub(1);
 
-        self.reg.set_flag(Z, result == 0);
-        self.reg.set_flag(N, true);
-        self.reg.set_flag(H, (value & 0x0F) == 0);
+        self.reg.set_flag(Flag::Z, result == 0);
+        self.reg.set_flag(Flag::N, true);
+        self.reg.set_flag(Flag::H, (value & 0x0F) == 0);
         // Carry flag untouched
 
         result

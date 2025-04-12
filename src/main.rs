@@ -1,5 +1,5 @@
 use constants::{BOOTROM_START_ADDR, PROGRAM_START_ADDR};
-use cpu::CPU;
+use cpu::Cpu;
 
 mod constants;
 mod cpu;
@@ -23,7 +23,7 @@ const BOOTROM_PATH: &str = "./roms/dmg_boot.gb";
 // }
 
 fn main() {
-    let mut cpu = CPU::new();
+    let mut cpu = Cpu::new();
     if !cpu.mmu.load_rom(BOOTROM_PATH, BOOTROM_START_ADDR) {
         println!("Failed to load bootrom"); 
         return;

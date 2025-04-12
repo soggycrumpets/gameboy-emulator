@@ -1,10 +1,10 @@
-pub struct MMU {
+pub struct Mmu {
     pub memory: [u8; 65536],
 }
 
-impl MMU {
-    pub fn new() -> MMU {
-        MMU { memory: [0; 65536] }
+impl Mmu {
+    pub fn new() -> Mmu {
+        Mmu { memory: [0; 65536] }
     }
 
     // Load rom into memory
