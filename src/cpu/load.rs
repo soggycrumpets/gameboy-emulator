@@ -1,12 +1,8 @@
 use super::*;
 impl Cpu {
-    pub fn push(&mut self, r16: R16) {
-        // Ensure push target is valid
-        match r16 {
-            R16::AF | R16::BC | R16::DE | R16::HL => {}
-            _ => panic!("Invalid pop target {:?}", r16),
-        }
 
+    // 2-byte PUSH
+    pub fn push_r16(&mut self, r16: R16) {
         // Decrement sp
         let sp = self.reg.get16(R16::SP).wrapping_sub(2);
         self.reg.set16(R16::SP, sp);
@@ -16,13 +12,8 @@ impl Cpu {
         self.mmu.writeword(sp, value);
     }
 
-    pub fn pop(&mut self, r16: R16) {
-        // Ensure pop target is valid
-        match r16 {
-            R16::AF | R16::BC | R16::DE | R16::HL => {}
-            _ => panic!("Invalid pop target {:?}", r16),
-        }
-
+    // 2-byte POP
+    pub fn pop_r16(&mut self, r16: R16) {
         let sp = self.reg.get16(R16::SP);
 
         // Pop the stack into the register
