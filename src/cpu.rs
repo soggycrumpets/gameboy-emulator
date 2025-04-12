@@ -1,8 +1,8 @@
 use crate::memory::Mmu;
 use crate::registers;
 mod alu;
-mod load;
 mod jumps;
+mod load;
 use registers::Flag;
 use registers::Registers;
 use registers::{R8, R16};
@@ -71,7 +71,7 @@ impl Cpu {
             0x15 => self.dec_r8(R8::D),        // DEC D
             0x16 => self.ld_r8_n8(R8::D),      // LD D, n8
             0x17 => todo!("RLA"),              // RLA
-            0x18 => todo!("JR e8"),            // JR e8
+            0x18 => self.jr_e8(),              // JR e8
             0x19 => todo!("ADD HL, DE"),       // ADD HL, DE
             0x1A => self.ld_a_at_r16(R16::DE), // LD A, [DE]
             0x1B => todo!("DEC DE"),           // DEC DE
@@ -80,39 +80,39 @@ impl Cpu {
             0x1E => self.ld_r8_n8(R8::E),      // LD E, n8
             0x1F => todo!("RRA"),              // RRA
 
-            0x20 => todo!("JR NZ, e8"),       // JR NZ, e8
-            0x21 => self.ld_r16_n16(R16::HL), // LD HL, n16
-            0x22 => self.ld_at_hli_a(),       // LD [HL+], A
-            0x23 => todo!("INC HL"),          // INC HL
-            0x24 => self.inc_r8(R8::H),       // INC H
-            0x25 => self.dec_r8(R8::H),       // DEC H
-            0x26 => self.ld_r8_n8(R8::H),     // LD H, n8
-            0x27 => todo!("DAA"),             // DAA
-            0x28 => todo!("JR Z e8"),         // JR Z e8
-            0x29 => todo!("ADD HL, HL"),      // ADD HL, HL
-            0x2A => self.ld_a_at_hli(),       // LD A, [HL+]
-            0x2B => todo!("DEC HL"),          // DEC HL
-            0x2C => self.inc_r8(R8::L),       // INC L
-            0x2D => self.dec_r8(R8::L),       // DEC L
-            0x2E => self.ld_r8_n8(R8::L),     // LD L, n8
-            0x2F => todo!("CPL"),             // CPL
+            0x20 => self.jr_cc_e8(Flag::Z, false), // JR NZ, e8
+            0x21 => self.ld_r16_n16(R16::HL),      // LD HL, n16
+            0x22 => self.ld_at_hli_a(),            // LD [HL+], A
+            0x23 => todo!("INC HL"),               // INC HL
+            0x24 => self.inc_r8(R8::H),            // INC H
+            0x25 => self.dec_r8(R8::H),            // DEC H
+            0x26 => self.ld_r8_n8(R8::H),          // LD H, n8
+            0x27 => todo!("DAA"),                  // DAA
+            0x28 => self.jr_cc_e8(Flag::Z, true),  // JR Z e8
+            0x29 => todo!("ADD HL, HL"),           // ADD HL, HL
+            0x2A => self.ld_a_at_hli(),            // LD A, [HL+]
+            0x2B => todo!("DEC HL"),               // DEC HL
+            0x2C => self.inc_r8(R8::L),            // INC L
+            0x2D => self.dec_r8(R8::L),            // DEC L
+            0x2E => self.ld_r8_n8(R8::L),          // LD L, n8
+            0x2F => todo!("CPL"),                  // CPL
 
-            0x30 => todo!("JR NC, e8"),       // JR NC, e8
-            0x31 => self.ld_r16_n16(R16::SP), // LD SP, n16
-            0x32 => self.ld_at_hld_a(),       // LD [HL-], A
-            0x33 => todo!("INC SP"),          // INC SP
-            0x34 => self.inc_at_hl(),         // INC [HL]
-            0x35 => self.dec_at_hl(),         // DEC [HL]
-            0x36 => self.ld_hl_n8(),          // LD [HL], n8
-            0x37 => todo!("SCF"),             // SCF
-            0x38 => todo!("JR C, e8"),        // JR C, e8
-            0x39 => todo!("ADD HL, SP"),      // ADD HL, SP
-            0x3A => self.ld_a_at_hld(),       // LD A, [HL-]
-            0x3B => todo!("DEC SP"),          // DEC SP
-            0x3C => self.inc_r8(R8::A),       // INC A
-            0x3D => self.dec_r8(R8::A),       // DEC A
-            0x3E => self.ld_r8_n8(R8::A),     // DH A, n8
-            0x3F => todo!("CCF"),             // CCF
+            0x30 => self.jr_cc_e8(Flag::C, false), // JR NC, e8
+            0x31 => self.ld_r16_n16(R16::SP),      // LD SP, n16
+            0x32 => self.ld_at_hld_a(),            // LD [HL-], A
+            0x33 => todo!("INC SP"),               // INC SP
+            0x34 => self.inc_at_hl(),              // INC [HL]
+            0x35 => self.dec_at_hl(),              // DEC [HL]
+            0x36 => self.ld_hl_n8(),               // LD [HL], n8
+            0x37 => todo!("SCF"),                  // SCF
+            0x38 => self.jr_cc_e8(Flag::C, true),  // JR C, e8
+            0x39 => todo!("ADD HL, SP"),           // ADD HL, SP
+            0x3A => self.ld_a_at_hld(),            // LD A, [HL-]
+            0x3B => todo!("DEC SP"),               // DEC SP
+            0x3C => self.inc_r8(R8::A),            // INC A
+            0x3D => self.dec_r8(R8::A),            // DEC A
+            0x3E => self.ld_r8_n8(R8::A),          // DH A, n8
+            0x3F => todo!("CCF"),                  // CCF
 
             0x40 => self.ld_r8_r8(R8::B, R8::B), // LD B, B
             0x41 => self.ld_r8_r8(R8::B, R8::C), // LD B, C
@@ -250,39 +250,39 @@ impl Cpu {
             0xBE => self.cp_a_at_hl(),   // CP A, [HL]
             0xBF => self.cp_a_r8(R8::A), // CP A, A
 
-            0xC0 => todo!("RET NZ"),       // RET NZ
-            0xC1 => self.pop(R16::BC),     // POP BC
-            0xC2 => todo!("JP NZ"),        // JP NZ
-            0xC3 => self.jp_n16(),         // JP n16
-            0xC4 => todo!("CALL NZ, a16"), // CALL NZ, a16
-            0xC5 => self.push(R16::BC),    // PUSH BC
-            0xC6 => self.add_a_n8(),       // ADD A, n8
-            0xC7 => todo!("RST $00"),      // RST $00
-            0xC8 => todo!("RET Z"),        // RET Z
-            0xC9 => todo!("RET"),          // RET
-            0xCA => todo!("JP Z, n16"),    // JP Z, n16
-            0xCB => todo!("PREFIX"),       // PREFIX
-            0xCC => todo!("CALL Z, a16"),  // CALL Z, a16
-            0xCD => todo!("CALL n16"),     // CALL n16
-            0xCE => self.adc_a_n8(),       // ADC A, n8
-            0xCF => todo!("RST $08"),      // RST $08
+            0xC0 => todo!("RET NZ"),               // RET NZ
+            0xC1 => self.pop(R16::BC),             // POP BC
+            0xC2 => self.jp_cc_a16(Flag::Z, false), // JP NZ
+            0xC3 => self.jp_a16(),                 // JP a16
+            0xC4 => todo!("CALL NZ, a16"),         // CALL NZ, a16
+            0xC5 => self.push(R16::BC),            // PUSH BC
+            0xC6 => self.add_a_n8(),               // ADD A, n8
+            0xC7 => todo!("RST $00"),              // RST $00
+            0xC8 => todo!("RET Z"),                // RET Z
+            0xC9 => todo!("RET"),                  // RET
+            0xCA => self.jp_cc_a16(Flag::Z, true), // JP Z, a16
+            0xCB => todo!("PREFIX"),               // PREFIX
+            0xCC => todo!("CALL Z, a16"),          // CALL Z, a16
+            0xCD => todo!("CALL a16"),             // CALL a16
+            0xCE => self.adc_a_n8(),               // ADC A, n8
+            0xCF => todo!("RST $08"),              // RST $08
 
-            0xD0 => todo!("RET NC"),       // RET NC
-            0xD1 => self.pop(R16::DE),     // POP DE
-            0xD2 => todo!("JP NC, a16"),   // JP NC, a16
-            0xD3 => unimplemented!(),      // ---
-            0xD4 => todo!("CALL NC, a16"), // CALL NC, a16
-            0xD5 => self.push(R16::DE),    // PUSH DE
-            0xD6 => self.sub_a_n8(),       // SUB A, n8
-            0xD7 => todo!("RST $10"),      // RST $10
-            0xD8 => todo!("RET C"),        // RET C
-            0xD9 => todo!("RETI"),         // RETI
-            0xDA => todo!("JP C, a16"),    // JP C, a16
-            0xDB => unimplemented!(),      // ---
-            0xDC => todo!("CALL C, a16"),  // CALL C, a16
-            0xDD => unimplemented!(),      // ---
-            0xDE => self.sbc_a_n8(),       // SBC A, n8
-            0xDF => todo!("RST $18"),      // RST $18
+            0xD0 => todo!("RET NC"),                // RET NC
+            0xD1 => self.pop(R16::DE),              // POP DE
+            0xD2 => self.jp_cc_a16(Flag::C, false), // JP NC, a16
+            0xD3 => unimplemented!(),               // ---
+            0xD4 => todo!("CALL NC, a16"),          // CALL NC, a16
+            0xD5 => self.push(R16::DE),             // PUSH DE
+            0xD6 => self.sub_a_n8(),                // SUB A, n8
+            0xD7 => todo!("RST $10"),               // RST $10
+            0xD8 => todo!("RET C"),                 // RET C
+            0xD9 => todo!("RETI"),                  // RETI
+            0xDA => self.jp_cc_a16(Flag::C, true),  // JP C, a16
+            0xDB => unimplemented!(),               // ---
+            0xDC => todo!("CALL C, a16"),           // CALL C, a16
+            0xDD => unimplemented!(),               // ---
+            0xDE => self.sbc_a_n8(),                // SBC A, n8
+            0xDF => todo!("RST $18"),               // RST $18
 
             0xE0 => self.ldh_at_a8_a(),  // LDH [a8], A
             0xE1 => self.pop(R16::HL),   // POP HL
@@ -293,7 +293,7 @@ impl Cpu {
             0xE6 => self.and_a_n8(),     // AND A, N8
             0xE7 => todo!("RST $20"),    // RST $20
             0xE8 => todo!("ADD SP, e8"), // ADD SP, e8
-            0xE9 => todo!("JP HL"),      // JP HL
+            0xE9 => self.jp_hl(),        // JP HL
             0xEA => self.ld_at_a16_a(),  // LD [a16], A
             0xEB => unimplemented!(),    // ---
             0xEC => unimplemented!(),    // ---
@@ -319,12 +319,6 @@ impl Cpu {
             0xFF => todo!("RST $38"),   // RST $38
         }
     }
-
-  
-
-    
-
-  
 }
 
 #[cfg(test)]
