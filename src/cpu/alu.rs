@@ -40,12 +40,12 @@ impl Cpu {
         let sum = ra as u16 + value as u16;
         let result = sum as u8;
 
-        self.reg.set(R8::A, result);
-
         self.reg.set_flag(Flag::Z, result == 0);
         self.reg.set_flag(Flag::N, false);
         self.reg.set_flag(Flag::H, (ra & 0xF) + (value & 0xF) > 0xF);
         self.reg.set_flag(Flag::C, sum > 0xFF);
+
+        self.reg.set(R8::A, result);
     }
 
     pub fn add_a_r8(&mut self, r8: R8) {
@@ -91,6 +91,7 @@ impl Cpu {
 
         let result = (sp as i16).wrapping_add(e8) as u16;
 
+        // For flag checking, take the low byte of sp
         let sp_low = sp as u8;
 
         self.reg.set_flag(Flag::Z, false);
@@ -352,12 +353,13 @@ impl Cpu {
     }
 
     // 16-bit
-    fn inc_r16(&mut self, r16: R16) {
+    pub fn inc_r16(&mut self, r16: R16) {
         let value = self.reg.get16(r16);
         let result = value.wrapping_add(1);
-        self.reg.set16(r16, result);
 
         // Flags untouched
+
+        self.reg.set16(r16, result);
     }
 
     // ----- DEC -----
@@ -388,11 +390,12 @@ impl Cpu {
     }
 
     // 16-bit
-    fn dec_r16(&mut self, r16: R16) {
+    pub fn dec_r16(&mut self, r16: R16) {
         let value = self.reg.get16(r16);
         let result = value.wrapping_sub(1);
-        self.reg.set16(r16, result);
 
         // Flags untouched
+
+        self.reg.set16(r16, result);
     }
 }
