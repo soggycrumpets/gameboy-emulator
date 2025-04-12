@@ -26,6 +26,7 @@ impl MMU {
         self.memory[addr as usize] = byte;
     }
 
+    // Pay extra special attentian here to account for little-endianness
     pub fn readword(&self, addr: u16) -> u16 {
         let lowbyte = self.readbyte(addr);
         let highbyte = self.readbyte(addr + 1);

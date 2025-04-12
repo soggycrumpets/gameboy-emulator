@@ -3,11 +3,10 @@ use crate::registers;
 use registers::Flag::{Z, N, H, C};
 use registers::{R8, R16};
 
+   /* ----- ALU ----- */
 
-impl CPU {
-     /* ----- ALU ----- */
-
-    // Each ALU op has an 8-bit and 16-bit version:
+    // Each ALU op has an 8-bit and 16-bit version.
+    // ADD also has an extra 16-but op (ADD SP, e8)
 
     // 8bit:
     // pub fn OP_a_u8(&mut self, value: u8) {
@@ -38,6 +37,7 @@ impl CPU {
     //     self.OP_a_u8(n8);
     // }
 
+impl CPU {
     // ADD
     pub fn add_a_u8(&mut self, value: u8) {
         let ra = self.reg.get(R8::A);
