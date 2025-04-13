@@ -14,6 +14,7 @@ pub struct Cpu {
     pub reg: Registers,
     pub mmu: Mmu,
     ime: bool,
+    ime_pending: bool,
 }
 
 impl Cpu {
@@ -22,6 +23,7 @@ impl Cpu {
             reg: Registers::new(),
             mmu: Mmu::new(),
             ime: true,
+            ime_pending: false,
         }
     }
 
@@ -92,7 +94,7 @@ impl Cpu {
             0x24 => self.inc_r8(R8::H),            // INC H
             0x25 => self.dec_r8(R8::H),            // DEC H
             0x26 => self.ld_r8_n8(R8::H),          // LD H, n8
-            0x27 => todo!("DAA"),                  // DAA
+            0x27 => self.daa(),                  // DAA
             0x28 => self.jr_cc_e8(Flag::Z, true),  // JR Z e8
             0x29 => self.add_hl_r16(R16::HL),      // ADD HL, HL
             0x2A => self.ld_a_at_hli(),            // LD A, [HL+]
@@ -100,7 +102,7 @@ impl Cpu {
             0x2C => self.inc_r8(R8::L),            // INC L
             0x2D => self.dec_r8(R8::L),            // DEC L
             0x2E => self.ld_r8_n8(R8::L),          // LD L, n8
-            0x2F => todo!("CPL"),                  // CPL
+            0x2F => self.cpl(),                  // CPL
 
             0x30 => self.jr_cc_e8(Flag::C, false), // JR NC, e8
             0x31 => self.ld_r16_n16(R16::SP),      // LD SP, n16
@@ -109,7 +111,7 @@ impl Cpu {
             0x34 => self.inc_at_hl(),              // INC [HL]
             0x35 => self.dec_at_hl(),              // DEC [HL]
             0x36 => self.ld_hl_n8(),               // LD [HL], n8
-            0x37 => todo!("SCF"),                  // SCF
+            0x37 => self.scf(),                  // SCF
             0x38 => self.jr_cc_e8(Flag::C, true),  // JR C, e8
             0x39 => self.add_hl_r16(R16::SP),      // ADD HL, SP
             0x3A => self.ld_a_at_hld(),            // LD A, [HL-]
@@ -117,7 +119,7 @@ impl Cpu {
             0x3C => self.inc_r8(R8::A),            // INC A
             0x3D => self.dec_r8(R8::A),            // DEC A
             0x3E => self.ld_r8_n8(R8::A),          // LD A, n8
-            0x3F => todo!("CCF"),                  // CCF
+            0x3F => self.ccf(), // CCF
 
             0x40 => self.ld_r8_r8(R8::B, R8::B), // LD B, B
             0x41 => self.ld_r8_r8(R8::B, R8::C), // LD B, C
@@ -281,7 +283,7 @@ impl Cpu {
             0xD6 => self.sub_a_n8(),                  // SUB A, n8
             0xD7 => self.rst_vec(0x10),               // RST $10
             0xD8 => self.ret_cc(Flag::C, true),       // RET C
-            0xD9 => todo!("RETI"),                    // RETI
+            0xD9 => self.reti(),                    // RETI
             0xDA => self.jp_cc_a16(Flag::C, true),    // JP C, a16
             0xDB => unimplemented!(),                 // ---
             0xDC => self.call_cc_a16(Flag::C, true),  // CALL C, a16

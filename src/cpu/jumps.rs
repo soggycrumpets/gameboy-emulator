@@ -75,6 +75,11 @@ impl Cpu {
         }
     }
 
+    pub fn reti(&mut self) {
+        self.ret();
+        self.ei();
+    }
+
    
     
 }

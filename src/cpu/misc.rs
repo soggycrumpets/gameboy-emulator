@@ -6,10 +6,34 @@ use registers::{R8, R16};
 impl Cpu {
     pub fn di(&mut self) {
         self.ime = false;
+        self.ime_pending = false;
     }
 
     pub fn ei(&mut self) {
-        self.ime = true;
+        self.ime_pending = true;
+    }
+
+    pub fn cpl(&mut self) {
+        let ra = self.reg.get(R8::A);
+
+        self.reg.set_flag(Flag::N, true);
+        self.reg.set_flag(Flag::H, true);
+
+        self.reg.set(R8::A, !ra);
+    }
+
+    pub fn scf(&mut self) {
+        self.reg.set_flag(Flag::N, false);
+        self.reg.set_flag(Flag::H, false);
+        self.reg.set_flag(Flag::C, true);
+    }
+
+    pub fn ccf(&mut self) {
+        let carry = self.reg.get_flag(Flag::C);
+
+        self.reg.set_flag(Flag::N, false);
+        self.reg.set_flag(Flag::H, false);
+        self.reg.set_flag(Flag::C, !carry);
     }
 
     pub fn daa(&mut self) {
@@ -17,6 +41,7 @@ impl Cpu {
         let n = self.reg.get_flag(Flag::N);
         let h = self.reg.get_flag(Flag::H);
         let c = self.reg.get_flag(Flag::C);
+
         let mut adjustment: u8 = 0;
         let mut carry = false;
 
