@@ -335,7 +335,6 @@ impl Cpu {
         self.reg.set_flag(Flag::Z, result == 0);
         self.reg.set_flag(Flag::N, false);
         self.reg.set_flag(Flag::H, ((value & 0x0F) + 1) > 0x0F);
-        // Carry flag untouched
 
         result
     }
@@ -360,8 +359,6 @@ impl Cpu {
         let value = self.reg.get16(r16);
         let result = value.wrapping_add(1);
 
-        // Flags untouched
-
         self.reg.set16(r16, result);
     }
 
@@ -372,7 +369,6 @@ impl Cpu {
         self.reg.set_flag(Flag::Z, result == 0);
         self.reg.set_flag(Flag::N, true);
         self.reg.set_flag(Flag::H, (value & 0x0F) == 0);
-        // Carry flag untouched
 
         result
     }
@@ -396,8 +392,6 @@ impl Cpu {
     pub fn dec_r16(&mut self, r16: R16) {
         let value = self.reg.get16(r16);
         let result = value.wrapping_sub(1);
-
-        // Flags untouched
 
         self.reg.set16(r16, result);
     }

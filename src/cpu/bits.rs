@@ -1,20 +1,20 @@
 use super::*;
 
 pub enum Bitshift {
-    RL,
-    RLC,
-    RR,
-    RRC,
-    SLA,
-    SRA,
-    SRL,
-    SWAP,
+    Rl,
+    Rlc,
+    Rr,
+    Rrc,
+    Sla,
+    Sra,
+    Srl,
+    Swap,
 }
 
 pub enum Bitflag {
-    BIT,
-    RES,
-    SET,
+    Bit,
+    Res,
+    Set,
 }
 
 impl Cpu {
@@ -51,28 +51,28 @@ impl Cpu {
     // This function maps bitshifts to their functions
     fn bitshift_u8(&mut self, op: Bitshift, bits: u8) -> u8 {
         match op {
-            Bitshift::RL => self.rl_u8(bits),
-            Bitshift::RLC => self.rlc_u8(bits),
-            Bitshift::RR => self.rr_u8(bits),
-            Bitshift::RRC => self.rrc_u8(bits),
-            Bitshift::SLA => self.sla_u8(bits),
-            Bitshift::SRA => self.sra_u8(bits),
-            Bitshift::SRL => self.srl_u8(bits),
-            Bitshift::SWAP => self.swap_u8(bits),
+            Bitshift::Rl => self.rl_u8(bits),
+            Bitshift::Rlc => self.rlc_u8(bits),
+            Bitshift::Rr => self.rr_u8(bits),
+            Bitshift::Rrc => self.rrc_u8(bits),
+            Bitshift::Sla => self.sla_u8(bits),
+            Bitshift::Sra => self.sra_u8(bits),
+            Bitshift::Srl => self.srl_u8(bits),
+            Bitshift::Swap => self.swap_u8(bits),
         }
     }
 
     // This one matches bitflags to their functions
     fn bitflag_u3_u8(&mut self, op: Bitflag, bit: u8, bits: u8) -> u8 {
         match op {
-            Bitflag::BIT => {
+            Bitflag::Bit => {
                 // This one doesn't change the bits it targets
-                // Just return the same bits
+                // So return the same bits
                 self.bit_u3_u8(bit, bits);
                 bits
             }
-            Bitflag::RES => self.res_u3_u8(bit, bits),
-            Bitflag::SET => self.set_u3_u8(bit, bits),
+            Bitflag::Res => self.res_u3_u8(bit, bits),
+            Bitflag::Set => self.set_u3_u8(bit, bits),
         }
     }
 
@@ -180,7 +180,7 @@ impl Cpu {
         result
     }
 
-    // ----- Bit Flag Instructions-----
+    // ----- Bit Flag Instructions -----
 
     // BIT
     fn bit_u3_u8(&mut self, bit_position: u8, bits: u8) {

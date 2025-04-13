@@ -30,7 +30,7 @@ impl Registers {
             h: 0,
             l: 0,
             sp: 0xFFFE, // Starts at the top of the stack
-            pc: 0x0000, // Starts at the beginning of the bootrom
+            pc: 0x0100, // Starts at the beginning of the bootrom
         }
     }
 
@@ -95,7 +95,7 @@ impl Registers {
             R8::C => self.c = value,
             R8::D => self.d = value,
             R8::E => self.e = value,
-            R8::F => self.f = (value & 0xF0).into(),
+            R8::F => self.f = (value & 0xF0).into(), // Low bits always 0
             R8::H => self.h = value,
             R8::L => self.l = value,
         };
