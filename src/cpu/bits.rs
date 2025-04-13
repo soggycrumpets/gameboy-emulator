@@ -1,6 +1,6 @@
 use super::*;
 
-pub enum Bitshift {
+pub enum BitshiftOp {
     Rl,
     Rlc,
     Rr,
@@ -11,7 +11,7 @@ pub enum Bitshift {
     Swap,
 }
 
-pub enum Bitflag {
+pub enum BitflagOp {
     Bit,
     Res,
     Set,
@@ -19,60 +19,58 @@ pub enum Bitflag {
 
 impl Cpu {
     // These functions are the public interface for all bitops
-    pub fn bitshift_r8(&mut self, op: Bitshift, r8: R8) {
+    pub fn bitshift_r8(&mut self, op: BitshiftOp, r8: R8) {
         let bits = self.reg.get(r8);
         let result = self.bitshift_u8(op, bits);
 
         self.reg.set(r8, result);
     }
 
-    pub fn bitshift_at_hl(&mut self, op: Bitshift) {
-        let hl = self.reg.get16(R16::HL);
-        let bits = self.mmu.readbyte(hl);
+    pub fn bitshift_at_hl(&mut self, op: BitshiftOp) {
+        let bits = self.read_at_hl();
         let result = self.bitshift_u8(op, bits);
 
-        self.mmu.write_byte(hl, result);
+        self.write_at_hl(result);
     }
 
-    pub fn bitflag_u3_r8(&mut self, op: Bitflag, bit: u8, r8: R8) {
+    pub fn bitflag_u3_r8(&mut self, op: BitflagOp, bit: u8, r8: R8) {
         let bits = self.reg.get(r8);
         let result = self.bitflag_u3_u8(op, bit, bits);
         self.reg.set(r8, result);
     }
 
-    pub fn bitflag_u3_at_hl(&mut self, op: Bitflag, bit: u8) {
-        let hl = self.reg.get16(R16::HL);
-        let bits = self.mmu.readbyte(hl);
+    pub fn bitflag_u3_at_hl(&mut self, op: BitflagOp, bit: u8) {
+        let bits = self.read_at_hl();
         let result = self.bitflag_u3_u8(op, bit, bits);
 
-        self.mmu.write_byte(hl, result);
+        self.write_at_hl(result);
     }
 
     // This function maps bitshifts to their functions
-    fn bitshift_u8(&mut self, op: Bitshift, bits: u8) -> u8 {
+    fn bitshift_u8(&mut self, op: BitshiftOp, bits: u8) -> u8 {
         match op {
-            Bitshift::Rl => self.rl_u8(bits),
-            Bitshift::Rlc => self.rlc_u8(bits),
-            Bitshift::Rr => self.rr_u8(bits),
-            Bitshift::Rrc => self.rrc_u8(bits),
-            Bitshift::Sla => self.sla_u8(bits),
-            Bitshift::Sra => self.sra_u8(bits),
-            Bitshift::Srl => self.srl_u8(bits),
-            Bitshift::Swap => self.swap_u8(bits),
+            BitshiftOp::Rl => self.rl_u8(bits),
+            BitshiftOp::Rlc => self.rlc_u8(bits),
+            BitshiftOp::Rr => self.rr_u8(bits),
+            BitshiftOp::Rrc => self.rrc_u8(bits),
+            BitshiftOp::Sla => self.sla_u8(bits),
+            BitshiftOp::Sra => self.sra_u8(bits),
+            BitshiftOp::Srl => self.srl_u8(bits),
+            BitshiftOp::Swap => self.swap_u8(bits),
         }
     }
 
     // This one matches bitflags to their functions
-    fn bitflag_u3_u8(&mut self, op: Bitflag, bit: u8, bits: u8) -> u8 {
+    fn bitflag_u3_u8(&mut self, op: BitflagOp, bit: u8, bits: u8) -> u8 {
         match op {
-            Bitflag::Bit => {
+            BitflagOp::Bit => {
                 // This one doesn't change the bits it targets
                 // So return the same bits
                 self.bit_u3_u8(bit, bits);
                 bits
             }
-            Bitflag::Res => self.res_u3_u8(bit, bits),
-            Bitflag::Set => self.set_u3_u8(bit, bits),
+            BitflagOp::Res => self.res_u3_u8(bit, bits),
+            BitflagOp::Set => self.set_u3_u8(bit, bits),
         }
     }
 

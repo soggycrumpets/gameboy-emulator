@@ -1,7 +1,7 @@
 mod memmap;
 use memmap::*;
+
 pub struct Mmu {
-    pub memory: [u8; 65536],
     pub rom_bank_00: [u8; ROM_BANK_0_SIZE],
     pub rom_bank_01: [u8; ROM_BANK_1_SIZE],
     pub vram: [u8; VRAM_SIZE],
@@ -19,7 +19,6 @@ pub struct Mmu {
 impl Mmu {
     pub fn new() -> Mmu {
         Mmu {
-            memory: [0; 65536],
             rom_bank_00: [0; ROM_BANK_0_SIZE],
             rom_bank_01: [0; ROM_BANK_1_SIZE],
             vram: [0; VRAM_SIZE],
@@ -36,19 +35,29 @@ impl Mmu {
     }
 
     // Load rom into memory
-    pub fn load_rom(&mut self, path: &str, load_start_address: u16) -> bool {
+    pub fn load_rom(&mut self, path: &str) -> bool {
         let rom = match std::fs::read(path) {
             Ok(result) => result,
             Err(..) => return false,
         };
-        self.memory[(load_start_address as usize)..(load_start_address as usize + rom.len())]
-            .copy_from_slice(&rom);
+
+        println!("{}", path);
+        println!("{}", self.rom_bank_00.len());
+        println!("{}", rom.len());
+        let (rom_half_1, rom_half_2) = rom.split_at(self.rom_bank_00.len());
+        // let rom_bank_size = self.rom_bank_00.len();
+        // self.rom_bank_00.copy_from_slice(&rom[..=rom_bank_size]);
+        // self.rom_bank_01.copy_from_slice(&rom[rom_bank_size+1..=]);
+
+        self.rom_bank_00.copy_from_slice(rom_half_1);
+        self.rom_bank_01.copy_from_slice(rom_half_2);
+        
         true
     }
 
     // ----- Reading and Writing Memory -----
 
-    pub fn readbyte(&self, addr: u16) -> u8 {
+    pub fn read_byte(&self, addr: u16) -> u8 {
         let (mem_region, addr_mapped) = map_address(addr);
         let index = addr_mapped as usize;
 
@@ -69,6 +78,7 @@ impl Mmu {
         }
     }
 
+    // todo! Some writes and reads work differently for different memory spaces
     pub fn write_byte(&mut self, addr: u16, byte: u8) {
         let (mem_region, addr_mapped) = map_address(addr);
         let index = addr_mapped as usize;
@@ -91,9 +101,9 @@ impl Mmu {
     }
 
     // Pay extra special attentian here to account for little-endianness
-    pub fn readword(&self, addr: u16) -> u16 {
-        let lowbyte = self.readbyte(addr);
-        let highbyte = self.readbyte(addr + 1);
+    pub fn read_word(&self, addr: u16) -> u16 {
+        let lowbyte = self.read_byte(addr);
+        let highbyte = self.read_byte(addr + 1);
         lowbyte as u16 | ((highbyte as u16) << 8)
     }
 
