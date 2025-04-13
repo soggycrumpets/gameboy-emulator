@@ -36,10 +36,9 @@ pub const OAM_END: u16 = 0xFE9F;
 pub const OAM_SIZE: usize = (OAM_END - OAM_START + 1) as usize;
 
 // Prohibited area of memory
-pub const RESTRICTED_MEMORY_START: u16 = 0xFEA0;
-pub const RESTRICTED_MEMORY_END: u16 = 0xFEFF;
-pub const RESTRICTED_MEMORY_SIZE: usize =
-    (RESTRICTED_MEMORY_END - RESTRICTED_MEMORY_START + 1) as usize;
+pub const RESTRICTED_MEM_START: u16 = 0xFEA0;
+pub const RESTRICTED_MEM_END: u16 = 0xFEFF;
+pub const RESTRICTED_MEM_SIZE: usize = (RESTRICTED_MEM_END - RESTRICTED_MEM_START + 1) as usize;
 
 pub const IO_START: u16 = 0xFF00;
 pub const IO_END: u16 = 0xFF7F;
@@ -66,21 +65,22 @@ pub enum MemRegion {
     Ie,
 }
 
-// impl Mmu {
-//     fn map_address(&self, addr: u16) -> (MemRegion, u16){
-//         match addr {
-//             RomBank0,
-//             RomBank1,
-//             Vram,
-//             Exram,
-//             Wram0,
-//             Wram1,
-//             EchoRam,
-//             Oam,
-//             Restricted,
-//             Io,
-//             Hram,
-//             Ie,
-//         }
-//     } 
-// }
+pub fn map_address(addr: u16) -> (MemRegion, u16) {
+    use MemRegion as M;
+    let (region, start_addr) = match addr {
+        ROM_BANK_0_START..=ROM_BANK_0_END => (M::RomBank0, ROM_BANK_0_START),
+        ROM_BANK_1_START..=ROM_BANK_1_END => (M::RomBank1, ROM_BANK_1_START),
+        VRAM_START..=VRAM_END => (M::Vram, VRAM_START),
+        EXRAM_START..=EXRAM_END => (M::Exram, EXRAM_START),
+        WRAM_0_START..=WRAM_0_END => (M::Wram0, WRAM_0_START),
+        WRAM_1_START..=WRAM_1_END => (M::Wram1, WRAM_1_START),
+        ECHO_RAM_START..=ECHO_RAM_END => (M::EchoRam, ECHO_RAM_START),
+        OAM_START..=OAM_END => (M::Oam, OAM_START),
+        RESTRICTED_MEM_START..=RESTRICTED_MEM_END => (M::Restricted, RESTRICTED_MEM_START),
+        IO_START..=IO_END => (M::Io, IO_START),
+        HRAM_START..=HRAM_END => (M::Hram, HRAM_START),
+        IE_REGISTER => (M::Ie, IE_REGISTER),
+    };
+
+    (region, addr - start_addr)
+}
