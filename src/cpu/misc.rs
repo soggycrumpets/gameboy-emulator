@@ -19,12 +19,14 @@ impl Cpu {
         let c = self.reg.get_flag(Flag::C);
         let mut adjustment: u8 = 0;
         let mut carry = false;
+
         let result = if n {
             if h {
                 adjustment += 0x6;
             }
             if c {
                 adjustment += 0x60;
+                carry = true;
             }
             ra.wrapping_sub(adjustment)
         } else {
@@ -33,6 +35,7 @@ impl Cpu {
             }
             if c || (ra > 0x99) {
                 adjustment += 0x60;
+                carry = true;
             }
             ra.wrapping_add(adjustment)
         };
