@@ -31,7 +31,7 @@ impl Cpu {
         let bits = self.mmu.readbyte(hl);
         let result = self.bitshift_u8(op, bits);
 
-        self.mmu.writebyte(hl, result);
+        self.mmu.write_byte(hl, result);
     }
 
     pub fn bitflag_u3_r8(&mut self, op: Bitflag, bit: u8, r8: R8) {
@@ -45,7 +45,7 @@ impl Cpu {
         let bits = self.mmu.readbyte(hl);
         let result = self.bitflag_u3_u8(op, bit, bits);
 
-        self.mmu.writebyte(hl, result);
+        self.mmu.write_byte(hl, result);
     }
 
     // This function maps bitshifts to their functions

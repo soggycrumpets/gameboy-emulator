@@ -1,7 +1,5 @@
-use super::Cpu;
-use crate::registers;
-use registers::Flag;
-use registers::{R8, R16};
+use super::*;
+use registers::{Flag, R8, R16};
 
 // TODO: Separate out r8 / hl operations like in bits.rs
 // This will remove a lot of repeat logic
@@ -351,7 +349,7 @@ impl Cpu {
         let value = self.mmu.readbyte(hl);
         let result = self.inc_u8(value);
 
-        self.mmu.writebyte(hl, result);
+        self.mmu.write_byte(hl, result);
     }
 
     // 16-bit
@@ -385,7 +383,7 @@ impl Cpu {
         let value = self.mmu.readbyte(hl);
         let result = self.dec_u8(value);
 
-        self.mmu.writebyte(hl, result);
+        self.mmu.write_byte(hl, result);
     }
 
     // 16-bit

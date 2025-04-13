@@ -1,5 +1,5 @@
-use crate::memory::Mmu;
-use crate::registers;
+use crate::mmu::Mmu;
+pub mod registers;
 mod alu;
 mod bits;
 mod jumps;

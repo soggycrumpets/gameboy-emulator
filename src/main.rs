@@ -1,11 +1,10 @@
 use constants::{BOOTROM_START_ADDR, PROGRAM_START_ADDR};
 use cpu::Cpu;
-use registers::R16;
+use cpu::registers::R16;
 
 mod constants;
 mod cpu;
-mod memory;
-mod registers;
+mod mmu;
 
 const TEST_CPU_PATH: &str = "./roms/cpu_instrs.gb";
 const GAME_PATH: &str = "./roms/tetris.gb";
@@ -14,8 +13,10 @@ const BOOTROM_PATH: &str = "./roms/dmg_boot.gb";
 const ROM_PATH: &str = TEST_CPU_PATH;
 
 fn main() {
-    cpu_test_rom();
-    return;
+
+
+    // test_rom();
+    // return;
 
     let mut cpu = Cpu::new();
     if !cpu.mmu.load_rom(BOOTROM_PATH, BOOTROM_START_ADDR) {
@@ -30,13 +31,13 @@ fn main() {
 
     loop {
         cpu.execute();
-        let pc = cpu.reg.get16(R16::PC);
+        // let pc = cpu.reg.get16(R16::PC);
         // println!("{:4x}", pc);
     }
 }
 
 
-fn cpu_test_rom() {
+fn test_rom() {
     let mut cpu = Cpu::new();
 
     if !cpu.mmu.load_rom(ROM_PATH, BOOTROM_START_ADDR) {
@@ -46,7 +47,7 @@ fn cpu_test_rom() {
 
     loop {
         cpu.execute();
-        // let pc = cpu.reg.get16(R16::PC);
-        // println!("{:4x}", pc);
+        let pc = cpu.reg.get16(R16::PC);
+        println!("{:4x}", pc);
     }
 }
