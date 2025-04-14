@@ -23,7 +23,7 @@ pub enum AluUnary {
 
 impl Cpu {
     // These functions map the most common ALU operations to their functions
-    // This one is for binary operations (all but INC and DEC)
+    // This one is for binary operations
     fn alu_a_u8(&mut self, op: AluBinary, value: u8) {
         match op {
             AluBinary::Add => self.add_a_u8(value),
@@ -37,7 +37,7 @@ impl Cpu {
         };
     }
 
-    // This one is for unary operations (INC and DEC)
+    // This one is for unary operations
     fn alu_u8(&mut self, op: AluUnary, value: u8) -> u8 {
         match op {
             AluUnary::Inc => self.inc_u8(value),

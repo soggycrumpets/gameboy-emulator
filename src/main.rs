@@ -1,13 +1,17 @@
+use std::{cell::RefCell, rc::Rc};
+
 use constants::{
-    BOOTROM_START_ADDR, PREFIXED_INSTRUCTION_T_CYCLE_TABLE, PROGRAM_START_ADDR,
-    UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE,
+    PREFIXED_INSTRUCTION_T_CYCLE_TABLE, PROGRAM_START_ADDR, UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE,
 };
 use cpu::Cpu;
+use mmu::Mmu;
+
 use cpu::registers::R16;
 
 mod constants;
 mod cpu;
 mod mmu;
+mod ppu;
 
 // Hardcoded for now
 const TEST_CPU_PATH: &str = "./roms/cpu_instrs.gb";
@@ -17,13 +21,13 @@ const BOOTROM_PATH: &str = "./roms/dmg_boot.gb";
 const ROM_PATH: &str = GAME_PATH;
 
 fn main() {
-
-    let mut cpu = Cpu::new();
+    let mmu = Rc::new(RefCell::new(Mmu::new()));
+    let mut cpu = Cpu::new(Rc::clone(&mmu));
 
     // TODO: Fix the boot sequence (not sure exactly how it should work yet)
-    // boot(&mut cpu);
+    boot(&mut cpu);
 
-    if !cpu.mmu.load_rom(ROM_PATH) {
+    if !mmu.borrow_mut().load_rom(ROM_PATH) {
         println!("Failed to load \"{}\"", GAME_PATH);
         return;
     }
@@ -36,7 +40,7 @@ fn main() {
 }
 
 fn boot(cpu: &mut Cpu) -> bool {
-    if !cpu.mmu.load_rom(ROM_PATH) {
+    if !cpu.mmu.borrow_mut().load_rom(ROM_PATH) {
         println!("Failed to load \"{}\"", GAME_PATH);
         return false;
     }
@@ -77,9 +81,10 @@ fn print_t_cycle_tables() {
 }
 
 fn test_rom() {
-    let mut cpu = Cpu::new();
+    let mmu = Rc::new(RefCell::new(Mmu::new()));
+    let mut cpu = Cpu::new(Rc::clone(&mmu));
 
-    if !cpu.mmu.load_rom(ROM_PATH) {
+    if !cpu.mmu.borrow_mut().load_rom(ROM_PATH) {
         println!("Failed to CPU test rom");
         return;
     }

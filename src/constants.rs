@@ -1,5 +1,4 @@
 pub const PROGRAM_START_ADDR: u16 = 0x0100;
-pub const BOOTROM_START_ADDR: u16 = 0x0000;
 
 // These contain the minimum number of tick cycles that each instruction can take to perform
 pub const UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =

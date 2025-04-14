@@ -1,7 +1,42 @@
+// pub const BOOTROM_START_ADDR: u16 = 0x0000;
+// pub const TOP_OF_STACK_ADDR: u16 = 0xFFFE;
+
 const ZERO_FLAG: u8 = 7;
 const SUBTRACT_FLAG: u8 = 6;
 const HALF_CARRY_FLAG: u8 = 5;
 const CARRY_FLAG: u8 = 4;
+
+// 8-bit registers
+#[derive(Clone, Copy, Debug)]
+pub enum R8 {
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    H,
+    L,
+}
+
+// 16-bit registers
+#[derive(Clone, Copy, Debug)]
+pub enum R16 {
+    AF,
+    BC,
+    DE,
+    HL,
+    SP,
+    PC,
+}
+
+// F-register flags
+pub enum Flag {
+    Z,
+    N,
+    H,
+    C,
+}
 
 pub struct Registers {
     a: u8,
@@ -12,8 +47,8 @@ pub struct Registers {
     f: Flags,
     h: u8,
     l: u8,
-    sp: u16,
-    pc: u16,
+    sp: u16, // Stack pointer
+    pc: u16, // Program counter
 }
 
 impl Registers {
@@ -27,8 +62,8 @@ impl Registers {
             f: 0.into(),
             h: 0,
             l: 0,
-            sp: 0xFFFE, // Starts at the top of the stack
-            pc: 0x0000, // Starts at the beginning of the bootrom
+            sp: 0,
+            pc: 0,
         }
     }
 
@@ -146,35 +181,6 @@ impl From<Flags> for u8 {
         value |= (register.half_carry as u8) << HALF_CARRY_FLAG;
         value
     }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum R8 {
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
-    H,
-    L,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum R16 {
-    AF,
-    BC,
-    DE,
-    HL,
-    SP,
-    PC,
-}
-
-pub enum Flag {
-    Z,
-    N,
-    H,
-    C,
 }
 
 #[cfg(test)]

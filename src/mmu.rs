@@ -1,6 +1,7 @@
 mod memmap;
 use memmap::*;
 
+#[derive(Debug)]
 pub struct Mmu {
     pub rom_bank_00: [u8; ROM_BANK_0_SIZE],
     pub rom_bank_01: [u8; ROM_BANK_1_SIZE],

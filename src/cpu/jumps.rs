@@ -1,7 +1,7 @@
 use super::*;
 
 // Note: All instructions with checked conditions will return the
-// number of extra clock cycles they took (total_cycles - min_cycles)
+// number of extra clock tick cycles they took (actual_cycles - min_cycles)
 const JP_CC_EXTRA_T_CYCLES: u8 = 4;
 const CALL_CC_EXTRA_T_CYCLES: u8 = 12;
 const RET_CC_EXTRA_T_CYCLES: u8 = CALL_CC_EXTRA_T_CYCLES;

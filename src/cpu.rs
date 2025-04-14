@@ -1,3 +1,6 @@
+use super::*;
+
+use crate::constants::{PREFIXED_INSTRUCTION_T_CYCLE_TABLE, UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE};
 use crate::mmu::Mmu;
 mod alu;
 mod bits;
@@ -12,17 +15,17 @@ use registers::{R8, R16};
 
 pub struct Cpu {
     pub reg: Registers,
-    pub mmu: Mmu,
+    pub mmu: Rc<RefCell<Mmu>>,
     pub instruction_tick_cycles: u8,
     ime: bool,
     ime_pending: bool,
 }
 
 impl Cpu {
-    pub fn new() -> Cpu {
+    pub fn new(mmu: Rc<RefCell<Mmu>>) -> Cpu {
         Cpu {
             reg: Registers::new(),
-            mmu: Mmu::new(),
+            mmu,
             instruction_tick_cycles: 0,
             ime: true,
             ime_pending: false,
@@ -31,7 +34,7 @@ impl Cpu {
 
     pub fn fetch_byte(&mut self) -> u8 {
         let pc = self.reg.get16(R16::PC);
-        let byte = self.mmu.read_byte(pc);
+        let byte = self.mmu.borrow_mut().read_byte(pc);
 
         let next_addr = pc + 1;
         self.reg.set16(R16::PC, next_addr);
@@ -40,7 +43,7 @@ impl Cpu {
 
     pub fn fetch_word(&mut self) -> u16 {
         let pc = self.reg.get16(R16::PC);
-        let word = self.mmu.read_word(pc);
+        let word = self.mmu.borrow_mut().read_word(pc);
 
         let next_addr = pc + 2;
         self.reg.set16(R16::PC, next_addr);
@@ -51,11 +54,11 @@ impl Cpu {
         let opcode = self.fetch_byte();
         // println!("{:02x}", opcode);
 
-        // Look up the number of clock cycles this instruction will take
-        // Note: In the case of checked condition functions, the minimum
-        // time is assumed. The functions will increment adjust the value
+        // Look up the number of clock cycles this instruction will take.
+        // In the case of checked condition functions, the minimum
+        // number of cycles is assumed. Those functions will adjust the value
         // when called if the condition is met.
-        self.instruction_tick_cycles = 0; // TODO: Index clock cycle array
+        self.instruction_tick_cycles = UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
 
         // Every instruction that contains an n8, a8, or e8 will fetch a byte.
         // Every instruction that contains an n16 or a16 will fetch a word.
@@ -96,21 +99,21 @@ impl Cpu {
             0x1F => self.bitshift_r8(BitshiftOp::Rr, R8::A), // RRA
 
             0x20 => self.jr_cc_e8(Flag::Z, false), // JR NZ, e8
-            0x21 => self.ld_r16_n16(R16::HL),                      // LD HL, n16
-            0x22 => self.ld_at_hli_a(),                            // LD [HL+], A
-            0x23 => self.inc_r16(R16::HL),                         // INC HL
-            0x24 => self.alu_r8(AluUnary::Inc, R8::H),             // INC H
-            0x25 => self.alu_r8(AluUnary::Dec, R8::H),             // DEC H
-            0x26 => self.ld_r8_n8(R8::H),                          // LD H, n8
-            0x27 => self.daa(),                                    // DAA
-            0x28 => self.jr_cc_e8(Flag::Z, true),                  // JR Z e8
-            0x29 => self.add_hl_r16(R16::HL),                      // ADD HL, HL
-            0x2A => self.ld_a_at_hli(),                            // LD A, [HL+]
-            0x2B => self.dec_r16(R16::HL),                         // DEC HL
-            0x2C => self.alu_r8(AluUnary::Inc, R8::L),             // INC L
-            0x2D => self.alu_r8(AluUnary::Dec, R8::L),             // DEC L
-            0x2E => self.ld_r8_n8(R8::L),                          // LD L, n8
-            0x2F => self.cpl(),                                    // CPL
+            0x21 => self.ld_r16_n16(R16::HL),      // LD HL, n16
+            0x22 => self.ld_at_hli_a(),            // LD [HL+], A
+            0x23 => self.inc_r16(R16::HL),         // INC HL
+            0x24 => self.alu_r8(AluUnary::Inc, R8::H), // INC H
+            0x25 => self.alu_r8(AluUnary::Dec, R8::H), // DEC H
+            0x26 => self.ld_r8_n8(R8::H),          // LD H, n8
+            0x27 => self.daa(),                    // DAA
+            0x28 => self.jr_cc_e8(Flag::Z, true),  // JR Z e8
+            0x29 => self.add_hl_r16(R16::HL),      // ADD HL, HL
+            0x2A => self.ld_a_at_hli(),            // LD A, [HL+]
+            0x2B => self.dec_r16(R16::HL),         // DEC HL
+            0x2C => self.alu_r8(AluUnary::Inc, R8::L), // INC L
+            0x2D => self.alu_r8(AluUnary::Dec, R8::L), // DEC L
+            0x2E => self.ld_r8_n8(R8::L),          // LD L, n8
+            0x2F => self.cpl(),                    // CPL
 
             0x30 => self.jr_cc_e8(Flag::C, false), // JR NC, e8
             0x31 => self.ld_r16_n16(R16::SP),      // LD SP, n16
@@ -337,6 +340,11 @@ impl Cpu {
 
     fn execute_prefixed(&mut self) {
         let opcode = self.fetch_byte();
+
+        // The numbers in this table are the TOTAL number of cycles that
+        // the instruction takes, including the cycles of the prefix
+        // instruction! This is why it's set equal to, not added to.
+        self.instruction_tick_cycles = PREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
 
         match opcode {
             0x00 => self.bitshift_r8(BitshiftOp::Rlc, R8::B), // RLC B
@@ -616,12 +624,12 @@ impl Cpu {
     // Tons of instructions read or write at hl, so I extracted out the logic here
     fn read_at_hl(&self) -> u8 {
         let hl = self.reg.get16(R16::HL);
-        self.mmu.read_byte(hl)
+        self.mmu.borrow_mut().read_byte(hl)
     }
 
     fn write_at_hl(&mut self, byte: u8) {
         let hl = self.reg.get16(R16::HL);
-        self.mmu.write_byte(hl, byte);
+        self.mmu.borrow_mut().write_byte(hl, byte);
     }
 
     // Misc instructions
