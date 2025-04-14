@@ -22,8 +22,8 @@ pub enum AluUnary {
 }
 
 impl Cpu {
-    // These functions map the most common ALU operations to their functions
-    // This one is for binary operations
+    // These functions map the most common ALU operations to their functions.
+    // This one is for binary operations:
     fn alu_a_u8(&mut self, op: AluBinary, value: u8) {
         match op {
             AluBinary::Add => self.add_a_u8(value),
@@ -37,7 +37,7 @@ impl Cpu {
         };
     }
 
-    // This one is for unary operations
+    // This one is for unary operations:
     fn alu_u8(&mut self, op: AluUnary, value: u8) -> u8 {
         match op {
             AluUnary::Inc => self.inc_u8(value),
@@ -45,7 +45,7 @@ impl Cpu {
         }
     }
 
-    // These are the ALU interface functions for 8-bit operations
+    // These are the ALU interface functions for 8-bit operations:
     pub fn alu_a_r8(&mut self, op: AluBinary, r8: R8) {
         let value = self.reg.get(r8);
         self.alu_a_u8(op, value);
@@ -112,7 +112,7 @@ impl Cpu {
         let sp = self.reg.get16(R16::SP);
         let n8 = self.fetch_byte();
 
-        // Casting this way allows e8 to be negative if n8 is big enough
+        // Casting this way allows e8 to be negative if n8 is big enough (n8 > i8_MAX results in a negative)
         let e8 = (n8 as i8) as i16;
 
         let result = (sp as i16).wrapping_add(e8) as u16;

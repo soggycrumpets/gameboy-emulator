@@ -34,7 +34,7 @@ impl Cpu {
 
     pub fn fetch_byte(&mut self) -> u8 {
         let pc = self.reg.get16(R16::PC);
-        let byte = self.mmu.borrow_mut().read_byte(pc);
+        let byte = self.mmu.borrow().read_byte(pc);
 
         let next_addr = pc + 1;
         self.reg.set16(R16::PC, next_addr);
@@ -624,7 +624,7 @@ impl Cpu {
     // Tons of instructions read or write at hl, so I extracted out the logic here
     fn read_at_hl(&self) -> u8 {
         let hl = self.reg.get16(R16::HL);
-        self.mmu.borrow_mut().read_byte(hl)
+        self.mmu.borrow().read_byte(hl)
     }
 
     fn write_at_hl(&mut self, byte: u8) {
@@ -640,6 +640,14 @@ impl Cpu {
 
     fn ei(&mut self) {
         self.ime_pending = true;
+    }
+
+    fn stop(&mut self) {
+        todo!();
+    }
+
+    fn halt(&mut self) {
+        todo!();
     }
 }
 

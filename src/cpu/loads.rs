@@ -16,7 +16,7 @@ impl Cpu {
         let sp = self.reg.get16(R16::SP);
 
         // Pop the stack into the register
-        let word = self.mmu.borrow_mut().read_word(sp);
+        let word = self.mmu.borrow().read_word(sp);
         self.reg.set16(r16, word);
 
         // Increment sp
@@ -81,27 +81,27 @@ impl Cpu {
 
     pub fn ld_a_at_r16(&mut self, r16: R16) {
         let addr = self.reg.get16(r16);
-        let byte = self.mmu.borrow_mut().read_byte(addr);
+        let byte = self.mmu.borrow().read_byte(addr);
         self.reg.set(R8::A, byte);
     }
 
     pub fn ld_a_at_a16(&mut self) {
         let a16 = self.fetch_word();
-        let byte = self.mmu.borrow_mut().read_byte(a16);
+        let byte = self.mmu.borrow().read_byte(a16);
         self.reg.set(R8::A, byte);
     }
 
     pub fn ldh_a_a8(&mut self) {
         let a8 = self.fetch_byte();
         let addr = 0xFF00 + (a8 as u16);
-        let byte = self.mmu.borrow_mut().read_byte(addr);
+        let byte = self.mmu.borrow().read_byte(addr);
         self.reg.set(R8::A, byte);
     }
 
     pub fn ldh_a_at_c(&mut self) {
         let rc = self.reg.get(R8::C);
         let addr = 0xFF00 + (rc as u16);
-        let byte = self.mmu.borrow_mut().read_byte(addr);
+        let byte = self.mmu.borrow().read_byte(addr);
         self.reg.set(R8::A, byte);
     }
 

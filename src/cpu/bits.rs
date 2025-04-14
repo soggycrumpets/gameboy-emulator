@@ -178,7 +178,7 @@ impl Cpu {
         result
     }
 
-    // ----- Bit Flag Instructions -----
+    // ----- Bitflag Instructions -----
 
     // BIT
     fn bit_u3_u8(&mut self, bit_position: u8, bits: u8) {

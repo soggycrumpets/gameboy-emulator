@@ -1,4 +1,6 @@
-mod memmap;
+pub mod memmap;
+use std::{cell::RefCell, rc::Rc};
+
 use memmap::*;
 
 #[derive(Debug)]
@@ -18,8 +20,8 @@ pub struct Mmu {
 }
 
 impl Mmu {
-    pub fn new() -> Mmu {
-        Mmu {
+    pub fn new() -> Rc<RefCell<Mmu>> {
+        let mmu = Mmu {
             rom_bank_00: [0; ROM_BANK_0_SIZE],
             rom_bank_01: [0; ROM_BANK_1_SIZE],
             vram: [0; VRAM_SIZE],
@@ -32,7 +34,9 @@ impl Mmu {
             io: [0; IO_SIZE],
             hram: [0; HRAM_SIZE],
             ie: 0,
-        }
+        };
+
+        Rc::new(RefCell::new(mmu))
     }
 
     // Load rom into memory
