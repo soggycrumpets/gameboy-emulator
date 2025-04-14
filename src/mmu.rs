@@ -41,13 +41,8 @@ impl Mmu {
             Err(..) => return false,
         };
 
-        println!("{}", path);
-        println!("{}", self.rom_bank_00.len());
-        println!("{}", rom.len());
+        // TODO: This currently does not support roms with switchable memory banks
         let (rom_half_1, rom_half_2) = rom.split_at(self.rom_bank_00.len());
-        // let rom_bank_size = self.rom_bank_00.len();
-        // self.rom_bank_00.copy_from_slice(&rom[..=rom_bank_size]);
-        // self.rom_bank_01.copy_from_slice(&rom[rom_bank_size+1..=]);
 
         self.rom_bank_00.copy_from_slice(rom_half_1);
         self.rom_bank_01.copy_from_slice(rom_half_2);

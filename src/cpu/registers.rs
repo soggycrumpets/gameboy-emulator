@@ -3,8 +3,6 @@ const SUBTRACT_FLAG: u8 = 6;
 const HALF_CARRY_FLAG: u8 = 5;
 const CARRY_FLAG: u8 = 4;
 
-use crate::constants::PROGRAM_START_ADDR;
-
 pub struct Registers {
     a: u8,
     b: u8,
@@ -30,7 +28,7 @@ impl Registers {
             h: 0,
             l: 0,
             sp: 0xFFFE, // Starts at the top of the stack
-            pc: 0x0100, // Starts at the beginning of the bootrom
+            pc: 0x0000, // Starts at the beginning of the bootrom
         }
     }
 

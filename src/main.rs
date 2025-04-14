@@ -9,6 +9,7 @@ mod constants;
 mod cpu;
 mod mmu;
 
+// Hardcoded for now
 const TEST_CPU_PATH: &str = "./roms/cpu_instrs.gb";
 const GAME_PATH: &str = "./roms/tetris.gb";
 const BOOTROM_PATH: &str = "./roms/dmg_boot.gb";
@@ -16,14 +17,11 @@ const BOOTROM_PATH: &str = "./roms/dmg_boot.gb";
 const ROM_PATH: &str = GAME_PATH;
 
 fn main() {
-    print_t_cycle_tables();
-    return;
 
     let mut cpu = Cpu::new();
-    // if !cpu.mmu.load_rom(BOOTROM_PATH, BOOTROM_START_ADDR) {
-    //     println!("Failed to load bootrom");
-    //     return;
-    // }
+
+    // TODO: Fix the boot sequence (not sure exactly how it should work yet)
+    // boot(&mut cpu);
 
     if !cpu.mmu.load_rom(ROM_PATH) {
         println!("Failed to load \"{}\"", GAME_PATH);
@@ -33,7 +31,7 @@ fn main() {
     loop {
         cpu.execute();
         let pc = cpu.reg.get16(R16::PC);
-        println!("{:4x}", pc);
+        // println!("{:4x}", pc);
     }
 }
 
@@ -89,6 +87,5 @@ fn test_rom() {
     loop {
         cpu.execute();
         let pc = cpu.reg.get16(R16::PC);
-        println!("{:4x}", pc);
     }
 }

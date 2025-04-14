@@ -3,7 +3,6 @@ mod alu;
 mod bits;
 mod jumps;
 mod loads;
-mod misc;
 pub mod registers;
 use alu::{AluBinary, AluUnary};
 use bits::{BitflagOp, BitshiftOp};
@@ -50,7 +49,7 @@ impl Cpu {
 
     pub fn execute(&mut self) {
         let opcode = self.fetch_byte();
-        println!("{:02x}", opcode);
+        // println!("{:02x}", opcode);
 
         // Look up the number of clock cycles this instruction will take
         // Note: In the case of checked condition functions, the minimum
