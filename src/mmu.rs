@@ -114,3 +114,20 @@ impl Mmu {
         self.write_byte(addr + 1, highbyte);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::create_gameboy_components;
+
+    #[test]
+    fn test_read_byte() -> byte {
+        let (cpu, ppu) = create_gameboy_components();
+        let byte = std::rand::thread_rng().
+        cpu.mmu.borrow_mut().write_byte(addr, byte);
+    }
+
+    #[test]
+    fn test_write_byte() {
+        
+    }
+}

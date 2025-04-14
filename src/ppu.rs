@@ -1,4 +1,5 @@
 mod registers;
+mod tiles;
 
 use crate::mmu;
 use registers::{};
@@ -7,7 +8,6 @@ use std::{cell::RefCell, rc::Rc};
 
 pub struct Ppu {
     mmu: Rc<RefCell<Mmu>>,
-   
 }
 
 impl Ppu {

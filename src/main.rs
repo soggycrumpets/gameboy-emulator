@@ -1,8 +1,8 @@
 mod constants;
-mod util;
 mod cpu;
 mod mmu;
 mod ppu;
+mod util;
 use std::{cell::RefCell, rc::Rc};
 
 use constants::{
@@ -40,6 +40,13 @@ fn main() {
         let pc = cpu.reg.get16(R16::PC);
         // println!("{:4x}", pc);
     }
+}
+
+fn create_gameboy_components() -> (Cpu, Ppu) {
+    let mmu = Mmu::new();
+    let cpu = Cpu::new(Rc::clone(&mmu));
+    let ppu = Ppu::new(Rc::clone(&mmu));
+    (cpu, ppu)
 }
 
 fn boot(cpu: &mut Cpu) -> bool {
@@ -98,13 +105,3 @@ fn test_rom() {
     }
 }
 
-enum Ahoy {
-    There = 3,
-    Matey = 7,
-}
-
-#[test]
-fn sanity_check() {
-    assert_eq!(Ahoy::There as u8, 3);
-    assert_eq!(Ahoy::Matey as u8, 7);
-}

@@ -1,5 +1,7 @@
 use super::Mmu;
 
+// ----- Memory ranges are INCLUSIVE -----
+
 const ROM_BANK_0_START: u16 = 0x0000;
 const ROM_BANK_0_END: u16 = 0x3FFF;
 pub const ROM_BANK_0_SIZE: usize = (ROM_BANK_0_END - ROM_BANK_0_START + 1) as usize;

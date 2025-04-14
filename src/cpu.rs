@@ -653,7 +653,6 @@ impl Cpu {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     #[test]
     fn test() {
         todo!("Write CPU test cases");
