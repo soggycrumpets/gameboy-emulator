@@ -1,5 +1,8 @@
 use super::*;
 
+// Note: All instructions with checked conditions will return the
+// number of extra clock cycles they took (total_cycles - min_cycles)
+
 impl Cpu {
     // JP
     fn jp_u16(&mut self, addr: u16) {
@@ -21,6 +24,7 @@ impl Cpu {
 
         if expect == self.reg.get_flag(flag) {
             self.jp_u16(a16);
+            self.instruction_tick_cycles += 4;
         }
     }
 
@@ -42,6 +46,7 @@ impl Cpu {
 
         if expect == self.reg.get_flag(flag) {
             self.jr(n8);
+            self.instruction_tick_cycles += 4;
         }
     }
 
@@ -61,6 +66,7 @@ impl Cpu {
 
         if expect == self.reg.get_flag(flag) {
             self.rst_vec(a16);
+            self.instruction_tick_cycles += 4;
         }
     }
 
@@ -72,14 +78,13 @@ impl Cpu {
     pub fn ret_cc(&mut self, flag: Flag, expect: bool) {
         if expect == self.reg.get_flag(flag) {
             self.ret();
+            self.instruction_tick_cycles += 4;
         }
+
     }
 
     pub fn reti(&mut self) {
         self.ret();
         self.ei();
     }
-
-   
-    
 }

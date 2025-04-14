@@ -5,9 +5,7 @@ use registers::{Flag, R8, R16};
 // INC, DEC, CPL, SCF, CCF, DAA, and all of the 16-bit ops have
 // have their own interface functions
 
-pub enum AluOp {
-    Inc,
-    Dec,
+pub enum AluBinary {
     Add,
     Adc,
     Sub,
@@ -18,54 +16,59 @@ pub enum AluOp {
     Cp,
 }
 
+pub enum AluUnary {
+    Inc,
+    Dec,
+}
+
 impl Cpu {
     // These functions map the most common ALU operations to their functions
-    fn alu_a_u8(&mut self, op: AluOp, value: u8) {
+    // This one is for binary operations (all but INC and DEC)
+    fn alu_a_u8(&mut self, op: AluBinary, value: u8) {
         match op {
-            AluOp::Add => self.add_a_u8(value),
-            AluOp::Adc => self.adc_a_u8(value),
-            AluOp::Sub => self.sub_a_u8(value),
-            AluOp::Sbc => self.sbc_a_u8(value),
-            AluOp::And => self.and_a_u8(value),
-            AluOp::Xor => self.xor_a_u8(value),
-            AluOp::Or => self.or_a_u8(value),
-            AluOp::Cp => self.cp_a_u8(value),
-            AluOp::Inc | AluOp::Dec => unreachable!(),
+            AluBinary::Add => self.add_a_u8(value),
+            AluBinary::Adc => self.adc_a_u8(value),
+            AluBinary::Sub => self.sub_a_u8(value),
+            AluBinary::Sbc => self.sbc_a_u8(value),
+            AluBinary::And => self.and_a_u8(value),
+            AluBinary::Xor => self.xor_a_u8(value),
+            AluBinary::Or => self.or_a_u8(value),
+            AluBinary::Cp => self.cp_a_u8(value),
         };
     }
 
-    fn alu_u8(&mut self, op: AluOp, value: u8) -> u8 {
+    // This one is for unary operations (INC and DEC)
+    fn alu_u8(&mut self, op: AluUnary, value: u8) -> u8 {
         match op {
-            AluOp::Inc => self.inc_u8(value),
-            AluOp::Dec => self.dec_u8(value),
-            _ => unreachable!(),
+            AluUnary::Inc => self.inc_u8(value),
+            AluUnary::Dec => self.dec_u8(value),
         }
     }
 
     // These are the ALU interface functions for 8-bit operations
-    pub fn alu_a_r8(&mut self, op: AluOp, r8: R8) {
+    pub fn alu_a_r8(&mut self, op: AluBinary, r8: R8) {
         let value = self.reg.get(r8);
         self.alu_a_u8(op, value);
     }
 
-    pub fn alu_a_at_hl(&mut self, op: AluOp) {
+    pub fn alu_a_at_hl(&mut self, op: AluBinary) {
         let value = self.read_at_hl();
         self.alu_a_u8(op, value);
     }
 
-    pub fn alu_a_n8(&mut self, op: AluOp) {
+    pub fn alu_a_n8(&mut self, op: AluBinary) {
         let value = self.fetch_byte();
         self.alu_a_u8(op, value);
     }
 
-    pub fn alu_r8(&mut self, op: AluOp, r8: R8) {
+    pub fn alu_r8(&mut self, op: AluUnary, r8: R8) {
         let value = self.reg.get(r8);
         let result = self.alu_u8(op, value);
 
         self.reg.set(r8, result);
     }
 
-    pub fn alu_at_hl(&mut self, op: AluOp) {
+    pub fn alu_at_hl(&mut self, op: AluUnary) {
         let value = self.read_at_hl();
         let result = self.alu_u8(op, value);
 
