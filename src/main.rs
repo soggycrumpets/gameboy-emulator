@@ -1,4 +1,5 @@
 mod constants;
+mod util;
 mod cpu;
 mod mmu;
 mod ppu;
@@ -95,4 +96,15 @@ fn test_rom() {
         cpu.execute();
         let pc = cpu.reg.get16(R16::PC);
     }
+}
+
+enum Ahoy {
+    There = 3,
+    Matey = 7,
+}
+
+#[test]
+fn sanity_check() {
+    assert_eq!(Ahoy::There as u8, 3);
+    assert_eq!(Ahoy::Matey as u8, 7);
 }
