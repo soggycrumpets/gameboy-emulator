@@ -33,6 +33,7 @@ fn run_gameboy(mut cpu: Cpu, mut ppu: Ppu) {
         cpu.execute();
         ppu.draw();
         ui.process_inputs();
+        ui.render_display(&ppu.display);
         // print!("{:?}", ppu.screen);
     }
 }

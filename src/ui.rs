@@ -1,15 +1,14 @@
+use crate::ppu::GbDisplay;
+
 use super::*;
-use sdl2::{EventPump, event::Event, keyboard::Scancode, render::Canvas, video::Window};
+use sdl2::{
+    EventPump, event::Event, keyboard::Scancode, pixels::Color, rect::Rect, render::Canvas,
+    video::Window,
+};
 
-pub const WINDOW_WIDTH: usize = 160;
-pub const WINDOW_HEIGHT: usize = 144;
-
-pub struct UserInterface {
-    canvas: Canvas<Window>,
-    event_pump: EventPump,
-    pub inputs: Inputs,
-    pub running: bool,
-}
+pub const WINDOW_WIDTH: usize = 256;
+pub const WINDOW_HEIGHT: usize = 256;
+pub const WINDOW_SCALE_FACTOR: usize = 1;
 
 pub struct Inputs {
     pub a: bool,
@@ -19,6 +18,13 @@ impl Inputs {
     fn new() -> Self {
         Inputs { a: false }
     }
+}
+
+pub struct UserInterface {
+    canvas: Canvas<Window>,
+    event_pump: EventPump,
+    pub inputs: Inputs,
+    pub running: bool,
 }
 
 impl UserInterface {
@@ -51,7 +57,33 @@ impl UserInterface {
         (canvas, event_pump)
     }
 
-    pub fn render_display() {}
+    pub fn render_display(&mut self, display: &GbDisplay) {
+        self.canvas.set_draw_color(Color::RGB(0, 0, 0));
+        self.canvas.clear();
+        for (y, row) in display.iter().enumerate() {
+            for (x, pixel) in row.iter().enumerate() {
+                let color = match pixel {
+                    0 => Color::RGB(0, 0, 0),
+                    1 => Color::RGB(255, 0, 0),
+                    2 => Color::RGB(0, 255, 0),
+                    3 => Color::RGB(0, 0, 255),
+                    _ => panic!("Invalid pixel color value detected in the display"),
+                };
+                self.canvas.set_draw_color(color);
+
+                self.canvas
+                    .fill_rect(Rect::new(
+                        (x as i32) * (WINDOW_SCALE_FACTOR as i32),
+                        (y as i32) * (WINDOW_SCALE_FACTOR as i32),
+                        WINDOW_SCALE_FACTOR as u32,
+                        WINDOW_SCALE_FACTOR as u32,
+                    ))
+                    .unwrap();
+            }
+        }
+
+        self.canvas.present();
+    }
 
     pub fn process_inputs(&mut self) {
         for event in self.event_pump.poll_iter() {

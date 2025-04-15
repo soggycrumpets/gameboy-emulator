@@ -11,14 +11,14 @@ pub type GbDisplay = [[u8; 256]; 256];
 
 pub struct Ppu {
     mmu: Rc<RefCell<Mmu>>,
-    pub screen: GbDisplay,
+    pub display: GbDisplay,
 }
 
 impl Ppu {
     pub fn new(mmu: Rc<RefCell<Mmu>>) -> Self {
         Ppu {
             mmu,
-            screen: [[0; 256]; 256],
+            display: [[0; 256]; 256],
         }
     }
 
@@ -34,7 +34,7 @@ impl Ppu {
                 addr += 1;
                 for pixel_row in 0..8_usize {
                     for pixel_col in 0..8_usize {
-                        self.screen[pixel_row + tile_row * 8][pixel_col + tile_col * 8] =
+                        self.display[pixel_row + tile_row * 8][pixel_col + tile_col * 8] =
                             tile[pixel_row][pixel_col];
                     }
                 }
