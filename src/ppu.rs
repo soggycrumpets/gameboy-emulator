@@ -1,5 +1,6 @@
 mod registers;
 mod tiles;
+mod tile_maps;
 
 use crate::mmu;
 use registers::{};

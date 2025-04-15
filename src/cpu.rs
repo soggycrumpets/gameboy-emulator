@@ -1,12 +1,15 @@
 use super::*;
 
-use crate::constants::{PREFIXED_INSTRUCTION_T_CYCLE_TABLE, UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE};
-use crate::mmu::Mmu;
+pub mod registers;
 mod alu;
 mod bits;
 mod jumps;
 mod loads;
-pub mod registers;
+
+use crate::constants::{PREFIXED_INSTRUCTION_T_CYCLE_TABLE, UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE};
+use mmu::memmap::IE_REGISTER;
+use crate::mmu::Mmu;
+
 use alu::{AluBinary, AluUnary};
 use bits::{BitflagOp, BitshiftOp};
 use registers::Flag;
@@ -57,6 +60,8 @@ impl Cpu {
     pub fn execute(&mut self) {
         let opcode = self.fetch_byte();
         // println!("{:02x}", opcode);
+
+        self.update_ime();
 
         // Look up the number of clock cycles this instruction will take.
         // In the case of checked condition functions, the minimum
@@ -622,6 +627,15 @@ impl Cpu {
             0xFD => self.bitflag_u3_r8(BitflagOp::Set, 7, R8::L), // SET 7, L
             0xFE => self.bitflag_u3_at_hl(BitflagOp::Set, 7),     // SET 7, [HL]
             0xFF => self.bitflag_u3_r8(BitflagOp::Set, 7, R8::A), // SET 7, A
+        }
+    }
+
+    fn update_ime(&mut self) {
+        if self.ime {
+            self.ime = false;
+        }
+        if self.ime_pending {
+            self.ime = true;
         }
     }
 

@@ -3,6 +3,7 @@ mod cpu;
 mod mmu;
 mod ppu;
 mod util;
+mod ui;
 use std::{cell::RefCell, rc::Rc};
 
 use constants::{
