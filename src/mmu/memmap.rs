@@ -2,55 +2,55 @@ use super::Mmu;
 
 // ----- Memory ranges are INCLUSIVE -----
 
-const ROM_BANK_0_START: u16 = 0x0000;
-const ROM_BANK_0_END: u16 = 0x3FFF;
+pub const ROM_BANK_0_START: u16 = 0x0000;
+pub const ROM_BANK_0_END: u16 = 0x3FFF;
 pub const ROM_BANK_0_SIZE: usize = (ROM_BANK_0_END - ROM_BANK_0_START + 1) as usize;
 
 // Switchable bank
-const ROM_BANK_1_START: u16 = 0x4000;
-const ROM_BANK_1_END: u16 = 0x7FFF;
+pub const ROM_BANK_1_START: u16 = 0x4000;
+pub const ROM_BANK_1_END: u16 = 0x7FFF;
 pub const ROM_BANK_1_SIZE: usize = (ROM_BANK_1_END - ROM_BANK_1_START + 1) as usize;
 
-const VRAM_START: u16 = 0x8000;
-const VRAM_END: u16 = 0x9FFF;
+pub const VRAM_START: u16 = 0x8000;
+pub const VRAM_END: u16 = 0x9FFF;
 pub const VRAM_SIZE: usize = (VRAM_END - VRAM_START + 1) as usize;
 
 // Cartridge's external RAM
-const EXRAM_START: u16 = 0xA000;
-const EXRAM_END: u16 = 0xBFFF;
+pub const EXRAM_START: u16 = 0xA000;
+pub const EXRAM_END: u16 = 0xBFFF;
 pub const EXRAM_SIZE: usize = (EXRAM_END - EXRAM_START + 1) as usize;
 
-const WRAM_0_START: u16 = 0xC000;
-const WRAM_0_END: u16 = 0xCFFF;
+pub const WRAM_0_START: u16 = 0xC000;
+pub const WRAM_0_END: u16 = 0xCFFF;
 pub const WRAM_0_SIZE: usize = (WRAM_0_END - WRAM_0_START + 1) as usize;
 
 // Sitchable bank 1-7 in CGB mode
-const WRAM_1_START: u16 = 0xD000;
-const WRAM_1_END: u16 = 0xDFFF;
+pub const WRAM_1_START: u16 = 0xD000;
+pub const WRAM_1_END: u16 = 0xDFFF;
 pub const WRAM_1_SIZE: usize = (WRAM_1_END - WRAM_1_START + 1) as usize;
 
-const ECHO_RAM_START: u16 = 0xE000;
-const ECHO_RAM_END: u16 = 0xFDFF;
+pub const ECHO_RAM_START: u16 = 0xE000;
+pub const ECHO_RAM_END: u16 = 0xFDFF;
 pub const ECHO_RAM_SIZE: usize = (ECHO_RAM_END - ECHO_RAM_START + 1) as usize;
 
-const OAM_START: u16 = 0xFE00;
-const OAM_END: u16 = 0xFE9F;
+pub const OAM_START: u16 = 0xFE00;
+pub const OAM_END: u16 = 0xFE9F;
 pub const OAM_SIZE: usize = (OAM_END - OAM_START + 1) as usize;
 
 // Prohibited area of memory
-const RESTRICTED_MEM_START: u16 = 0xFEA0;
-const RESTRICTED_MEM_END: u16 = 0xFEFF;
+pub const RESTRICTED_MEM_START: u16 = 0xFEA0;
+pub const RESTRICTED_MEM_END: u16 = 0xFEFF;
 pub const RESTRICTED_MEM_SIZE: usize = (RESTRICTED_MEM_END - RESTRICTED_MEM_START + 1) as usize;
 
-const IO_START: u16 = 0xFF00;
-const IO_END: u16 = 0xFF7F;
+pub const IO_START: u16 = 0xFF00;
+pub const IO_END: u16 = 0xFF7F;
 pub const IO_SIZE: usize = (IO_END - IO_START + 1) as usize;
 
-const HRAM_START: u16 = 0xFF80;
-const HRAM_END: u16 = 0xFFFE;
+pub const HRAM_START: u16 = 0xFF80;
+pub const HRAM_END: u16 = 0xFFFE;
 pub const HRAM_SIZE: usize = (HRAM_END - HRAM_START + 1) as usize;
 
-const IE_REGISTER: u16 = 0xFFFF;
+pub const IE_REGISTER: u16 = 0xFFFF;
 
 pub enum MemRegion {
     RomBank0,
@@ -67,6 +67,10 @@ pub enum MemRegion {
     Ie,
 }
 
+// Return the memory region that the address is in, and an address
+//  offset by that region's start address.
+// The offset address can be used to directly indexing the array 
+//  that represents that region of memory
 pub fn map_address(addr: u16) -> (MemRegion, u16) {
     use MemRegion as M;
     let (region, start_addr) = match addr {

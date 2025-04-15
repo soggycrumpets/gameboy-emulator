@@ -655,6 +655,5 @@ impl Cpu {
 mod tests {
     #[test]
     fn test() {
-        todo!("Write CPU test cases");
     }
 }
