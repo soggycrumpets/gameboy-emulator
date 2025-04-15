@@ -183,6 +183,26 @@ impl From<Flags> for u8 {
     }
 }
 
+mod debug {
+    use super::*;
+    impl Registers {
+        pub fn print(&self) {
+            print!("\nRegisters:\n");
+            print!("A: {:02x}, ", self.a);
+            print!("B: {:02x}, ", self.b);
+            print!("C: {:02x}, ", self.c);
+            print!("D: {:02x}, ", self.d);
+            print!("E: {:02x}, ", self.e);
+            print!("F: {:02x}, ", u8::from(self.f));
+            print!("H: {:02x}, ", self.h);
+            print!("L: {:02x}, ", self.l);
+            print!("SP: {:04x}, ", self.sp);
+            print!("PC {:04x}, ", self.pc);
+            println!();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

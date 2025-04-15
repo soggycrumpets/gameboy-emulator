@@ -1,3 +1,5 @@
+use std::iter::Scan;
+
 use crate::ppu::GbDisplay;
 
 use super::*;
@@ -10,20 +12,61 @@ pub const WINDOW_WIDTH: usize = 256;
 pub const WINDOW_HEIGHT: usize = 256;
 pub const WINDOW_SCALE_FACTOR: usize = 1;
 
+#[derive(Copy, Clone, Debug)]
 pub struct Inputs {
     pub a: bool,
+    pub g: bool,
+    pub m: bool,
+    pub n: bool,
+    pub r: bool,
+    pub p: bool,
 }
 
 impl Inputs {
     fn new() -> Self {
-        Inputs { a: false }
+        Inputs {
+            a: false,
+            g: false,
+            m: false,
+            n: false,
+            r: false,
+            p: false,
+        }
+    }
+
+    // Returns false if the key has not been implemented
+    fn get(&self, scancode: Scancode) -> bool {
+        match scancode {
+            Scancode::A => self.a,
+            Scancode::G => self.g,
+            Scancode::M => self.m,
+            Scancode::N => self.n,
+            Scancode::R => self.r,
+            Scancode::P => self.p,
+            _ => false,
+        }
+    }
+
+    fn set(&mut self, scancode: Scancode, set: bool) {
+        match scancode {
+            Scancode::A => self.a = set,
+            Scancode::G => self.g = set,
+            Scancode::M => self.m = set,
+            Scancode::N => self.n = set,
+            Scancode::R => self.r = set,
+            Scancode::P => self.p = set,
+            _ => (),
+        };
     }
 }
 
 pub struct UserInterface {
+    pub inputs_down: Inputs,
+    inputs_was_down: Inputs,
+    pub inputs_unique: Inputs,
+
     canvas: Canvas<Window>,
     event_pump: EventPump,
-    pub inputs: Inputs,
     pub running: bool,
 }
 
@@ -33,7 +76,9 @@ impl UserInterface {
         UserInterface {
             canvas,
             event_pump,
-            inputs: Inputs::new(),
+            inputs_down: Inputs::new(),
+            inputs_was_down: Inputs::new(),
+            inputs_unique: Inputs::new(),
             running: true,
         }
     }
@@ -63,10 +108,10 @@ impl UserInterface {
         for (y, row) in display.iter().enumerate() {
             for (x, pixel) in row.iter().enumerate() {
                 let color = match pixel {
-                    0 => Color::RGB(0, 0, 0),
-                    1 => Color::RGB(255, 0, 0),
-                    2 => Color::RGB(0, 255, 0),
-                    3 => Color::RGB(0, 0, 255),
+                    0 => Color::RGB(8, 24, 32),
+                    1 => Color::RGB(52, 104, 86),
+                    2 => Color::RGB(136, 192, 112),
+                    3 => Color::RGB(224, 248, 208),
                     _ => panic!("Invalid pixel color value detected in the display"),
                 };
                 self.canvas.set_draw_color(color);
@@ -86,25 +131,34 @@ impl UserInterface {
     }
 
     pub fn process_inputs(&mut self) {
+        // Update previous inputs
+        self.inputs_was_down = self.inputs_down;
+
+        // Update inputs that are currently down
         for event in self.event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => self.running = false,
                 Event::KeyDown {
                     scancode: Some(scancode),
                     ..
-                } => match scancode {
-                    Scancode::A => self.inputs.a = true,
-                    _ => {}
-                },
+                } => self.inputs_down.set(scancode, true),
                 Event::KeyUp {
                     scancode: Some(scancode),
                     ..
-                } => match scancode {
-                    Scancode::A => self.inputs.a = false,
-                    _ => {}
-                },
+                } => self.inputs_down.set(scancode, false),
                 _ => {}
             }
         }
+
+        // Update unique inputs
+        // TODO: Inplement a generic unique input checking system (Loop through all scancodes)
+        for scancode in [Scancode::A, Scancode::G, Scancode::M, Scancode::N, Scancode::R, Scancode::P] {
+            let a_down = self.inputs_down.get(scancode);
+            let a_was_down = self.inputs_was_down.get(scancode);
+            let a_unique = a_down && !a_was_down;
+            self.inputs_unique.set(scancode, a_unique);
+        }
     }
 }
+
+mod input {}

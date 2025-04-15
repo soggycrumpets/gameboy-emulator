@@ -1,5 +1,4 @@
-use crate::do_cpu_test;
-use std::num::ParseIntError;
+use std::{collections::VecDeque, num::ParseIntError};
 
 const TEST_CPU_1_PATH: &str = "./test-roms/01-special.gb";
 const TEST_CPU_2_PATH: &str = "./test-roms/02-interrupts.gb";
@@ -15,64 +14,60 @@ const TEST_CPU_11_PATH: &str = "./test-roms/11-op a,(hl).gb";
 
 const DMG_ACID_PATH: &str = "./test-roms/dmg-acid2.gb";
 
+const TETRIS_ROM_PATH: &str = "./roms/tetris.gb";
+const DEFAULT_ROM_PATH: &str = TETRIS_ROM_PATH;
+
 pub enum Command {
-    Test(String),
-    Run(String),
+    // Test(String),
+    Rom(String),
+    Debug(String),
 }
-pub fn check_cli_inputs() -> bool {
-    if let Some(input) = parse_cli_inputs() {
-        match input {
-            Command::Test(test_number) => {
-                let test_path = match test_number.as_str() {
-                    "1" => TEST_CPU_1_PATH,
-                    "2" => TEST_CPU_2_PATH,
-                    "3" => TEST_CPU_3_PATH,
-                    "4" => TEST_CPU_4_PATH,
-                    "5" => TEST_CPU_5_PATH,
-                    "6" => TEST_CPU_6_PATH,
-                    "7" => TEST_CPU_7_PATH,
-                    "8" => TEST_CPU_8_PATH,
-                    "9" => TEST_CPU_9_PATH,
-                    "10" => TEST_CPU_10_PATH,
-                    "11" => TEST_CPU_11_PATH,
-                    "acid" => DMG_ACID_PATH,
-                    _ => panic!("Ivalid test: {}", test_number),
-                };
-                do_cpu_test(test_path);
-            }
-            Command::Run(rom) => unimplemented!("Run Command"),
+
+pub fn parse_cli_inputs() -> Command {
+    let mut args: Vec<String> = std::env::args().collect();
+    args.reverse(); // This way, the args can be popped from the back in order
+    args.pop(); // Discard the first CLI arg (it's just the path to the executable)
+
+    let arg = args.pop();
+    if arg.is_none() {
+        return Command::Rom(DEFAULT_ROM_PATH.to_string());
+    }
+
+    match arg.unwrap().as_str() {
+        "debug" => Command::Debug(parse_rom_arg(args)),
+        "rom" => Command::Rom(parse_rom_arg(args)),
+        _ => Command::Rom(parse_rom_arg(args)),
+    }
+}
+
+fn parse_rom_arg(mut args: Vec<String>) -> String {
+    let arg = args.pop();
+    if arg.is_none() {
+        return map_rom_name_to_path("");
+    }
+
+    map_rom_name_to_path(&arg.unwrap())
+}
+
+fn map_rom_name_to_path(name: &str) -> String {
+    match name {
+        "1" => TEST_CPU_1_PATH,
+        "2" => TEST_CPU_2_PATH,
+        "3" => TEST_CPU_3_PATH,
+        "4" => TEST_CPU_4_PATH,
+        "5" => TEST_CPU_5_PATH,
+        "6" => TEST_CPU_6_PATH,
+        "7" => TEST_CPU_7_PATH,
+        "8" => TEST_CPU_8_PATH,
+        "9" => TEST_CPU_9_PATH,
+        "10" => TEST_CPU_10_PATH,
+        "11" => TEST_CPU_11_PATH,
+        "acid" => DMG_ACID_PATH,
+        "tetris" => TETRIS_ROM_PATH,
+        _ => {
+            println!("\nUnrecognized ROM: \"{}\"\nDeferring to default ROM", name);
+            DEFAULT_ROM_PATH
         }
-        return true;
     }
-    false
-}
-
-pub fn parse_cli_inputs() -> Option<Command> {
-    let args: Vec<String> = std::env::args().collect();
-
-    if args.len() < 2 {
-        return None;
-    }
-
-    let arg = &args[1].to_lowercase();
-
-    match arg.as_str() {
-        "test" => check_test_number_arg(&args).map(Command::Test),
-        // "rom" => return get_rom(arg),
-        _ => None,
-    }
-}
-
-fn check_test_number_arg(args: &[String]) -> Option<String> {
-    if args.len() < 3 {
-        return None;
-    }
-
-    let arg = &args[2];
-
-    Some(arg.clone())
-}
-
-fn check_rom_name_art() {
-    
+    .to_string()
 }

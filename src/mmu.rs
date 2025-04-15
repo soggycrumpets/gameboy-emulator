@@ -1,6 +1,3 @@
-#[cfg(debug_assertions)]
-mod debug;
-
 const SERIAL_TRANSFER_CONTROL: u16 = 0xFF02;
 const SERIAL_TRANSFER_DATA: u16 = 0xFF01;
 const TRANSFER_REQUESTED_VALUE: u8 = 0x81;
@@ -124,10 +121,41 @@ impl Mmu {
     }
 }
 
+mod debug {
+    use super::*;
+
+    impl Mmu {
+        // Dump the entire rom into memory
+        #[cfg(debug_assertions)]
+        pub fn load_test_rom(&mut self, path: &str) -> bool {
+            let rom = match std::fs::read(path) {
+                Ok(result) => result,
+                Err(..) => return false,
+            };
+
+            for (addr, byte) in rom.into_iter().enumerate() {
+                self.write_byte(addr as u16, byte);
+            }
+
+            true
+        }
+
+        pub fn print_vram(&self) {
+            println!("\n\n\n\n\n\nVRAM:");
+            for (byte_number, byte) in self.vram.iter().enumerate() {
+                print!("{:02x} ", byte);
+                if byte_number % 32 == 31 {
+                    println!();
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{constants::PROGRAM_START_ADDR, create_gameboy_components, mmu::memmap::*};
+    use crate::constants::PROGRAM_START_ADDR;
 
     // For now, this is just a non-zero number that I picked.
     const BYTE: u8 = 0b_0110;

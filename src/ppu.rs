@@ -9,6 +9,10 @@ use tiles::Tile;
 
 pub type GbDisplay = [[u8; 256]; 256];
 
+const TEST_TILE_RAW: [u8; 16] = [
+    0x3C, 0x7E, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x7E, 0x5E, 0x7E, 0x0A, 0x7C, 0x56, 0x38, 0x7C,
+];
+
 pub struct Ppu {
     mmu: Rc<RefCell<Mmu>>,
     pub display: GbDisplay,
@@ -30,7 +34,8 @@ impl Ppu {
         for tile_row in 0..32_usize {
             for tile_col in 0..32_usize {
                 let tile_index = self.mmu.borrow().read_byte(addr);
-                let tile = self.get_tile(tile_index);
+                // let tile = self.get_tile(tile_index);
+                let tile = self.get_test_tile(TEST_TILE_RAW);
                 addr += 1;
                 for pixel_row in 0..8_usize {
                     for pixel_col in 0..8_usize {

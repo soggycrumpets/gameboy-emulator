@@ -59,6 +59,23 @@ impl Ppu {
         }
     }
 
+    // TODO: Remove this
+    pub fn get_test_tile(&self, tile_raw: [u8; 16]) -> Tile {
+        let mut tile: Tile = [[0; TILE_WIDTH_IN_PIXELS]; TILE_HEIGHT_IN_PIXELS];
+        let tile_start_addr = 0;
+        for (tile_row_index, tile_row) in tile.iter_mut().enumerate() {
+            // Each row contains 2 bytes of information
+            let byte1_addr = tile_start_addr + (tile_row_index as u16) * 2;
+            let byte2_addr = byte1_addr + 1;
+            let byte1 = tile_raw[byte1_addr as usize];
+            let byte2 = tile_raw[byte2_addr as usize];
+
+            *tile_row = get_tile_row(byte1, byte2);
+        }
+
+        tile
+    }
+
     pub fn get_tile(&self, index: u8) -> Tile {
         let tile_start_addr = self.get_tile_start_addr(index);
 
