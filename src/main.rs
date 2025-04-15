@@ -27,7 +27,9 @@ const ROM_PATH: &str = GAME_PATH;
 
 fn main() {
   
-    check_cli_inputs();
+    if check_cli_inputs() {
+        return;
+    }
 
     let mmu = Mmu::new();
     let mut cpu = Cpu::new(Rc::clone(&mmu));

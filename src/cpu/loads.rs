@@ -117,8 +117,16 @@ impl Cpu {
     }
 
     fn step_hl_1(&mut self, increment: bool) {
+        let step: i8 = if increment {
+            1
+        } else {
+            -1
+        };
+
         let hl = self.reg.get16(R16::HL);
-        self.reg.set16(R16::HL, hl + increment as u16);
+        let result = hl as i32 + step as i32;
+
+        self.reg.set16(R16::HL, result as u16);
     }
 
     pub fn ld_at_hli_a(&mut self) {

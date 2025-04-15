@@ -1,5 +1,5 @@
-use std::num::ParseIntError;
 use crate::do_cpu_test;
+use std::num::ParseIntError;
 
 const TEST_CPU_1_PATH: &str = "./test-roms/01-special.gb";
 const TEST_CPU_2_PATH: &str = "./test-roms/02-interrupts.gb";
@@ -17,8 +17,8 @@ pub enum Command {
     Test(u32),
     Run(String),
 }
-pub fn check_cli_inputs() {
-if let Some(input) = parse_cli_inputs() {
+pub fn check_cli_inputs() -> bool {
+    if let Some(input) = parse_cli_inputs() {
         match input {
             Command::Test(test_number) => {
                 let test_path = match test_number {
@@ -39,9 +39,10 @@ if let Some(input) = parse_cli_inputs() {
             }
             Command::Run(rom) => unimplemented!("Run Command"),
         }
-    }    
+        return true;
+    }
+    false
 }
-  
 
 pub fn parse_cli_inputs() -> Option<Command> {
     let args: Vec<String> = std::env::args().collect();
@@ -53,28 +54,22 @@ pub fn parse_cli_inputs() -> Option<Command> {
     let arg = &args[1].to_lowercase();
 
     match arg.as_str() {
-        "test" => {
-            if let Some(test_number) = check_test_number_arg(&args) {
-                return Some(Command::Test(test_number));
-            } else {
-                return None;
-            }
-        }
+        "test" => check_test_number_arg(&args).map(Command::Test),
         // "rom" => return get_rom(arg),
-        _ => return None,
+        _ => None,
     }
 }
 
-fn check_test_number_arg(args: &Vec<String>) -> Option<u32> {
+fn check_test_number_arg(args: &[String]) -> Option<u32> {
     if args.len() < 3 {
         return None;
     }
 
     let arg = &args[2];
 
-    if let Ok(number) = arg.parse::<u32>() {
-        Some(number)
-    } else {
-        None
-    }
+    arg.parse::<u32>().ok()
+}
+
+fn check_rom_name_art() {
+    
 }
