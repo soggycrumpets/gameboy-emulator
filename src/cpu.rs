@@ -19,6 +19,8 @@ pub struct Cpu {
     pub instruction_tick_cycles: u8,
     ime: bool,
     ime_pending: bool,
+    pub stop: bool,
+    halt: bool,
 }
 
 impl Cpu {
@@ -29,6 +31,8 @@ impl Cpu {
             instruction_tick_cycles: 0,
             ime: true,
             ime_pending: false,
+            stop: false,
+            halt: false,
         }
     }
 
@@ -64,39 +68,39 @@ impl Cpu {
         // Every instruction that contains an n16 or a16 will fetch a word.
 
         match opcode {
-            0x00 => (),                                       // NOP
-            0x01 => self.ld_r16_n16(R16::BC),                 // LD BC, n16
-            0x02 => self.ld_at_r16_a(R16::BC),                // LD BC, A
-            0x03 => self.inc_r16(R16::BC),                    // INC BC
-            0x04 => self.alu_r8(AluUnary::Inc, R8::B),        // INC B
-            0x05 => self.alu_r8(AluUnary::Dec, R8::B),        // DEC B
-            0x06 => self.ld_r8_n8(R8::B),                     // LD B, n8
-            0x07 => self.bitshift_r8(BitshiftOp::Rrc, R8::A), // RLCA
-            0x08 => self.ld_at_n16_sp(),                      // LD [n16], SP
-            0x09 => self.add_hl_r16(R16::BC),                 // ADD HL, BC
-            0x0A => self.ld_a_at_r16(R16::BC),                // LD A, [BC]
-            0x0B => self.dec_r16(R16::BC),                    // DEC BC
-            0x0C => self.alu_r8(AluUnary::Inc, R8::C),        // INC C
-            0x0D => self.alu_r8(AluUnary::Dec, R8::C),        // DEC C
-            0x0E => self.ld_r8_n8(R8::C),                     // LD C, n8
-            0x0F => self.bitshift_r8(BitshiftOp::Rrc, R8::A), // RRCA
+            0x00 => (),                                // NOP
+            0x01 => self.ld_r16_n16(R16::BC),          // LD BC, n16
+            0x02 => self.ld_at_r16_a(R16::BC),         // LD BC, A
+            0x03 => self.inc_r16(R16::BC),             // INC BC
+            0x04 => self.alu_r8(AluUnary::Inc, R8::B), // INC B
+            0x05 => self.alu_r8(AluUnary::Dec, R8::B), // DEC B
+            0x06 => self.ld_r8_n8(R8::B),              // LD B, n8
+            0x07 => self.rlca(),                       // RLCA
+            0x08 => self.ld_at_n16_sp(),               // LD [n16], SP
+            0x09 => self.add_hl_r16(R16::BC),          // ADD HL, BC
+            0x0A => self.ld_a_at_r16(R16::BC),         // LD A, [BC]
+            0x0B => self.dec_r16(R16::BC),             // DEC BC
+            0x0C => self.alu_r8(AluUnary::Inc, R8::C), // INC C
+            0x0D => self.alu_r8(AluUnary::Dec, R8::C), // DEC C
+            0x0E => self.ld_r8_n8(R8::C),              // LD C, n8
+            0x0F => self.rrca(),                       // RRCA
 
-            0x10 => todo!("STOP n8"),                        // STOP n8
-            0x11 => self.ld_r16_n16(R16::DE),                // LD DE, n16
-            0x12 => self.ld_at_r16_a(R16::DE),               // LD DE, A
-            0x13 => self.inc_r16(R16::DE),                   // INC DE
-            0x14 => self.alu_r8(AluUnary::Inc, R8::D),       // INC D
-            0x15 => self.alu_r8(AluUnary::Dec, R8::D),       // DEC D
-            0x16 => self.ld_r8_n8(R8::D),                    // LD D, n8
-            0x17 => self.bitshift_r8(BitshiftOp::Rl, R8::A), // RLA
-            0x18 => self.jr_e8(),                            // JR e8
-            0x19 => self.add_hl_r16(R16::DE),                // ADD HL, DE
-            0x1A => self.ld_a_at_r16(R16::DE),               // LD A, [DE]
-            0x1B => self.dec_r16(R16::DE),                   // DEC DE
-            0x1C => self.alu_r8(AluUnary::Inc, R8::E),       // INC E
-            0x1D => self.alu_r8(AluUnary::Dec, R8::E),       // DEC E
-            0x1E => self.ld_r8_n8(R8::E),                    // LD E, n8
-            0x1F => self.bitshift_r8(BitshiftOp::Rr, R8::A), // RRA
+            0x10 => self.stop(),                       // STOP n8
+            0x11 => self.ld_r16_n16(R16::DE),          // LD DE, n16
+            0x12 => self.ld_at_r16_a(R16::DE),         // LD DE, A
+            0x13 => self.inc_r16(R16::DE),             // INC DE
+            0x14 => self.alu_r8(AluUnary::Inc, R8::D), // INC D
+            0x15 => self.alu_r8(AluUnary::Dec, R8::D), // DEC D
+            0x16 => self.ld_r8_n8(R8::D),              // LD D, n8
+            0x17 => self.rla(),                        // RLA
+            0x18 => self.jr_e8(),                      // JR e8
+            0x19 => self.add_hl_r16(R16::DE),          // ADD HL, DE
+            0x1A => self.ld_a_at_r16(R16::DE),         // LD A, [DE]
+            0x1B => self.dec_r16(R16::DE),             // DEC DE
+            0x1C => self.alu_r8(AluUnary::Inc, R8::E), // INC E
+            0x1D => self.alu_r8(AluUnary::Dec, R8::E), // DEC E
+            0x1E => self.ld_r8_n8(R8::E),              // LD E, n8
+            0x1F => self.rra(),                        // RRA
 
             0x20 => self.jr_cc_e8(Flag::Z, false), // JR NZ, e8
             0x21 => self.ld_r16_n16(R16::HL),      // LD HL, n16
@@ -642,18 +646,19 @@ impl Cpu {
         self.ime_pending = true;
     }
 
+    // todo!
     fn stop(&mut self) {
-        todo!();
+        self.stop = true;
     }
 
+    // todo!
     fn halt(&mut self) {
-        todo!();
+        self.halt = true;
     }
 }
 
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test() {
-    }
+    fn test() {}
 }

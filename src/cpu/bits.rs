@@ -46,6 +46,27 @@ impl Cpu {
         self.write_at_hl(result);
     }
 
+    // Special operations
+    pub fn rlca(&mut self) {
+        self.bitshift_r8(BitshiftOp::Rlc, R8::A);
+        self.reg.set_flag(Flag::Z, false);
+    }
+
+    pub fn rrca(&mut self) {
+        self.bitshift_r8(BitshiftOp::Rrc, R8::A);
+        self.reg.set_flag(Flag::Z, false);
+    }
+
+    pub fn rla(&mut self) {
+        self.bitshift_r8(BitshiftOp::Rl, R8::A);
+        self.reg.set_flag(Flag::Z, false);
+    }
+
+    pub fn rra(&mut self) {
+        self.bitshift_r8(BitshiftOp::Rr, R8::A);
+        self.reg.set_flag(Flag::Z, false);
+    }
+
     // This function maps bitshifts to their functions
     fn bitshift_u8(&mut self, op: BitshiftOp, bits: u8) -> u8 {
         match op {

@@ -16,5 +16,9 @@ target/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# ROM Folder
+# ROM Folders
 roms/*
+test-roms
+
+#Debuggy stuff
+misc

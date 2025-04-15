@@ -1,3 +1,10 @@
+#[cfg(debug_assertions)]
+mod debug;
+
+const SERIAL_TRANSFER_CONTROL: u16 = 0xFF02;
+const SERIAL_TRANSFER_DATA: u16 = 0xFF01;
+const TRANSFER_REQUESTED_VALUE: u8 = 0x81;
+
 pub mod memmap;
 use std::{cell::RefCell, rc::Rc};
 
@@ -82,6 +89,14 @@ impl Mmu {
     pub fn write_byte(&mut self, addr: u16, byte: u8) {
         let (mem_region, addr_mapped) = map_address(addr);
         let index = addr_mapped as usize;
+
+        if (addr == SERIAL_TRANSFER_CONTROL) && (byte == TRANSFER_REQUESTED_VALUE) {
+            if byte == TRANSFER_REQUESTED_VALUE {
+
+            }
+            let c = self.read_byte(SERIAL_TRANSFER_DATA) as char;
+            print!("{}", c);
+        }
 
         use MemRegion as M;
         match mem_region {
@@ -198,7 +213,7 @@ mod tests {
             IE_REGISTER,
         ];
 
-        // Directly access the memory regions to make sure that their first and last bytes are free
+        // Make sure that each memory region has its first and last bytes free
         assert_eq!(mmu.borrow().rom_bank_00[0], 0);
         assert_eq!(mmu.borrow().rom_bank_01[0], 0);
         assert_eq!(mmu.borrow().vram[0], 0);
@@ -223,7 +238,7 @@ mod tests {
 
         assert_eq!(mmu.borrow().ie, 0);
 
-        // Write each byte to memory
+        // Get the bytes into memory
         for i in 0..start_addresses.len() {
             let start_address = start_addresses[i];
             let end_address = end_addresses[i];
@@ -231,7 +246,7 @@ mod tests {
             mmu.borrow_mut().write_byte(end_address, last_byte);
         }
 
-        // Directly access the memory regions to see if the write worked
+        // See if the write worked
         assert_eq!(mmu.borrow().rom_bank_00[0], first_byte);
         assert_eq!(mmu.borrow().rom_bank_01[0], first_byte);
         assert_eq!(mmu.borrow().vram[0], first_byte);
@@ -252,10 +267,10 @@ mod tests {
         assert_eq!(*mmu.borrow().oam.last().unwrap(), last_byte);
         assert_eq!(*mmu.borrow().restricted_memory.last().unwrap(), last_byte);
         assert_eq!(*mmu.borrow().io.last().unwrap(), last_byte);
-        assert_eq!(*mmu.borrow().hram.last().unwrap(), last_byte); 
+        assert_eq!(*mmu.borrow().hram.last().unwrap(), last_byte);
 
-        // Read the bytes through read method to make sure it's returning the same thing 
-         for i in 0..start_addresses.len() {
+        // Make sure the read method matches the direct indexing
+        for i in 0..start_addresses.len() {
             let start_address = start_addresses[i];
             let end_address = end_addresses[i];
 
@@ -269,7 +284,6 @@ mod tests {
                 assert_ne!(first_byte_reading, first_byte);
             }
             assert_eq!(last_byte_reading, last_byte)
-
-        } 
+        }
     }
 }
