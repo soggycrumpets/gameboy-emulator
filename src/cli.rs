@@ -13,26 +13,29 @@ const TEST_CPU_9_PATH: &str = "./test-roms/09-op r,r.gb";
 const TEST_CPU_10_PATH: &str = "./test-roms/10-bit ops.gb";
 const TEST_CPU_11_PATH: &str = "./test-roms/11-op a,(hl).gb";
 
+const DMG_ACID_PATH: &str = "./test-roms/dmg-acid2.gb";
+
 pub enum Command {
-    Test(u32),
+    Test(String),
     Run(String),
 }
 pub fn check_cli_inputs() -> bool {
     if let Some(input) = parse_cli_inputs() {
         match input {
             Command::Test(test_number) => {
-                let test_path = match test_number {
-                    1 => TEST_CPU_1_PATH,
-                    2 => TEST_CPU_2_PATH,
-                    3 => TEST_CPU_3_PATH,
-                    4 => TEST_CPU_4_PATH,
-                    5 => TEST_CPU_5_PATH,
-                    6 => TEST_CPU_6_PATH,
-                    7 => TEST_CPU_7_PATH,
-                    8 => TEST_CPU_8_PATH,
-                    9 => TEST_CPU_9_PATH,
-                    10 => TEST_CPU_10_PATH,
-                    11 => TEST_CPU_11_PATH,
+                let test_path = match test_number.as_str() {
+                    "1" => TEST_CPU_1_PATH,
+                    "2" => TEST_CPU_2_PATH,
+                    "3" => TEST_CPU_3_PATH,
+                    "4" => TEST_CPU_4_PATH,
+                    "5" => TEST_CPU_5_PATH,
+                    "6" => TEST_CPU_6_PATH,
+                    "7" => TEST_CPU_7_PATH,
+                    "8" => TEST_CPU_8_PATH,
+                    "9" => TEST_CPU_9_PATH,
+                    "10" => TEST_CPU_10_PATH,
+                    "11" => TEST_CPU_11_PATH,
+                    "acid" => DMG_ACID_PATH,
                     _ => panic!("Ivalid test: {}", test_number),
                 };
                 do_cpu_test(test_path);
@@ -60,14 +63,14 @@ pub fn parse_cli_inputs() -> Option<Command> {
     }
 }
 
-fn check_test_number_arg(args: &[String]) -> Option<u32> {
+fn check_test_number_arg(args: &[String]) -> Option<String> {
     if args.len() < 3 {
         return None;
     }
 
     let arg = &args[2];
 
-    arg.parse::<u32>().ok()
+    Some(arg.clone())
 }
 
 fn check_rom_name_art() {

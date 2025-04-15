@@ -46,7 +46,7 @@ impl Cpu {
         self.write_at_hl(result);
     }
 
-    // Special operations
+    // Special unprefixed operations
     pub fn rlca(&mut self) {
         self.bitshift_r8(BitshiftOp::Rlc, R8::A);
         self.reg.set_flag(Flag::Z, false);

@@ -198,7 +198,7 @@ impl Cpu {
             0x73 => self.ld_at_hl_r8(R8::E),     // LD [HL], E
             0x74 => self.ld_at_hl_r8(R8::H),     // LD [HL], H
             0x75 => self.ld_at_hl_r8(R8::L),     // LD [HL], L
-            0x76 => todo!("HALT"),               // HALT
+            0x76 => self.halt(),               // HALT
             0x77 => self.ld_at_hl_r8(R8::A),     // LD [HL], A
             0x78 => self.ld_r8_r8(R8::A, R8::B), // LD A, B
             0x79 => self.ld_r8_r8(R8::A, R8::C), // LD A, C

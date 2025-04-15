@@ -20,7 +20,10 @@ impl Cpu {
         self.reg.set16(r16, word);
 
         // Increment sp
-        self.reg.set16(R16::SP, sp + 2);
+        if (sp as u32) + 2 > 0xFFFF {
+            panic!("Stack undewflow");
+        }
+        self.reg.set16(R16::SP, sp.wrapping_add(2));
     }
 
     pub fn ld_r8_r8(&mut self, r1: R8, r2: R8) {

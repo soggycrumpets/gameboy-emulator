@@ -113,20 +113,21 @@ impl Cpu {
         let n8 = self.fetch_byte();
 
         // Casting this way allows e8 to be negative if n8 is big enough (n8 > i8_MAX results in a negative)
+        // Casting directly to an i16 would not change the sign
         let e8 = (n8 as i8) as i16;
 
         let result = (sp as i16).wrapping_add(e8) as u16;
 
         // For flag checking, take the low byte of sp
-        let sp_low = sp as u8;
+        // let sp_low = sp as u8;
 
         self.reg.set_flag(Flag::Z, false);
         self.reg.set_flag(Flag::N, false);
         self.reg
-            .set_flag(Flag::H, (sp_low & 0x0F) + (n8 & 0x0F) > 0x0F);
+            .set_flag(Flag::H, (sp as u8 & 0x0F) + (n8 & 0x0F) > 0x0F);
         self.reg.set_flag(
             Flag::C,
-            ((sp_low as u16) & 0x00FF) + ((n8 as u16) & 0x00FF) > 0xFF,
+            (sp & 0x00FF) + ((n8 as u16) & 0x00FF) > 0xFF,
         );
 
         result

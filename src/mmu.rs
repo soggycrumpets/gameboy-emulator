@@ -46,7 +46,6 @@ impl Mmu {
         Rc::new(RefCell::new(mmu))
     }
 
-    // Load rom into memory
     pub fn load_rom(&mut self, path: &str) -> bool {
         let rom = match std::fs::read(path) {
             Ok(result) => result,
@@ -61,8 +60,6 @@ impl Mmu {
 
         true
     }
-
-    // ----- Reading and Writing Memory -----
 
     pub fn read_byte(&self, addr: u16) -> u8 {
         let (mem_region, addr_mapped) = map_address(addr);
@@ -91,9 +88,6 @@ impl Mmu {
         let index = addr_mapped as usize;
 
         if (addr == SERIAL_TRANSFER_CONTROL) && (byte == TRANSFER_REQUESTED_VALUE) {
-            if byte == TRANSFER_REQUESTED_VALUE {
-
-            }
             let c = self.read_byte(SERIAL_TRANSFER_DATA) as char;
             print!("{}", c);
         }

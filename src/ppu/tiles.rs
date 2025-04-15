@@ -2,6 +2,8 @@ use crate::util::get_bit;
 
 use super::{Ppu, registers::LcdControlFlag};
 
+// Tiles are stored in VRAM at 0x0000 - 0x94FF.
+
 // A tile is represented by an 8x8 grid of 2-bit integers, laid out
 // as 16 consecutive bytes in memory in a very particular format.
 pub type Tile = [[u8; TILE_WIDTH_IN_PIXELS]; TILE_HEIGHT_IN_PIXELS];
@@ -35,7 +37,6 @@ fn get_tile_row(byte1: u8, byte2: u8) -> TileRow {
 }
 
 impl Ppu {
-    // Tiles are stored in VRAM at 0x0000 - 0x94FF.
     // The way that they are indexed depends on a register flag.
     fn get_tile_start_addr(&self, index: u8) -> u16 {
         let signed_addressing_mode = self.get_lcd_control_flag(LcdControlFlag::BgAndWindowEnable);
