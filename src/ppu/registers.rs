@@ -72,7 +72,7 @@ impl Ppu {
 
     pub fn set_lcd_control_flag(&mut self, flag: LcdControlFlag, set: bool) {
         let mut byte = self.get_register(Register::Lcdc);
-        byte = set_bit(byte, flag as u8, set);
+        set_bit(&mut byte, flag as u8, set);
         self.set_register(Register::Lcdc, byte);
     }
 
@@ -83,7 +83,7 @@ impl Ppu {
 
     pub fn set_lcd_status_flag(&mut self, flag: LcdStatusFlag, set: bool) {
         let mut byte = self.get_register(Register::Stat);
-        byte = set_bit(byte, flag as u8, set);
+        set_bit(&mut byte, flag as u8, set);
         self.set_register(Register::Stat, byte);
     }
 

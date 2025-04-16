@@ -8,7 +8,7 @@ impl Cpu {
 
         // Push the byte in the register to the stack
         let word = self.reg.get16(r16);
-        self.mmu.borrow_mut().write_word(sp, word);
+        self.write_word(sp, word);
     }
 
     // 2-byte POP
@@ -16,7 +16,7 @@ impl Cpu {
         let sp = self.reg.get16(R16::SP);
 
         // Pop the stack into the register
-        let word = self.mmu.borrow().read_word(sp);
+        let word = self.read_word(sp);
         self.reg.set16(r16, word);
 
         // Increment sp
@@ -59,52 +59,52 @@ impl Cpu {
     pub fn ld_at_r16_a(&mut self, r16: R16) {
         let addr = self.reg.get16(r16);
         let byte = self.reg.get(R8::A);
-        self.mmu.borrow_mut().write_byte(addr, byte);
+        self.write_byte(addr, byte);
     }
 
     pub fn ld_at_a16_a(&mut self) {
         let addr = self.fetch_word();
         let byte = self.reg.get(R8::A);
-        self.mmu.borrow_mut().write_byte(addr, byte);
+        self.write_byte(addr, byte);
     }
 
     pub fn ldh_at_a8_a(&mut self) {
         let a8 = self.fetch_byte();
         let ra = self.reg.get(R8::A);
         let addr = 0xFF00 + (a8 as u16);
-        self.mmu.borrow_mut().write_byte(addr, ra);
+        self.write_byte(addr, ra);
     }
 
     pub fn ldh_c_a(&mut self) {
         let ra = self.reg.get(R8::A);
         let rc = self.reg.get(R8::C);
         let addr = 0xFF00 + (rc as u16);
-        self.mmu.borrow_mut().write_byte(addr, ra);
+        self.write_byte(addr, ra);
     }
 
     pub fn ld_a_at_r16(&mut self, r16: R16) {
         let addr = self.reg.get16(r16);
-        let byte = self.mmu.borrow().read_byte(addr);
+        let byte = self.read_byte(addr);
         self.reg.set(R8::A, byte);
     }
 
     pub fn ld_a_at_a16(&mut self) {
         let a16 = self.fetch_word();
-        let byte = self.mmu.borrow().read_byte(a16);
+        let byte = self.read_byte(a16);
         self.reg.set(R8::A, byte);
     }
 
     pub fn ldh_a_a8(&mut self) {
         let a8 = self.fetch_byte();
         let addr = 0xFF00 + (a8 as u16);
-        let byte = self.mmu.borrow().read_byte(addr);
+        let byte = self.read_byte(addr);
         self.reg.set(R8::A, byte);
     }
 
     pub fn ldh_a_at_c(&mut self) {
         let rc = self.reg.get(R8::C);
         let addr = 0xFF00 + (rc as u16);
-        let byte = self.mmu.borrow().read_byte(addr);
+        let byte = self.read_byte(addr);
         self.reg.set(R8::A, byte);
     }
 
@@ -155,7 +155,7 @@ impl Cpu {
     pub fn ld_at_n16_sp(&mut self) {
         let n16 = self.fetch_word();
         let sp = self.reg.get16(R16::SP);
-        self.mmu.borrow_mut().write_word(n16, sp);
+        self.write_word(n16, sp);
     }
 
     // This is a weird one. I'm having it use a function from alu.rs ADD 16-bit

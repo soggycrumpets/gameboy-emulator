@@ -1,11 +1,9 @@
-const SERIAL_TRANSFER_CONTROL: u16 = 0xFF02;
-const SERIAL_TRANSFER_DATA: u16 = 0xFF01;
+
 const TRANSFER_REQUESTED_VALUE: u8 = 0x81;
 
 pub mod memmap;
-use std::{cell::RefCell, rc::Rc};
-
 use memmap::*;
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug)]
 pub struct Mmu {
@@ -81,8 +79,8 @@ impl Mmu {
         let (mem_region, addr_mapped) = map_address(addr);
         let index = addr_mapped as usize;
 
-        if (addr == SERIAL_TRANSFER_CONTROL) && (byte == TRANSFER_REQUESTED_VALUE) {
-            let c = self.read_byte(SERIAL_TRANSFER_DATA) as char;
+        if (addr == SERIAL_TRANSFER_CONTROL_ADDR) && (byte == TRANSFER_REQUESTED_VALUE) {
+            let c = self.read_byte(SERIAL_TRANSFER_DATA_ADDR) as char;
             print!("{}", c);
         }
 
@@ -137,7 +135,6 @@ mod debug {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::PROGRAM_START_ADDR;
 
     // For now, this is just a non-zero number that I picked.
     const BYTE: u8 = 0b_0110;
@@ -199,7 +196,7 @@ mod tests {
             RESTRICTED_MEM_START,
             IO_START,
             HRAM_START,
-            IE_REGISTER,
+            IE_ADDR,
         ];
 
         let end_addresses = [
@@ -214,7 +211,7 @@ mod tests {
             RESTRICTED_MEM_END,
             IO_END,
             HRAM_END,
-            IE_REGISTER,
+            IE_ADDR,
         ];
 
         // Make sure that each memory region has its first and last bytes free

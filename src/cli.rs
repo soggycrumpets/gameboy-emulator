@@ -1,5 +1,3 @@
-use std::{collections::VecDeque, num::ParseIntError};
-
 const TEST_CPU_1_PATH: &str = "./test-roms/01-special.gb";
 const TEST_CPU_2_PATH: &str = "./test-roms/02-interrupts.gb";
 const TEST_CPU_3_PATH: &str = "./test-roms/03-op sp,hl.gb";

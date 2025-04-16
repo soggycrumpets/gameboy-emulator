@@ -28,7 +28,7 @@ impl Cpu {
 
         if expect == self.reg.get_flag(flag) {
             self.jp_u16(a16);
-            self.instruction_tick_cycles += JP_CC_EXTRA_T_CYCLES;
+            self.instruction_t_cycles += JP_CC_EXTRA_T_CYCLES;
         }
     }
 
@@ -50,7 +50,7 @@ impl Cpu {
 
         if expect == self.reg.get_flag(flag) {
             self.jr(byte);
-            self.instruction_tick_cycles += 4;
+            self.instruction_t_cycles += 4;
         }
     }
 
@@ -70,7 +70,7 @@ impl Cpu {
 
         if expect == self.reg.get_flag(flag) {
             self.rst_vec(word);
-            self.instruction_tick_cycles += CALL_CC_EXTRA_T_CYCLES;
+            self.instruction_t_cycles += CALL_CC_EXTRA_T_CYCLES;
         }
     }
 
@@ -82,7 +82,7 @@ impl Cpu {
     pub fn ret_cc(&mut self, flag: Flag, expect: bool) {
         if expect == self.reg.get_flag(flag) {
             self.ret();
-            self.instruction_tick_cycles += RET_CC_EXTRA_T_CYCLES;
+            self.instruction_t_cycles += RET_CC_EXTRA_T_CYCLES;
         }
 
     }

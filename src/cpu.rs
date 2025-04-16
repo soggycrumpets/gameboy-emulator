@@ -19,13 +19,13 @@ use timing::{PREFIXED_INSTRUCTION_T_CYCLE_TABLE, UNPREFIXED_INSTRUCTION_T_CYCLE_
 pub struct Cpu {
     pub reg: Registers,
     pub mmu: Rc<RefCell<Mmu>>,
-    pub instruction_tick_cycles: u8,
+    pub instruction_t_cycles: u8,
     ime: bool,
     ime_pending: bool,
     pub stop: bool,
     halt: bool,
 
-    t_cycle_counter: u32,
+    t_cycle_counter: u64,
 }
 
 impl Cpu {
@@ -33,7 +33,7 @@ impl Cpu {
         Cpu {
             reg: Registers::new(),
             mmu,
-            instruction_tick_cycles: 0,
+            instruction_t_cycles: 0,
             ime: true,
             ime_pending: false,
             stop: false,
@@ -42,7 +42,13 @@ impl Cpu {
         }
     }
 
-    // Wrapper functions arround MMU reads/writes to make them more ergonomic
+    pub fn step(&mut self) {
+        self.update_ime();
+        self.execute();
+        self.update_timers();
+    }
+
+    // Wrapper functions arround MMU reads/writes to make them more clear and ergonomic
     fn read_byte(&self, addr: u16) -> u8 {
         self.mmu.borrow().read_byte(addr)
     }
@@ -59,7 +65,7 @@ impl Cpu {
         self.mmu.borrow_mut().write_word(addr, word);
     }
 
-    pub fn fetch_byte(&mut self) -> u8 {
+    fn fetch_byte(&mut self) -> u8 {
         let pc = self.reg.get16(R16::PC);
         let byte = self.read_byte(pc);
 
@@ -68,7 +74,7 @@ impl Cpu {
         byte
     }
 
-    pub fn fetch_word(&mut self) -> u16 {
+    fn fetch_word(&mut self) -> u16 {
         let pc = self.reg.get16(R16::PC);
         let word = self.mmu.borrow_mut().read_word(pc);
 
@@ -85,11 +91,6 @@ impl Cpu {
             self.ime = true;
         }
     }
-    pub fn step(&mut self) {
-        self.update_ime();
-        self.execute();
-        self.update_timers();
-    }
 
     fn execute(&mut self) {
         let opcode = self.fetch_byte();
@@ -98,8 +99,7 @@ impl Cpu {
         // In the case of checked condition functions, the minimum
         // number of cycles is assumed. Those functions will adjust the value
         // when called if the condition is met.
-        self.instruction_tick_cycles =
-            timing::UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
+        self.instruction_t_cycles = UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
 
         // Every instruction that contains an n8, a8, or e8 will fetch a byte.
         // Every instruction that contains an n16 or a16 will fetch a word.
@@ -385,7 +385,7 @@ impl Cpu {
         // The numbers in this table are the TOTAL number of cycles that
         // the instruction takes, including the cycles of the prefix
         // instruction! This is why it's set equal to, not added to.
-        self.instruction_tick_cycles = PREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
+        self.instruction_t_cycles = PREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
 
         match opcode {
             0x00 => self.bitshift_r8(BitshiftOp::Rlc, R8::B), // RLC B
@@ -665,12 +665,12 @@ impl Cpu {
     // Tons of instructions read or write at hl, so I extracted out the logic here
     fn read_at_hl(&self) -> u8 {
         let hl = self.reg.get16(R16::HL);
-        self.mmu.borrow().read_byte(hl)
+        self.read_byte(hl)
     }
 
     fn write_at_hl(&mut self, byte: u8) {
         let hl = self.reg.get16(R16::HL);
-        self.mmu.borrow_mut().write_byte(hl, byte);
+        self.write_byte(hl, byte);
     }
 
     // Misc instructions

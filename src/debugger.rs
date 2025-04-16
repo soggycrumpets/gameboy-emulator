@@ -1,7 +1,6 @@
+use crate::mmu::memmap::{PROGRAM_START_ADDR, TOP_OF_STACK_ADDRESS};
+
 use super::*;
-use crate::{constants::
-    TOP_OF_STACK_ADDRESS, cpu::timing::{PREFIXED_INSTRUCTION_T_CYCLE_TABLE, UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE}}
-;
 
 enum DebugCommand {
     Quit,
@@ -110,4 +109,3 @@ fn step_gameboy(count: u32, cpu: &mut Cpu, ppu: &mut Ppu) {
     }
     println!("Next Instruction: {:04x} at {:04x}", next_instruction, pc);
 }
-

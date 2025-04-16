@@ -1,7 +1,6 @@
 use super::Mmu;
 
 // ----- Memory Regions -----
-
 // Ranges are INCLUSIVE
 
 pub const ROM_BANK_0_START: u16 = 0x0000;
@@ -52,18 +51,31 @@ pub const HRAM_START: u16 = 0xFF80;
 pub const HRAM_END: u16 = 0xFFFE;
 pub const HRAM_SIZE: usize = (HRAM_END - HRAM_START + 1) as usize;
 
-pub const IE_REGISTER: u16 = 0xFFFF;
+pub const IE_ADDR: u16 = 0xFFFF;
 
 // ----- Register Addresses -----
+// Timer
+pub const DIV_ADDR: u16 = 0xFF04;
+pub const TIMA_ADDR: u16 = 0xFF05;
+pub const TMA_ADDR: u16 = 0xFF06;
+pub const TAC_ADDR: u16 = 0xFF07;
 
-// Timer registers
-pub const DIV_REGISTER_ADDR: u16 = 0xFF04;
-pub const TIMA_REGISTER_ADDR: u16 = 0xFF05;
-pub const TMA_REGISTER_ADDR: u16 = 0xFF06;
-pub const TAC_REGISTER_ADDR: u16 = 0xFF07;
+// Interrupt (besides IE, which counts but is also its own memory region)
+pub const VBLANK_INTERRUPT_ADDR: u16 = 0x0040;
+pub const STAT_INTERRUPT_ADDR: u16 = 0x0048;
+pub const TIMER_INTERRUPT_ADDR: u16 = 0x0050;
+pub const SERIAL_INTERRUPT_ADDR: u16 = 0x0058;
+pub const JOYPAD_INTERRUPT_ADDR: u16 = 0x0060;
+pub const IF_ADDR: u16 = 0xFF0F;
 
-// Interrupt registers
-const TIMER_INTERRUPT_REGISTER_ADDR: u16 = 0x0050;
+// Serial transfer
+pub const SERIAL_TRANSFER_CONTROL_ADDR: u16 = 0xFF02;
+pub const SERIAL_TRANSFER_DATA_ADDR: u16 = 0xFF01;
+
+// ----- Other Important Addresses -----
+pub const PROGRAM_START_ADDR: u16 = 0x0100;
+pub const TOP_OF_STACK_ADDRESS: u16 = 0xFFFE;
+
 
 
 pub enum MemRegion {
@@ -83,7 +95,7 @@ pub enum MemRegion {
 
 // Return the memory region that the address is in, and an address
 //  offset by that region's start address.
-// The offset address can be used to directly indexing the array 
+// The offset address can be used to directly indexing the array
 //  that represents that region of memory
 pub fn map_address(addr: u16) -> (MemRegion, u16) {
     use MemRegion as M;
@@ -99,7 +111,7 @@ pub fn map_address(addr: u16) -> (MemRegion, u16) {
         RESTRICTED_MEM_START..=RESTRICTED_MEM_END => (M::Restricted, RESTRICTED_MEM_START),
         IO_START..=IO_END => (M::Io, IO_START),
         HRAM_START..=HRAM_END => (M::Hram, HRAM_START),
-        IE_REGISTER => (M::Ie, IE_REGISTER),
+        IE_ADDR => (M::Ie, IE_ADDR),
     };
 
     (region, addr - start_addr)

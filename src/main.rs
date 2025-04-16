@@ -8,7 +8,6 @@ mod ui;
 mod util;
 
 use cli::{Command, parse_cli_inputs};
-use constants::PROGRAM_START_ADDR;
 
 use cpu::{registers::R8, Cpu};
 use debugger::run_debug;
