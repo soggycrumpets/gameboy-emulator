@@ -39,7 +39,7 @@ fn get_tile_row(byte1: u8, byte2: u8) -> TileRow {
 impl Ppu {
     // The way that they are indexed depends on a register flag.
     fn get_tile_start_addr(&self, index: u8) -> u16 {
-        let signed_addressing_mode = self.get_lcd_control_flag(LcdControlFlag::BgAndWindowEnable);
+        let signed_addressing_mode = !self.get_lcd_control_flag(LcdControlFlag::BgAndWindowEnable);
         // The base pointer is different between the two addressing modes
         let bp: u16 = if signed_addressing_mode {
             SIGNED_ADDRESSING_MODE_BASE_POINTER
@@ -55,26 +55,12 @@ impl Ppu {
             address as u16
         } else {
             let address_offset = (index as u16).wrapping_mul(TILE_SIZE_IN_BYTES as u16);
+            println!("Tile index: {}", index);
             bp.wrapping_add(address_offset)
         }
     }
 
-    // TODO: Remove this
-    pub fn get_test_tile(&self, tile_raw: [u8; 16]) -> Tile {
-        let mut tile: Tile = [[0; TILE_WIDTH_IN_PIXELS]; TILE_HEIGHT_IN_PIXELS];
-        let tile_start_addr = 0;
-        for (tile_row_index, tile_row) in tile.iter_mut().enumerate() {
-            // Each row contains 2 bytes of information
-            let byte1_addr = tile_start_addr + (tile_row_index as u16) * 2;
-            let byte2_addr = byte1_addr + 1;
-            let byte1 = tile_raw[byte1_addr as usize];
-            let byte2 = tile_raw[byte2_addr as usize];
-
-            *tile_row = get_tile_row(byte1, byte2);
-        }
-
-        tile
-    }
+  
 
     pub fn get_tile(&self, index: u8) -> Tile {
         let tile_start_addr = self.get_tile_start_addr(index);

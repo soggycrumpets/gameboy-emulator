@@ -10,7 +10,7 @@ use sdl2::{
 
 pub const WINDOW_WIDTH: usize = 256;
 pub const WINDOW_HEIGHT: usize = 256;
-pub const WINDOW_SCALE_FACTOR: usize = 1;
+pub const WINDOW_SCALE_FACTOR: usize = 2;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Inputs {
@@ -88,7 +88,11 @@ impl UserInterface {
         let video_subsystem = sdl_context.video().unwrap();
 
         let window = video_subsystem
-            .window("Gameboy", WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32)
+            .window(
+                "Gameboy",
+                (WINDOW_WIDTH * WINDOW_SCALE_FACTOR) as u32,
+                (WINDOW_HEIGHT * WINDOW_SCALE_FACTOR) as u32,
+            )
             .position_centered()
             .build()
             .unwrap();
@@ -152,7 +156,14 @@ impl UserInterface {
 
         // Update unique inputs
         // TODO: Inplement a generic unique input checking system (Loop through all scancodes)
-        for scancode in [Scancode::A, Scancode::G, Scancode::M, Scancode::N, Scancode::R, Scancode::P] {
+        for scancode in [
+            Scancode::A,
+            Scancode::G,
+            Scancode::M,
+            Scancode::N,
+            Scancode::R,
+            Scancode::P,
+        ] {
             let a_down = self.inputs_down.get(scancode);
             let a_was_down = self.inputs_was_down.get(scancode);
             let a_unique = a_down && !a_was_down;
