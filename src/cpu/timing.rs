@@ -18,7 +18,7 @@ const DIV_PERIOD_IN_T_CYCLES: u16 = 256;
 pub const INTERRUPT_T_CYCLES: u8 = 5 * 20;
 
 const IF_TIMER_BIT: u8 = 2;
-const TAC_ENABLE_BIT: u8 = 3;
+const TAC_ENABLE_BIT: u8 = 2;
 
 impl Cpu {
     pub fn update_timers(&mut self) {
@@ -38,6 +38,7 @@ impl Cpu {
         let tima_periods = self.t_cycles / t_cycles_per_tima_increment as u64;
         let prev_tima_periods = prev_t_cycles / t_cycles_per_tima_increment as u64;
         let tima_increments = tima_periods - prev_tima_periods;
+        // println!("{}", tac_enable);
         if tac_enable {
             for _i in 0..tima_increments {
                 self.increment_tima();

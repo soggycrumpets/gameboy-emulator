@@ -68,8 +68,7 @@ fn map_rom_name_to_path(name: &str) -> String {
         "instrtiming" => TEST_INSTR_TIMING_PATH,
         "memtiming" => TEST_MEM_TIMING_PATH,
         _ => {
-            println!("\nUnrecognized ROM: \"{}\"\nDeferring to default ROM", name);
-            DEFAULT_ROM_PATH
+            name
         }
     }
     .to_string()

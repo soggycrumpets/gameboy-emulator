@@ -59,7 +59,6 @@ impl Cpu {
     }
 
     pub fn step(&mut self) {
-        print!("{}", self.read_byte(IF_ADDR));
         self.execute();
         self.update_timers();
         self.handle_interrupts();

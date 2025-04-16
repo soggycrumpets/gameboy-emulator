@@ -85,6 +85,12 @@ impl Mmu {
             print!("{}", c);
         }
 
+        // match addr {
+        //     TAC_ADDR => println!("TAC: {}", byte),
+        //     TIMA_ADDR => println!("TIMA: {}", byte),
+        //     _ => (),
+        // }
+
         use MemRegion as M;
         match mem_region {
             M::RomBank0 => self.rom_bank_00[index] = byte,
