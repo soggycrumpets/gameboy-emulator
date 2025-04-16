@@ -1,8 +1,5 @@
-use std::iter::Scan;
-
 use crate::ppu::GbDisplay;
 
-use super::*;
 use sdl2::{
     EventPump, event::Event, keyboard::Scancode, pixels::Color, rect::Rect, render::Canvas,
     video::Window,
@@ -112,10 +109,10 @@ impl UserInterface {
         for (y, row) in display.iter().enumerate() {
             for (x, pixel) in row.iter().enumerate() {
                 let color = match pixel {
-                    0 => Color::RGB(8, 24, 32),
-                    1 => Color::RGB(52, 104, 86),
-                    2 => Color::RGB(136, 192, 112),
-                    3 => Color::RGB(224, 248, 208),
+                    3 => Color::RGB(8, 24, 32),
+                    2 => Color::RGB(52, 104, 86),
+                    1 => Color::RGB(136, 192, 112),
+                    0 => Color::RGB(224, 248, 208),
                     _ => panic!("Invalid pixel color value detected in the display"),
                 };
                 self.canvas.set_draw_color(color);
@@ -171,5 +168,3 @@ impl UserInterface {
         }
     }
 }
-
-mod input {}

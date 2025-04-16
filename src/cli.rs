@@ -12,6 +12,8 @@ const TEST_CPU_9_PATH: &str = "./test-roms/09-op r,r.gb";
 const TEST_CPU_10_PATH: &str = "./test-roms/10-bit ops.gb";
 const TEST_CPU_11_PATH: &str = "./test-roms/11-op a,(hl).gb";
 
+const TEST_TIMING_PATH: &str = "./test-roms/instr_timing.gb";
+
 const DMG_ACID_PATH: &str = "./test-roms/dmg-acid2.gb";
 
 const TETRIS_ROM_PATH: &str = "./roms/tetris.gb";
@@ -51,19 +53,20 @@ fn parse_rom_arg(mut args: Vec<String>) -> String {
 
 fn map_rom_name_to_path(name: &str) -> String {
     match name {
-        "1" => TEST_CPU_1_PATH,
-        "2" => TEST_CPU_2_PATH,
-        "3" => TEST_CPU_3_PATH,
-        "4" => TEST_CPU_4_PATH,
-        "5" => TEST_CPU_5_PATH,
-        "6" => TEST_CPU_6_PATH,
-        "7" => TEST_CPU_7_PATH,
-        "8" => TEST_CPU_8_PATH,
-        "9" => TEST_CPU_9_PATH,
-        "10" => TEST_CPU_10_PATH,
-        "11" => TEST_CPU_11_PATH,
+        "cpu1" => TEST_CPU_1_PATH,
+        "cpu2" => TEST_CPU_2_PATH,
+        "cpu3" => TEST_CPU_3_PATH,
+        "cpu4" => TEST_CPU_4_PATH,
+        "cpu5" => TEST_CPU_5_PATH,
+        "cpu6" => TEST_CPU_6_PATH,
+        "cpu7" => TEST_CPU_7_PATH,
+        "cpu8" => TEST_CPU_8_PATH,
+        "cpu9" => TEST_CPU_9_PATH,
+        "cpu10" => TEST_CPU_10_PATH,
+        "cpu11" => TEST_CPU_11_PATH,
         "acid" => DMG_ACID_PATH,
         "tetris" => TETRIS_ROM_PATH,
+        "timing" => TEST_TIMING_PATH,
         _ => {
             println!("\nUnrecognized ROM: \"{}\"\nDeferring to default ROM", name);
             DEFAULT_ROM_PATH

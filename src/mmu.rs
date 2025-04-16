@@ -1,20 +1,14 @@
 const SERIAL_TRANSFER_CONTROL: u16 = 0xFF02;
 const SERIAL_TRANSFER_DATA: u16 = 0xFF01;
 const TRANSFER_REQUESTED_VALUE: u8 = 0x81;
-const BOOTROM_SIZE: usize = 0x0100;
 
 pub mod memmap;
 use std::{cell::RefCell, rc::Rc};
 
 use memmap::*;
 
-use crate::{BOOTROM_PATH, constants::PROGRAM_START_ADDR};
-
 #[derive(Debug)]
 pub struct Mmu {
-    booting: bool,
-    bootrom: [u8; BOOTROM_SIZE],
-
     rom_bank_00: [u8; ROM_BANK_0_SIZE],
     rom_bank_01: [u8; ROM_BANK_1_SIZE],
     vram: [u8; VRAM_SIZE],
@@ -32,9 +26,6 @@ pub struct Mmu {
 impl Mmu {
     pub fn new() -> Rc<RefCell<Mmu>> {
         let mmu = Mmu {
-            booting: true,
-            bootrom: [0; BOOTROM_SIZE],
-
             rom_bank_00: [0; ROM_BANK_0_SIZE],
             rom_bank_01: [0; ROM_BANK_1_SIZE],
             vram: [0; VRAM_SIZE],
@@ -60,18 +51,6 @@ impl Mmu {
         for (addr, byte) in rom.iter().enumerate() {
             self.write_byte(addr as u16, *byte);
         };
-
-        true
-    }
-
-    fn load_bootrom(&mut self, path: &str) -> bool {
-        let bootrom = match std::fs::read(path) {
-            Ok(result) => result,
-            Err(..) => return false,
-        };
-        for (addr, byte) in bootrom.iter().enumerate() {
-            self.bootrom[addr] = *byte;
-        }
 
         true
     }
@@ -143,21 +122,6 @@ mod debug {
     use super::*;
 
     impl Mmu {
-        // Dump the entire rom into memory
-        #[cfg(debug_assertions)]
-        pub fn load_test_rom(&mut self, path: &str) -> bool {
-            let rom = match std::fs::read(path) {
-                Ok(result) => result,
-                Err(..) => return false,
-            };
-
-            for (addr, byte) in rom.into_iter().enumerate() {
-                self.write_byte(addr as u16, byte);
-            }
-
-            true
-        }
-
         pub fn print_vram(&self) {
             println!("\n\n\n\n\n\nVRAM:");
             for (byte_number, byte) in self.vram.iter().enumerate() {

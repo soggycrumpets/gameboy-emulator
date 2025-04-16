@@ -10,21 +10,14 @@ mod util;
 use cli::{Command, parse_cli_inputs};
 use constants::PROGRAM_START_ADDR;
 
-use cpu::{registers::{Flag, R8}, Cpu};
+use cpu::{registers::R8, Cpu};
 use debugger::run_debug;
 use mmu::Mmu;
 use ppu::Ppu;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, time::{Duration, Instant}};
 use ui::UserInterface;
 
 use cpu::registers::R16;
-
-// Hardcoded for now
-const BOOTROM_PATH: &str = "./roms/dmg_boot.gb";
-const TEST_FULL_TEST_PATH: &str = "./test_roms/cpu_instrs.gb";
-
-const GAME_PATH: &str = "./roms/tetris.gb";
-const ROM_PATH: &str = GAME_PATH;
 
 fn main() {
     let input = parse_cli_inputs();
@@ -37,7 +30,7 @@ fn main() {
 fn run_rom(path: &str) {
     println!("\nLoading rom at: \"{}\"", path);
 
-    let (mut mmu, mut cpu, mut ppu) = create_gameboy_components();
+    let (mmu, mut cpu, mut ppu) = create_gameboy_components();
 
     if !mmu.borrow_mut().load_rom(path) {
         println!("Failed to load rom at \"{}\"", path);
@@ -48,11 +41,20 @@ fn run_rom(path: &str) {
 
     let mut ui = UserInterface::new();
 
+    let render_timer_duration = Duration::from_secs_f64(1.0 / 60.0);
+    let mut last_render_time = Instant::now();
+
     while ui.running {
-        cpu.execute();
-        // ppu.draw();
         ui.process_inputs();
-        // ui.render_display(&ppu.display);
+        cpu.step();
+        // TODO:
+        // The ppu should eventually draw a little bit at a time.
+        // For now, just draw everything at once at 60fps
+        if last_render_time.elapsed() >= render_timer_duration {
+            ppu.splat_tiles();
+            ui.render_display(&ppu.display);
+            last_render_time = Instant::now();
+        } 
     }
 }
 

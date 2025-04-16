@@ -1,6 +1,8 @@
 use super::Mmu;
 
-// ----- Memory ranges are INCLUSIVE -----
+// ----- Memory Regions -----
+
+// Ranges are INCLUSIVE
 
 pub const ROM_BANK_0_START: u16 = 0x0000;
 pub const ROM_BANK_0_END: u16 = 0x3FFF;
@@ -51,6 +53,18 @@ pub const HRAM_END: u16 = 0xFFFE;
 pub const HRAM_SIZE: usize = (HRAM_END - HRAM_START + 1) as usize;
 
 pub const IE_REGISTER: u16 = 0xFFFF;
+
+// ----- Register Addresses -----
+
+// Timer registers
+pub const DIV_REGISTER_ADDR: u16 = 0xFF04;
+pub const TIMA_REGISTER_ADDR: u16 = 0xFF05;
+pub const TMA_REGISTER_ADDR: u16 = 0xFF06;
+pub const TAC_REGISTER_ADDR: u16 = 0xFF07;
+
+// Interrupt registers
+const TIMER_INTERRUPT_REGISTER_ADDR: u16 = 0x0050;
+
 
 pub enum MemRegion {
     RomBank0,

@@ -1,7 +1,7 @@
 use super::*;
-use crate::constants::{
-    PREFIXED_INSTRUCTION_T_CYCLE_TABLE, TOP_OF_STACK_ADDRESS, UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE,
-};
+use crate::{constants::
+    TOP_OF_STACK_ADDRESS, cpu::timing::{PREFIXED_INSTRUCTION_T_CYCLE_TABLE, UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE}}
+;
 
 enum DebugCommand {
     Quit,
@@ -95,9 +95,9 @@ fn parse_step_arg(mut args: Vec<String>) -> DebugCommand {
 
 fn step_gameboy(count: u32, cpu: &mut Cpu, ppu: &mut Ppu) {
     for _i in 0..count {
-        cpu.execute();
+        cpu.step();
     }
-    ppu.draw();
+    ppu.splat_tiles();
     if count != 1 {
         println!("Stepped {} cycles", count);
     }
@@ -111,24 +111,3 @@ fn step_gameboy(count: u32, cpu: &mut Cpu, ppu: &mut Ppu) {
     println!("Next Instruction: {:04x} at {:04x}", next_instruction, pc);
 }
 
-pub fn print_t_cycle_tables() {
-    println!("\nUnprefixed Instructions:\n");
-    print_table(UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE);
-    print!("\n\n");
-    println!("Prefixed Instructions:\n");
-    print_table(PREFIXED_INSTRUCTION_T_CYCLE_TABLE);
-    print!("\n\n");
-
-    fn print_table(table: &[u8]) {
-        let mut counter = 0;
-        for i in table {
-            print!("{:02} ", i);
-            counter += 1;
-
-            if counter == 16 {
-                counter = 0;
-                println!();
-            }
-        }
-    }
-}

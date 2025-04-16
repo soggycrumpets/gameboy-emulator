@@ -1,13 +1,12 @@
 use super::*;
 
-pub mod registers;
 mod alu;
 mod bits;
 mod jumps;
 mod loads;
+pub mod registers;
+pub mod timing;
 
-use crate::constants::{PREFIXED_INSTRUCTION_T_CYCLE_TABLE, UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE};
-use mmu::memmap::IE_REGISTER;
 use crate::mmu::Mmu;
 
 use alu::{AluBinary, AluUnary};
@@ -15,6 +14,7 @@ use bits::{BitflagOp, BitshiftOp};
 use registers::Flag;
 use registers::Registers;
 use registers::{R8, R16};
+use timing::{PREFIXED_INSTRUCTION_T_CYCLE_TABLE, UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE};
 
 pub struct Cpu {
     pub reg: Registers,
@@ -24,6 +24,8 @@ pub struct Cpu {
     ime_pending: bool,
     pub stop: bool,
     halt: bool,
+
+    t_cycle_counter: u32,
 }
 
 impl Cpu {
@@ -36,12 +38,30 @@ impl Cpu {
             ime_pending: false,
             stop: false,
             halt: false,
+            t_cycle_counter: 0,
         }
+    }
+
+    // Wrapper functions arround MMU reads/writes to make them more ergonomic
+    fn read_byte(&self, addr: u16) -> u8 {
+        self.mmu.borrow().read_byte(addr)
+    }
+
+    fn read_word(&self, addr: u16) -> u16 {
+        self.mmu.borrow().read_word(addr)
+    }
+
+    fn write_byte(&self, addr: u16, byte: u8) {
+        self.mmu.borrow_mut().write_byte(addr, byte);
+    }
+
+    fn write_word(&self, addr: u16, word: u16) {
+        self.mmu.borrow_mut().write_word(addr, word);
     }
 
     pub fn fetch_byte(&mut self) -> u8 {
         let pc = self.reg.get16(R16::PC);
-        let byte = self.mmu.borrow().read_byte(pc);
+        let byte = self.read_byte(pc);
 
         let next_addr = pc + 1;
         self.reg.set16(R16::PC, next_addr);
@@ -57,17 +77,29 @@ impl Cpu {
         word
     }
 
-    pub fn execute(&mut self) {
-
-        let opcode = self.fetch_byte();
-
+    fn update_ime(&mut self) {
+        if self.ime {
+            self.ime = false;
+        }
+        if self.ime_pending {
+            self.ime = true;
+        }
+    }
+    pub fn step(&mut self) {
         self.update_ime();
+        self.execute();
+        self.update_timers();
+    }
+
+    fn execute(&mut self) {
+        let opcode = self.fetch_byte();
 
         // Look up the number of clock cycles this instruction will take.
         // In the case of checked condition functions, the minimum
         // number of cycles is assumed. Those functions will adjust the value
         // when called if the condition is met.
-        self.instruction_tick_cycles = UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
+        self.instruction_tick_cycles =
+            timing::UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
 
         // Every instruction that contains an n8, a8, or e8 will fetch a byte.
         // Every instruction that contains an n16 or a16 will fetch a word.
@@ -198,7 +230,7 @@ impl Cpu {
             0x73 => self.ld_at_hl_r8(R8::E),     // LD [HL], E
             0x74 => self.ld_at_hl_r8(R8::H),     // LD [HL], H
             0x75 => self.ld_at_hl_r8(R8::L),     // LD [HL], L
-            0x76 => self.halt(),               // HALT
+            0x76 => self.halt(),                 // HALT
             0x77 => self.ld_at_hl_r8(R8::A),     // LD [HL], A
             0x78 => self.ld_r8_r8(R8::A, R8::B), // LD A, B
             0x79 => self.ld_r8_r8(R8::A, R8::C), // LD A, C
@@ -627,15 +659,6 @@ impl Cpu {
             0xFD => self.bitflag_u3_r8(BitflagOp::Set, 7, R8::L), // SET 7, L
             0xFE => self.bitflag_u3_at_hl(BitflagOp::Set, 7),     // SET 7, [HL]
             0xFF => self.bitflag_u3_r8(BitflagOp::Set, 7, R8::A), // SET 7, A
-        }
-    }
-
-    fn update_ime(&mut self) {
-        if self.ime {
-            self.ime = false;
-        }
-        if self.ime_pending {
-            self.ime = true;
         }
     }
 
