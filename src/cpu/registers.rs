@@ -198,7 +198,7 @@ mod debug {
             print!("L: {:02x}, ", self.l);
             print!("SP: {:04x}, ", self.sp);
             print!("PC {:04x}, ", self.pc);
-            println!();
+            print!("\n\n");
         }
     }
 }

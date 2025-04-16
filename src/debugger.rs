@@ -1,5 +1,3 @@
-use std::{fmt::Debug, num::ParseIntError};
-
 use super::*;
 use crate::constants::{
     PREFIXED_INSTRUCTION_T_CYCLE_TABLE, TOP_OF_STACK_ADDRESS, UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE,
@@ -14,7 +12,7 @@ enum DebugCommand {
 }
 
 pub fn run_debug(path: &str) {
-    println!("\nLoading rom at: \"{}\"", path);
+    println!("\nDebugging rom at: \"{}\"", path);
 
     let (mmu, mut cpu, mut ppu) = create_gameboy_components();
 
@@ -22,9 +20,11 @@ pub fn run_debug(path: &str) {
     cpu.reg.set16(R16::SP, TOP_OF_STACK_ADDRESS);
 
     if !mmu.borrow_mut().load_rom(path) {
-        println!("Failed to load \"{}\"", path);
+        println!("Failed to load rom at \"{}\"", path);
         return;
     }
+
+    emulate_boot(&mmu, &mut cpu);
 
     let mut ui = UserInterface::new();
     let mut running = true;
@@ -63,8 +63,8 @@ fn parse_user_input(inputs: String) -> DebugCommand {
     match arg.unwrap().to_lowercase().as_str() {
         "q" | "quit" => DebugCommand::Quit,
         "n" | "step" => parse_step_arg(args),
-        "r" | "printreg" => DebugCommand::PrintRegisters,
-        "m" | "printvram" => DebugCommand::PrintVram,
+        "r" | "reg" => DebugCommand::PrintRegisters,
+        "m" | "vram" => DebugCommand::PrintVram,
 
         _ => DebugCommand::None,
     }
@@ -96,9 +96,19 @@ fn parse_step_arg(mut args: Vec<String>) -> DebugCommand {
 fn step_gameboy(count: u32, cpu: &mut Cpu, ppu: &mut Ppu) {
     for _i in 0..count {
         cpu.execute();
-        ppu.draw();
     }
-    println!("Stepped {} cycle(s)", count);
+    ppu.draw();
+    if count != 1 {
+        println!("Stepped {} cycles", count);
+    }
+    let pc = cpu.reg.get16(R16::PC);
+    let mut next_instruction = cpu.mmu.borrow().read_byte(pc) as u16;
+    // Account for prefixed instructions
+    if next_instruction == 0xCB {
+        let prefixed_instruction = cpu.mmu.borrow().read_byte(pc.wrapping_add(1)) as u16;
+        next_instruction |= prefixed_instruction << 4;
+    }
+    println!("Next Instruction: {:04x} at {:04x}", next_instruction, pc);
 }
 
 pub fn print_t_cycle_tables() {

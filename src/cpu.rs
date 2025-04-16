@@ -58,8 +58,8 @@ impl Cpu {
     }
 
     pub fn execute(&mut self) {
+
         let opcode = self.fetch_byte();
-        // println!("{:02x}", opcode);
 
         self.update_ime();
 
