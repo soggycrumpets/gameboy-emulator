@@ -12,12 +12,11 @@ use crate::mmu::memmap::IE_ADDR;
 use crate::mmu::memmap::IF_ADDR;
 use crate::mmu::memmap::JOYPAD_INTERRUPT_HANDLER_ADDR;
 use crate::mmu::memmap::SERIAL_INTERRUPT_HANDLER_ADDR;
-use crate::mmu::memmap::STAT_INTERRUPT_ADDR;
 use crate::mmu::memmap::STAT_INTERRUPT_HANDLER_ADDR;
 use crate::mmu::memmap::TIMER_INTERRUPT_HANDLER_ADDR;
-use crate::mmu::memmap::VBLANK_INTERRUPT_ADDR;
 use crate::mmu::memmap::VBLANK_INTERRUPT_HANDLER_ADDR;
 use crate::util::get_bit;
+use crate::util::set_bit;
 
 use alu::{AluBinary, AluUnary};
 use bits::{BitflagOp, BitshiftOp};
@@ -60,9 +59,11 @@ impl Cpu {
     }
 
     pub fn step(&mut self) {
+        // print!("{}", self.read_byte(IF_ADDR));
         self.execute();
+        // self.update_timers();
+        // self.update_ime();
         self.handle_interrupts();
-        self.update_timers();
     }
 
     // Wrapper functions arround MMU reads/writes to make them more clear and ergonomic
@@ -111,7 +112,9 @@ impl Cpu {
     }
 
     fn handle_interrupts(&mut self) {
-        self.update_ime();
+        if !self.ime {
+            return
+        }
 
         let ie_byte = self.read_byte(IE_ADDR);
         let if_byte = self.read_byte(IF_ADDR);
@@ -128,41 +131,40 @@ impl Cpu {
         let serial_interrupt_enabled = get_bit(ie_byte, SERIAL_INTERRUPT_BIT);
         let joypad_interrupt_enabled = get_bit(ie_byte, JOYPAD_INTERRUPT_BIT);
 
-        if timer_interrupt {
-        println!("TIMER")
-
-        }
-
-        if !self.ime {
-            return;
-        }
-
         if vblank_interrupt && vblank_interrupt_enabled {
-            self.handle_interrupt(VBLANK_INTERRUPT_HANDLER_ADDR);
             println!("VBLANK");
+            self.handle_interrupt(VBLANK_INTERRUPT_HANDLER_ADDR, VBLANK_INTERRUPT_BIT);
         }
         if lcd_interrupt && lcd_interrupt_enabled {
-            self.handle_interrupt(STAT_INTERRUPT_HANDLER_ADDR);
             println!("LCD");
+            self.handle_interrupt(STAT_INTERRUPT_HANDLER_ADDR, LCD_INTERRUPT_BIT);
         }
         if timer_interrupt && timer_interrupt_enabled {
-            self.handle_interrupt(TIMER_INTERRUPT_HANDLER_ADDR);
             println!("TIMER");
+            self.handle_interrupt(TIMER_INTERRUPT_HANDLER_ADDR, TIMER_INTERRUPT_BIT);
         }
         if serial_interrupt && serial_interrupt_enabled {
-            self.handle_interrupt(SERIAL_INTERRUPT_HANDLER_ADDR);
             println!("SERIAL");
+            self.handle_interrupt(SERIAL_INTERRUPT_HANDLER_ADDR, SERIAL_INTERRUPT_BIT);
         }
         if joypad_interrupt && joypad_interrupt_enabled {
-            self.handle_interrupt(JOYPAD_INTERRUPT_HANDLER_ADDR);
             println!("JOYPAD");
+            self.handle_interrupt(JOYPAD_INTERRUPT_HANDLER_ADDR, JOYPAD_INTERRUPT_BIT);
         }
+
     }
 
-    fn handle_interrupt(&mut self, interrupt_jump_address: u16) {
+    fn handle_interrupt(&mut self, interrupt_jump_address: u16, interrupt_bit: u8) {
         self.push_r16(R16::PC);
         self.rst_vec(interrupt_jump_address);
-        self.t_cycles += INTERRUPT_T_CYCLES as u64;
+        self.t_cycles = INTERRUPT_T_CYCLES as u64;
+        // Make sure the interrupt is disabled now that it's been processed
+        let mut if_byte = self.read_byte(IF_ADDR);
+        set_bit(&mut if_byte, interrupt_bit, false);        
+        self.write_byte(IF_ADDR, interrupt_bit);
+        // Also make sure to disable IME
+        self.ime = false;
+        println!("INTERRUPT HANDLED");
     }
 
     fn execute(&mut self) {
@@ -753,7 +755,7 @@ impl Cpu {
     }
 
     fn ei(&mut self) {
-        self.ime_pending = true;
+        self.ime = true;
     }
 
     // todo!
