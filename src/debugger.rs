@@ -7,6 +7,7 @@ enum DebugCommand {
     Step(u32),
     PrintRegisters,
     PrintVram,
+    PrintTimers,
     None,
 }
 
@@ -40,6 +41,7 @@ pub fn run_debug(path: &str) {
             DebugCommand::Step(count) => step_gameboy(count, &mut cpu, &mut ppu),
             DebugCommand::PrintVram => mmu.borrow().print_vram(),
             DebugCommand::PrintRegisters => cpu.reg.print(),
+            DebugCommand::PrintTimers => cpu.print_timers(),
             DebugCommand::None => println!("Unrecognized Command"),
         }
     }
@@ -64,6 +66,7 @@ fn parse_user_input(inputs: String) -> DebugCommand {
         "n" | "step" => parse_step_arg(args),
         "r" | "reg" => DebugCommand::PrintRegisters,
         "m" | "vram" => DebugCommand::PrintVram,
+        "t" | "timer" => DebugCommand::PrintTimers,
 
         _ => DebugCommand::None,
     }

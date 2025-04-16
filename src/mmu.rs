@@ -1,9 +1,10 @@
-
 const TRANSFER_REQUESTED_VALUE: u8 = 0x81;
 
 pub mod memmap;
 use memmap::*;
 use std::{cell::RefCell, rc::Rc};
+
+use crate::util::set_bit;
 
 #[derive(Debug)]
 pub struct Mmu {
@@ -48,7 +49,7 @@ impl Mmu {
         };
         for (addr, byte) in rom.iter().enumerate() {
             self.write_byte(addr as u16, *byte);
-        };
+        }
 
         true
     }
@@ -95,7 +96,11 @@ impl Mmu {
             M::EchoRam => self.echo_ram[index] = byte,
             M::Oam => self.oam[index] = byte,
             M::Restricted => self.restricted_memory[index] = byte,
-            M::Io => self.io[index] = byte,
+            // IO Has some special cases
+            M::Io => match addr {
+                DIV_ADDR => self.io[index] = 0,
+                _ => self.io[index] = byte,
+            },
             M::Hram => self.hram[index] = byte,
             M::Ie => self.ie = byte,
         };
@@ -113,6 +118,21 @@ impl Mmu {
         let highbyte = (word >> 8) as u8;
         self.write_byte(addr, lowbyte);
         self.write_byte(addr + 1, highbyte);
+    }
+
+    // The DIV address is special in that writes to it automatically set it to zero.
+    // So, we need to make a special request to the MMU to modify it.
+    pub fn set_div_timer(&mut self, byte: u8) {
+        let (_region, addr_mapped) = map_address(DIV_ADDR);
+        let index = addr_mapped as usize;
+        self.io[index] = byte;
+    }
+
+    // An interrupt is requested by setting a specific bit in the IF register
+    pub fn request_interrupt(&mut self, interrupt_bit: u8) {
+        let mut byte = self.read_byte(IF_ADDR);
+        set_bit(&mut byte, interrupt_bit, true);
+        self.write_byte(IF_ADDR, byte);
     }
 }
 

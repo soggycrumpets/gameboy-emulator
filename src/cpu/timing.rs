@@ -14,39 +14,48 @@ pub const UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =
 pub const PREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =
     include_bytes!("../../data/prefixed_instruction_t_cycle_table.dat");
 
-const T_CYCLES_PER_DIV_INCREMENT: u16 = 256;
+const DIV_PERIOD_IN_T_CYCLES: u16 = 256;
+pub const INTERRUPT_T_CYCLES: u8 = 5 * 20;
 
 const IF_TIMER_BIT: u8 = 2;
 const TAC_ENABLE_BIT: u8 = 3;
 
 impl Cpu {
     pub fn update_timers(&mut self) {
-        let prev_t_cycles = self.t_cycle_counter;
-        self.t_cycle_counter += self.instruction_t_cycles as u64;
-        let t_cycles = self.t_cycle_counter;
+        let prev_t_cycles = self.t_cycles;
+        self.t_cycles += self.instruction_t_cycles as u64;
 
         // DIV
-        if (t_cycles / T_CYCLES_PER_DIV_INCREMENT as u64)
-            > (prev_t_cycles / T_CYCLES_PER_DIV_INCREMENT as u64)
+        if (self.t_cycles / DIV_PERIOD_IN_T_CYCLES as u64)
+            > (prev_t_cycles / DIV_PERIOD_IN_T_CYCLES as u64)
         {
             self.increment_div();
         }
 
         // TIMA
         let tac_enable = self.get_tac_enable();
-        let t_cycles_per_tima_increment = self.get_tac_frequency_in_t_cycles();
-        if tac_enable
-            && ((t_cycles / t_cycles_per_tima_increment as u64)
-                > (prev_t_cycles / t_cycles_per_tima_increment as u64))
-        {
-            self.increment_tima();
+        let t_cycles_per_tima_increment = self.get_tac_period_in_t_cycles();
+        let tima_periods = self.t_cycles / t_cycles_per_tima_increment as u64;
+        let prev_tima_periods = prev_t_cycles / t_cycles_per_tima_increment as u64;
+        let tima_increments = tima_periods - prev_tima_periods;
+        if tac_enable {
+            for _i in 0..tima_increments {
+                self.increment_tima();
+            }
         }
     }
 
     fn increment_div(&self) {
-        let mut timer = self.read_byte(DIV_ADDR);
-        timer = timer.wrapping_add(1);
-        self.write_byte(DIV_ADDR, timer);
+        let mut byte = self.read_byte(DIV_ADDR);
+        let overflow: bool;
+        (byte, overflow) = byte.overflowing_add(1);
+        // Normal writes set the timer to 0, so make a special request to the MMU
+        self.mmu.borrow_mut().set_div_timer(byte);
+
+        // Overflows send a timer interrupt
+        if overflow {
+            self.mmu.borrow_mut().request_interrupt(TIMER_INTERRUPT_BIT);
+        }
     }
 
     fn increment_tima(&self) {
@@ -66,11 +75,11 @@ impl Cpu {
     // TAC enabled is the third bit from the right
     fn get_tac_enable(&self) -> bool {
         let byte = self.read_byte(TAC_ADDR);
-        get_bit(byte, IF_TIMER_BIT)
+        get_bit(byte, TAC_ENABLE_BIT)
     }
 
     // Clock select is the first two bits from the right
-    fn get_tac_frequency_in_t_cycles(&self) -> u32 {
+    fn get_tac_period_in_t_cycles(&self) -> u32 {
         let byte = self.read_byte(TAC_ADDR);
         let value = byte & 0b_0000_0011;
         // The four values are mapped to frequencies (in t-cycles) as follows:
@@ -84,7 +93,7 @@ impl Cpu {
     }
 
     // TODO: Writing to TAC may increase TIMA once! Perhaps this should be handled in the MMU.
-    fn set_tac_enabled(&mut self, set: bool) {
+    fn set_tac_enable(&mut self, set: bool) {
         let mut byte = self.read_byte(TAC_ADDR);
         set_bit(&mut byte, TAC_ENABLE_BIT, set);
         self.write_byte(TAC_ADDR, byte);
@@ -127,6 +136,20 @@ mod debug {
                     println!();
                 }
             }
+        }
+    }
+
+    impl Cpu {
+        pub fn print_timers(&self) {
+            let div = self.read_byte(DIV_ADDR);
+            let tima = self.read_byte(TIMA_ADDR);
+            let tac_enable = self.get_tac_enable();
+            let tac_period = self.get_tac_period_in_t_cycles();
+            println!("\nTimers:");
+            print!(
+                "\nDIV: {:02x}, TIMA: {:02x}, TAC_ENABLE: {}, TAC_PERIOD: {:02}\n\n",
+                div, tima, tac_enable, tac_period
+            );
         }
     }
 }

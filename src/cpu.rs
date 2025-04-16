@@ -8,13 +8,30 @@ pub mod registers;
 pub mod timing;
 
 use crate::mmu::Mmu;
+use crate::mmu::memmap::IE_ADDR;
+use crate::mmu::memmap::IF_ADDR;
+use crate::mmu::memmap::JOYPAD_INTERRUPT_HANDLER_ADDR;
+use crate::mmu::memmap::SERIAL_INTERRUPT_HANDLER_ADDR;
+use crate::mmu::memmap::STAT_INTERRUPT_ADDR;
+use crate::mmu::memmap::STAT_INTERRUPT_HANDLER_ADDR;
+use crate::mmu::memmap::TIMER_INTERRUPT_HANDLER_ADDR;
+use crate::mmu::memmap::VBLANK_INTERRUPT_ADDR;
+use crate::mmu::memmap::VBLANK_INTERRUPT_HANDLER_ADDR;
+use crate::util::get_bit;
 
 use alu::{AluBinary, AluUnary};
 use bits::{BitflagOp, BitshiftOp};
 use registers::Flag;
 use registers::Registers;
 use registers::{R8, R16};
+use timing::INTERRUPT_T_CYCLES;
 use timing::{PREFIXED_INSTRUCTION_T_CYCLE_TABLE, UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE};
+
+const VBLANK_INTERRUPT_BIT: u8 = 0;
+const LCD_INTERRUPT_BIT: u8 = 1;
+const TIMER_INTERRUPT_BIT: u8 = 2;
+const SERIAL_INTERRUPT_BIT: u8 = 3;
+const JOYPAD_INTERRUPT_BIT: u8 = 4;
 
 pub struct Cpu {
     pub reg: Registers,
@@ -25,7 +42,7 @@ pub struct Cpu {
     pub stop: bool,
     halt: bool,
 
-    t_cycle_counter: u64,
+    t_cycles: u64,
 }
 
 impl Cpu {
@@ -38,13 +55,13 @@ impl Cpu {
             ime_pending: false,
             stop: false,
             halt: false,
-            t_cycle_counter: 0,
+            t_cycles: 0,
         }
     }
 
     pub fn step(&mut self) {
-        self.update_ime();
         self.execute();
+        self.handle_interrupts();
         self.update_timers();
     }
 
@@ -89,7 +106,63 @@ impl Cpu {
         }
         if self.ime_pending {
             self.ime = true;
+            self.ime_pending = false;
         }
+    }
+
+    fn handle_interrupts(&mut self) {
+        self.update_ime();
+
+        let ie_byte = self.read_byte(IE_ADDR);
+        let if_byte = self.read_byte(IF_ADDR);
+
+        let vblank_interrupt = get_bit(if_byte, VBLANK_INTERRUPT_BIT);
+        let lcd_interrupt = get_bit(if_byte, LCD_INTERRUPT_BIT);
+        let timer_interrupt = get_bit(if_byte, TIMER_INTERRUPT_BIT);
+        let serial_interrupt = get_bit(if_byte, SERIAL_INTERRUPT_BIT);
+        let joypad_interrupt = get_bit(if_byte, JOYPAD_INTERRUPT_BIT);
+
+        let vblank_interrupt_enabled = get_bit(ie_byte, VBLANK_INTERRUPT_BIT);
+        let lcd_interrupt_enabled = get_bit(ie_byte, LCD_INTERRUPT_BIT);
+        let timer_interrupt_enabled = get_bit(ie_byte, TIMER_INTERRUPT_BIT);
+        let serial_interrupt_enabled = get_bit(ie_byte, SERIAL_INTERRUPT_BIT);
+        let joypad_interrupt_enabled = get_bit(ie_byte, JOYPAD_INTERRUPT_BIT);
+
+        if timer_interrupt {
+        println!("TIMER")
+
+        }
+
+        if !self.ime {
+            return;
+        }
+
+        if vblank_interrupt && vblank_interrupt_enabled {
+            self.handle_interrupt(VBLANK_INTERRUPT_HANDLER_ADDR);
+            println!("VBLANK");
+        }
+        if lcd_interrupt && lcd_interrupt_enabled {
+            self.handle_interrupt(STAT_INTERRUPT_HANDLER_ADDR);
+            println!("LCD");
+        }
+        if timer_interrupt && timer_interrupt_enabled {
+            self.handle_interrupt(TIMER_INTERRUPT_HANDLER_ADDR);
+            println!("TIMER");
+        }
+        if serial_interrupt && serial_interrupt_enabled {
+            self.handle_interrupt(SERIAL_INTERRUPT_HANDLER_ADDR);
+            println!("SERIAL");
+        }
+        if joypad_interrupt && joypad_interrupt_enabled {
+            self.handle_interrupt(JOYPAD_INTERRUPT_HANDLER_ADDR);
+            println!("JOYPAD");
+        }
+    }
+
+    fn handle_interrupt(&mut self, interrupt_jump_address: u16) {
+        self.push_r16(R16::PC);
+        self.rst_vec(interrupt_jump_address);
+        self.t_cycles += INTERRUPT_T_CYCLES as u64;
     }
 
     fn execute(&mut self) {
