@@ -61,11 +61,6 @@ pub const TMA_ADDR: u16 = 0xFF06;
 pub const TAC_ADDR: u16 = 0xFF07;
 
 // Interrupt (besides IE, which counts but is also its own memory region)
-pub const VBLANK_INTERRUPT_ADDR: u16 = 0x0040;
-pub const STAT_INTERRUPT_ADDR: u16 = 0x0048;
-pub const TIMER_INTERRUPT_ADDR: u16 = 0x0050;
-pub const SERIAL_INTERRUPT_ADDR: u16 = 0x0058;
-pub const JOYPAD_INTERRUPT_ADDR: u16 = 0x0060;
 pub const IF_ADDR: u16 = 0xFF0F;
 pub const VBLANK_INTERRUPT_HANDLER_ADDR: u16 = 0x0040;
 pub const STAT_INTERRUPT_HANDLER_ADDR: u16 = 0x0048;

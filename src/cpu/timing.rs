@@ -47,15 +47,9 @@ impl Cpu {
 
     fn increment_div(&self) {
         let mut byte = self.read_byte(DIV_ADDR);
-        let overflow: bool;
-        (byte, overflow) = byte.overflowing_add(1);
+        byte = byte.wrapping_add(1);
         // Normal writes set the timer to 0, so make a special request to the MMU
         self.mmu.borrow_mut().set_div_timer(byte);
-
-        // Overflows send a timer interrupt
-        if overflow {
-            self.mmu.borrow_mut().request_interrupt(TIMER_INTERRUPT_BIT);
-        }
     }
 
     fn increment_tima(&self) {
@@ -64,11 +58,9 @@ impl Cpu {
         (timer, overflow) = timer.overflowing_add(1);
         self.write_byte(TIMA_ADDR, timer);
 
-        // When TIMA overflows, it resets to the value of TMA and a timer interrupt is requested
+        // Overflows send a timer interrupt
         if overflow {
-            let reset_value = self.read_byte(TMA_ADDR);
-            self.write_byte(TMA_ADDR, reset_value);
-            self.set_timer_interrupt(true);
+            self.mmu.borrow_mut().request_interrupt(TIMER_INTERRUPT_BIT);
         }
     }
 
@@ -82,7 +74,7 @@ impl Cpu {
     fn get_tac_period_in_t_cycles(&self) -> u32 {
         let byte = self.read_byte(TAC_ADDR);
         let value = byte & 0b_0000_0011;
-        // The four values are mapped to frequencies (in t-cycles) as follows:
+        // The four values are mapped to frequencies as follows:
         match value {
             0b00 => 256 * T_CYCLES_PER_M_CYCLE,
             0b01 => 4 * T_CYCLES_PER_M_CYCLE,
@@ -106,12 +98,6 @@ impl Cpu {
         set_bit(&mut byte, 1, bit1);
         set_bit(&mut byte, 2, bit2);
         self.write_byte(TAC_ADDR, byte);
-    }
-
-    fn set_timer_interrupt(&self, set: bool) {
-        let mut byte = self.read_byte(IF_ADDR);
-        set_bit(&mut byte, IF_TIMER_BIT, set);
-        self.write_byte(IF_ADDR, byte);
     }
 }
 

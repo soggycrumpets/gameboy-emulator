@@ -59,10 +59,9 @@ impl Cpu {
     }
 
     pub fn step(&mut self) {
-        // print!("{}", self.read_byte(IF_ADDR));
+        print!("{}", self.read_byte(IF_ADDR));
         self.execute();
-        // self.update_timers();
-        // self.update_ime();
+        self.update_timers();
         self.handle_interrupts();
     }
 
@@ -113,9 +112,8 @@ impl Cpu {
 
     fn handle_interrupts(&mut self) {
         if !self.ime {
-            return
+            return;
         }
-
         let ie_byte = self.read_byte(IE_ADDR);
         let if_byte = self.read_byte(IF_ADDR);
 
@@ -131,39 +129,35 @@ impl Cpu {
         let serial_interrupt_enabled = get_bit(ie_byte, SERIAL_INTERRUPT_BIT);
         let joypad_interrupt_enabled = get_bit(ie_byte, JOYPAD_INTERRUPT_BIT);
 
+        // Interrupts are prioritized in order of their bit position (bit 0 first, bit 5 last)
         if vblank_interrupt && vblank_interrupt_enabled {
             println!("VBLANK");
             self.handle_interrupt(VBLANK_INTERRUPT_HANDLER_ADDR, VBLANK_INTERRUPT_BIT);
-        }
-        if lcd_interrupt && lcd_interrupt_enabled {
+        } else if lcd_interrupt && lcd_interrupt_enabled {
             println!("LCD");
             self.handle_interrupt(STAT_INTERRUPT_HANDLER_ADDR, LCD_INTERRUPT_BIT);
-        }
-        if timer_interrupt && timer_interrupt_enabled {
+        } else if timer_interrupt && timer_interrupt_enabled {
             println!("TIMER");
             self.handle_interrupt(TIMER_INTERRUPT_HANDLER_ADDR, TIMER_INTERRUPT_BIT);
-        }
-        if serial_interrupt && serial_interrupt_enabled {
+        } else if serial_interrupt && serial_interrupt_enabled {
             println!("SERIAL");
             self.handle_interrupt(SERIAL_INTERRUPT_HANDLER_ADDR, SERIAL_INTERRUPT_BIT);
-        }
-        if joypad_interrupt && joypad_interrupt_enabled {
+        } else if joypad_interrupt && joypad_interrupt_enabled {
             println!("JOYPAD");
             self.handle_interrupt(JOYPAD_INTERRUPT_HANDLER_ADDR, JOYPAD_INTERRUPT_BIT);
         }
-
     }
 
-    fn handle_interrupt(&mut self, interrupt_jump_address: u16, interrupt_bit: u8) {
-        self.push_r16(R16::PC);
-        self.rst_vec(interrupt_jump_address);
-        self.t_cycles = INTERRUPT_T_CYCLES as u64;
-        // Make sure the interrupt is disabled now that it's been processed
+    fn handle_interrupt(&mut self, interrupt_handler_addr: u16, interrupt_bit: u8) {
+        // Record that the interrupt has been handled
         let mut if_byte = self.read_byte(IF_ADDR);
-        set_bit(&mut if_byte, interrupt_bit, false);        
+        set_bit(&mut if_byte, interrupt_bit, false);
         self.write_byte(IF_ADDR, interrupt_bit);
-        // Also make sure to disable IME
         self.ime = false;
+
+        self.push_r16(R16::PC);
+        self.rst_vec(interrupt_handler_addr);
+        self.t_cycles = INTERRUPT_T_CYCLES as u64;
         println!("INTERRUPT HANDLED");
     }
 
