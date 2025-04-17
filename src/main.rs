@@ -43,10 +43,12 @@ fn run_rom(path: &str) {
     let render_timer_duration = Duration::from_secs_f64(1.0 / 60.0);
     let mut last_render_time = Instant::now();
 
+    // todo! This loop munches up CPU
+    // todo! The only timer this should need is the global clock, 
     while ui.running {
         ui.process_inputs();
         cpu.step();
-        // TODO:
+        // todo!
         // The ppu should eventually draw a little bit at a time.
         // For now, just draw everything at once at 60fps
         if last_render_time.elapsed() >= render_timer_duration {
@@ -66,9 +68,8 @@ fn create_gameboy_components() -> (Rc<RefCell<Mmu>>, Cpu, Ppu) {
 
 // While you technically can obtain a copy of the original gameboy bootrom online,
 // it's legally dubious. It's safer and easier for the user if the emulator just 
-// reiplicates the post-boot state, rather than requiring them to source the bootrom.
+// replicates the post-boot state, rather than requiring them to source the bootrom.
 // The pandocs contain good information about this (Section: 22. Power-Up Sequence)
-// The bgb debugger also initializes its state this way, so I checked my values ag
 fn emulate_boot(mmu: &Rc<RefCell<Mmu>>, cpu: &mut Cpu) {
     cpu.reg.set(R8::A, 0x01);
     // The H and C flags in the F register depend on the cartridge header checksum.

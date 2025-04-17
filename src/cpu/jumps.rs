@@ -34,7 +34,8 @@ impl Cpu {
 
     // JR
     fn jr(&mut self, byte: u8) {
-        let e8 = byte as i8; // convert u8 to relative address
+        // This instruction interprets the byte as signed
+        let e8 = byte as i8; 
         let pc = self.reg.get16(R16::PC);
         let new_addr = ((pc as i32) + e8 as i32) as u16;
         self.reg.set16(R16::PC, new_addr)

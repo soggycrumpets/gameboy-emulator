@@ -1,6 +1,6 @@
 use crate::{
     constants::T_CYCLES_PER_M_CYCLE,
-    mmu::memmap::{DIV_ADDR, TAC_ADDR, TIMA_ADDR},
+    mmu::memmap::{DIV_ADDR, TAC_ADDR, TIMA_ADDR, TMA_ADDR},
     util::{get_bit, set_bit},
 };
 
@@ -14,53 +14,60 @@ pub const UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =
 pub const PREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =
     include_bytes!("../../data/prefixed_instruction_t_cycle_table.dat");
 
-const DIV_PERIOD_IN_T_CYCLES: u16 = 256;
 pub const INTERRUPT_T_CYCLES: u8 = 5 * 20;
+const DIV_PERIOD_IN_T_CYCLES: u16 = 256;
+const TAC_CLOCK_00_T_CYCLE_PERIOD: u32 = 256 * 4;
+const TAC_CLOCK_01_T_CYCLE_PERIOD: u32 = 4 * 4;
+const TAC_CLOCK_10_T_CYCLE_PERIOD: u32 = 16 * 4;
+const TAC_CLOCK_11_T_CYCLE_PERIOD: u32 = 64 * 4;
 
-const IF_TIMER_BIT: u8 = 2;
 const TAC_ENABLE_BIT: u8 = 2;
 
 impl Cpu {
     pub fn update_timers(&mut self) {
-        let prev_t_cycles = self.t_cycles;
-        self.t_cycles += self.instruction_t_cycles as u64;
+        self.t_cycles_total += self.instruction_t_cycles as u64;
 
         // DIV
-        if (self.t_cycles / DIV_PERIOD_IN_T_CYCLES as u64)
-            > (prev_t_cycles / DIV_PERIOD_IN_T_CYCLES as u64)
+        if (self.t_cycles_total / DIV_PERIOD_IN_T_CYCLES as u64)
+            > (self.prev_t_cycles_total / DIV_PERIOD_IN_T_CYCLES as u64)
         {
             self.increment_div();
         }
 
         // TIMA
+        // todo! I think there's a problem in here. 3/4 Mooneye timer tests are failing by 1 timer count.
         let tac_enable = self.get_tac_enable();
         let t_cycles_per_tima_increment = self.get_tac_period_in_t_cycles();
-        let tima_periods = self.t_cycles / t_cycles_per_tima_increment as u64;
-        let prev_tima_periods = prev_t_cycles / t_cycles_per_tima_increment as u64;
-        let tima_increments = tima_periods - prev_tima_periods;
         if tac_enable {
+            self.tima_t_cycle_counter += self.instruction_t_cycles as u32;
+            let tima_increments = self.tima_t_cycle_counter / t_cycles_per_tima_increment;
             for _i in 0..tima_increments {
                 self.increment_tima();
+                self.tima_t_cycle_counter -= t_cycles_per_tima_increment;
             }
+        } else {
+            self.tima_t_cycle_counter = 0;
         }
     }
 
     fn increment_div(&self) {
-        let mut byte = self.read_byte(DIV_ADDR);
-        byte = byte.wrapping_add(1);
+        let mut timer = self.read_byte(DIV_ADDR);
+        timer = timer.wrapping_add(1);
         // Normal writes set the timer to 0, so make a special request to the MMU
-        self.mmu.borrow_mut().set_div_timer(byte);
+        self.mmu.borrow_mut().set_div_timer(timer);
     }
 
     fn increment_tima(&self) {
-        let mut timer = self.read_byte(TIMA_ADDR);
-        let overflow;
-        (timer, overflow) = timer.overflowing_add(1);
-        self.write_byte(TIMA_ADDR, timer);
+        let tima_byte = self.read_byte(TIMA_ADDR);
 
-        // Overflows send a timer interrupt
-        if overflow {
+        if let Some(byte) = tima_byte.checked_add(1) {
+            self.write_byte(TIMA_ADDR, byte);
+        } else {
+            // Overflows send a timer interrupt
             self.mmu.borrow_mut().request_interrupt(TIMER_INTERRUPT_BIT);
+            // Instead of resetting to 0 on overflow, this timer is set to the value stored in TMA
+            let tma_value = self.read_byte(TMA_ADDR);
+            self.write_byte(TIMA_ADDR, tma_value);
         }
     }
 
@@ -76,10 +83,10 @@ impl Cpu {
         let value = byte & 0b_0000_0011;
         // The four values are mapped to frequencies as follows:
         match value {
-            0b00 => 256 * T_CYCLES_PER_M_CYCLE,
-            0b01 => 4 * T_CYCLES_PER_M_CYCLE,
-            0b10 => 16 * T_CYCLES_PER_M_CYCLE,
-            0b11 => 64 * T_CYCLES_PER_M_CYCLE,
+            0b00 => TAC_CLOCK_00_T_CYCLE_PERIOD,
+            0b01 => TAC_CLOCK_01_T_CYCLE_PERIOD,
+            0b10 => TAC_CLOCK_10_T_CYCLE_PERIOD,
+            0b11 => TAC_CLOCK_11_T_CYCLE_PERIOD,
             _ => unreachable!("Impossible value for TAC clock select"),
         }
     }
@@ -133,8 +140,8 @@ mod debug {
             let tac_period = self.get_tac_period_in_t_cycles();
             println!("\nTimers:");
             print!(
-                "\nDIV: {:02x}, TIMA: {:02x}, TAC_ENABLE: {}, TAC_PERIOD: {:02}\n\n",
-                div, tima, tac_enable, tac_period
+                "\nTotal t-cycles: {}, Previous total : {}\nDIV: {:02x}, TIMA: {:02x}, TAC_ENABLE: {}, TAC_PERIOD: {:02}\n\n",
+                self.t_cycles_total, self.prev_t_cycles_total, div, tima, tac_enable, tac_period,
             );
         }
     }

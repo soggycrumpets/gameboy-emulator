@@ -1,3 +1,4 @@
+const TEST_ALL_INSTRUCTIONS: &str = "./test-roms/cpu_instrs.gb";
 const TEST_CPU_1_PATH: &str = "./test-roms/01-special.gb";
 const TEST_CPU_2_PATH: &str = "./test-roms/02-interrupts.gb";
 const TEST_CPU_3_PATH: &str = "./test-roms/03-op sp,hl.gb";
@@ -52,6 +53,7 @@ fn parse_rom_arg(mut args: Vec<String>) -> String {
 
 fn map_rom_name_to_path(name: &str) -> String {
     match name {
+        "testall" => TEST_ALL_INSTRUCTIONS,
         "tetris" => TETRIS_ROM_PATH,
         "cpu1" => TEST_CPU_1_PATH,
         "cpu2" => TEST_CPU_2_PATH,

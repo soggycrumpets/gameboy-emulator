@@ -2,11 +2,11 @@ use super::*;
 impl Cpu {
     // 2-byte PUSH
     pub fn push_r16(&mut self, r16: R16) {
-        // Decrement sp
+        // Decrement sp first
         let sp = self.reg.get16(R16::SP).wrapping_sub(2);
         self.reg.set16(R16::SP, sp);
 
-        // Push the byte in the register to the stack
+        // Push the byte next
         let word = self.reg.get16(r16);
         self.write_word(sp, word);
     }
@@ -15,13 +15,13 @@ impl Cpu {
     pub fn pop_r16(&mut self, r16: R16) {
         let sp = self.reg.get16(R16::SP);
 
-        // Pop the stack into the register
+        // Pop the stack first
         let word = self.read_word(sp);
         self.reg.set16(r16, word);
 
-        // Increment sp
+        // Increment sp next
         if (sp as u32) + 2 > 0xFFFF {
-            panic!("Stack undewflow");
+            panic!("Stack underflow");
         }
         self.reg.set16(R16::SP, sp.wrapping_add(2));
     }
