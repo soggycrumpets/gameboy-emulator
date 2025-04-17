@@ -1,6 +1,6 @@
 use crate::{
     constants::T_CYCLES_PER_M_CYCLE,
-    mmu::memmap::{DIV_ADDR, IF_ADDR, TAC_ADDR, TIMA_ADDR, TMA_ADDR},
+    mmu::memmap::{DIV_ADDR, TAC_ADDR, TIMA_ADDR},
     util::{get_bit, set_bit},
 };
 
@@ -38,7 +38,6 @@ impl Cpu {
         let tima_periods = self.t_cycles / t_cycles_per_tima_increment as u64;
         let prev_tima_periods = prev_t_cycles / t_cycles_per_tima_increment as u64;
         let tima_increments = tima_periods - prev_tima_periods;
-        // println!("{}", tac_enable);
         if tac_enable {
             for _i in 0..tima_increments {
                 self.increment_tima();

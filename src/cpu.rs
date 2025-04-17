@@ -39,8 +39,7 @@ pub struct Cpu {
     ime: bool,
     ime_pending: bool,
     pub stop: bool,
-    halt: bool,
-
+    low_power_mode: bool,
     t_cycles: u64,
 }
 
@@ -53,15 +52,17 @@ impl Cpu {
             ime: true,
             ime_pending: false,
             stop: false,
-            halt: false,
+            low_power_mode: false,
             t_cycles: 0,
         }
     }
 
     pub fn step(&mut self) {
-        self.execute();
-        self.update_timers();
+        if !self.low_power_mode {
+            self.execute();
+        } 
         self.handle_interrupts();
+        self.update_timers();
     }
 
     // Wrapper functions arround MMU reads/writes to make them more clear and ergonomic
@@ -99,22 +100,21 @@ impl Cpu {
         word
     }
 
-    fn update_ime(&mut self) {
-        if self.ime {
-            self.ime = false;
-        }
-        if self.ime_pending {
-            self.ime = true;
-            self.ime_pending = false;
-        }
-    }
-
     fn handle_interrupts(&mut self) {
+        let ie_byte = self.read_byte(IE_ADDR);
+        let if_byte = self.read_byte(IF_ADDR);
+
+        let interrupts_are_pending = (ie_byte & if_byte) > 0;
+
+        if !interrupts_are_pending {
+            return;
+        }
+
+        self.low_power_mode = false;
+
         if !self.ime {
             return;
         }
-        let ie_byte = self.read_byte(IE_ADDR);
-        let if_byte = self.read_byte(IF_ADDR);
 
         let vblank_interrupt = get_bit(if_byte, VBLANK_INTERRUPT_BIT);
         let lcd_interrupt = get_bit(if_byte, LCD_INTERRUPT_BIT);
@@ -156,10 +156,10 @@ impl Cpu {
 
         self.push_r16(R16::PC);
         self.rst_vec(interrupt_handler_addr);
-        self.t_cycles = INTERRUPT_T_CYCLES as u64;
+        self.t_cycles += INTERRUPT_T_CYCLES as u64;
         println!("INTERRUPT HANDLED");
     }
-
+    
     fn execute(&mut self) {
         let opcode = self.fetch_byte();
 
@@ -751,14 +751,24 @@ impl Cpu {
         self.ime = true;
     }
 
-    // todo!
+    // todo!()
     fn stop(&mut self) {
         self.stop = true;
     }
 
-    // todo!
+    // todo!()
     fn halt(&mut self) {
-        self.halt = true;
+        let ie_byte = self.read_byte(IE_ADDR);
+        let if_byte = self.read_byte(IF_ADDR);
+        let interrupts_are_pending = (ie_byte & if_byte) > 0;
+
+        if self.ime || !interrupts_are_pending {
+            self.low_power_mode = true;
+        } else {
+            // Due to a hardware bug, the program counter does not increment in this case.
+            // let pc = self.reg.get16(R16::PC);
+            // self.reg.set16(R16::PC, pc - 2);
+        }
     }
 }
 
