@@ -41,7 +41,7 @@ pub fn run_debug(path: &str) {
             DebugCommand::Step(count) => step_gameboy(count, &mut cpu, &mut ppu),
             DebugCommand::PrintVram => mmu.borrow().print_vram(),
             DebugCommand::PrintRegisters => cpu.reg.print(),
-            DebugCommand::PrintTimers => cpu.print_timers(),
+            DebugCommand::PrintTimers => unimplemented!(),
             DebugCommand::None => println!("Unrecognized Command"),
         }
     }
@@ -97,7 +97,7 @@ fn parse_step_arg(mut args: Vec<String>) -> DebugCommand {
 
 fn step_gameboy(count: u32, cpu: &mut Cpu, ppu: &mut Ppu) {
     for _i in 0..count {
-        cpu.step();
+        cpu.step_instruction();
     }
     ppu.splat_tiles();
     if count != 1 {

@@ -1,13 +1,16 @@
 const TRANSFER_REQUESTED_VALUE: u8 = 0x81;
 
 pub mod memmap;
+mod timers;
 use memmap::*;
+use timers::Timers;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::util::set_bit;
 
 #[derive(Debug)]
 pub struct Mmu {
+    timers: Timers,
     rom_bank_00: [u8; ROM_BANK_0_SIZE],
     rom_bank_01: [u8; ROM_BANK_1_SIZE],
     vram: [u8; VRAM_SIZE],
@@ -25,6 +28,7 @@ pub struct Mmu {
 impl Mmu {
     pub fn new() -> Rc<RefCell<Mmu>> {
         let mmu = Mmu {
+            timers: Timers::new(),
             rom_bank_00: [0; ROM_BANK_0_SIZE],
             rom_bank_01: [0; ROM_BANK_1_SIZE],
             vram: [0; VRAM_SIZE],
@@ -104,7 +108,8 @@ impl Mmu {
             M::Restricted => self.restricted_memory[index] = byte,
             // IO Has some special cases
             M::Io => match addr {
-                DIV_ADDR => self.io[index] = 0,
+                // Writes to DIV do not affect the memory directly. They reset the system clock
+                DIV_ADDR => self.timers.system_clock = 0,
                 _ => self.io[index] = byte,
             },
             M::Hram => self.hram[index] = byte,

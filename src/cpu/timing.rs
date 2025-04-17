@@ -1,5 +1,4 @@
 use crate::{
-    constants::T_CYCLES_PER_M_CYCLE,
     mmu::memmap::{DIV_ADDR, TAC_ADDR, TIMA_ADDR, TMA_ADDR},
     util::{get_bit, set_bit},
 };
@@ -38,6 +37,17 @@ impl Cpu {
         // todo! I think there's a problem in here. 3/4 Mooneye timer tests are failing by 1 timer count.
         let tac_enable = self.get_tac_enable();
         let t_cycles_per_tima_increment = self.get_tac_period_in_t_cycles();
+
+        // TIMA's special overflow behavior occurs the cycle AFTER an overflow is detected.
+        if self.tima_overflowed {
+            self.tima_overflowed = false;
+            // Overflows send a timer interrupt
+            self.mmu.borrow_mut().request_interrupt(TIMER_INTERRUPT_BIT);
+            // Instead of resetting to 0 on overflow, this timer is set to the value stored in TMA
+            let tma_value = self.read_byte(TMA_ADDR);
+            self.write_byte(TIMA_ADDR, tma_value); 
+        }
+
         if tac_enable {
             self.tima_t_cycle_counter += self.instruction_t_cycles as u32;
             let tima_increments = self.tima_t_cycle_counter / t_cycles_per_tima_increment;
@@ -57,18 +67,26 @@ impl Cpu {
         self.mmu.borrow_mut().set_div_timer(timer);
     }
 
-    fn increment_tima(&self) {
-        let tima_byte = self.read_byte(TIMA_ADDR);
+    fn increment_tima(&mut self) {
+        let mut tima_byte = self.read_byte(TIMA_ADDR);
+        let overflowed;
 
-        if let Some(byte) = tima_byte.checked_add(1) {
-            self.write_byte(TIMA_ADDR, byte);
-        } else {
-            // Overflows send a timer interrupt
-            self.mmu.borrow_mut().request_interrupt(TIMER_INTERRUPT_BIT);
-            // Instead of resetting to 0 on overflow, this timer is set to the value stored in TMA
-            let tma_value = self.read_byte(TMA_ADDR);
-            self.write_byte(TIMA_ADDR, tma_value);
+        (tima_byte, overflowed) = tima_byte.overflowing_add(1);
+        self.write_byte(TIMA_ADDR, tima_byte);
+
+        if overflowed {
+            self.tima_overflowed = true;
         }
+
+        // if let Some(byte) = tima_byte.checked_add(1) {
+        //     self.write_byte(TIMA_ADDR, byte);
+        // } else {
+        //     // Overflows send a timer interrupt
+        //     self.mmu.borrow_mut().request_interrupt(TIMER_INTERRUPT_BIT);
+        //     // Instead of resetting to 0 on overflow, this timer is set to the value stored in TMA
+        //     let tma_value = self.read_byte(TMA_ADDR);
+        //     self.write_byte(TIMA_ADDR, tma_value);
+        // }
     }
 
     // TAC enabled is the third bit from the right

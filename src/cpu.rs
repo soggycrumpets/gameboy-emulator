@@ -5,32 +5,27 @@ mod bits;
 mod jumps;
 mod loads;
 pub mod registers;
-pub mod timing;
 
 use crate::mmu::Mmu;
-use crate::mmu::memmap::IE_ADDR;
-use crate::mmu::memmap::IF_ADDR;
-use crate::mmu::memmap::JOYPAD_INTERRUPT_HANDLER_ADDR;
-use crate::mmu::memmap::SERIAL_INTERRUPT_HANDLER_ADDR;
-use crate::mmu::memmap::STAT_INTERRUPT_HANDLER_ADDR;
-use crate::mmu::memmap::TIMER_INTERRUPT_HANDLER_ADDR;
-use crate::mmu::memmap::VBLANK_INTERRUPT_HANDLER_ADDR;
-use crate::util::get_bit;
-use crate::util::set_bit;
+use crate::mmu::memmap::{
+    IE_ADDR, IF_ADDR, JOYPAD_INTERRUPT_BIT, JOYPAD_INTERRUPT_HANDLER_ADDR, LCD_INTERRUPT_BIT,
+    SERIAL_INTERRUPT_BIT, SERIAL_INTERRUPT_HANDLER_ADDR, STAT_INTERRUPT_HANDLER_ADDR,
+    TIMER_INTERRUPT_BIT, TIMER_INTERRUPT_HANDLER_ADDR, VBLANK_INTERRUPT_BIT,
+    VBLANK_INTERRUPT_HANDLER_ADDR,
+};
+
+use crate::util::{get_bit, set_bit};
 
 use alu::{AluBinary, AluUnary};
 use bits::{BitflagOp, BitshiftOp};
-use registers::Flag;
-use registers::Registers;
-use registers::{R8, R16};
-use timing::INTERRUPT_T_CYCLES;
-use timing::{PREFIXED_INSTRUCTION_T_CYCLE_TABLE, UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE};
+use registers::{Flag, Registers, R8, R16};
 
-const VBLANK_INTERRUPT_BIT: u8 = 0;
-const LCD_INTERRUPT_BIT: u8 = 1;
-const TIMER_INTERRUPT_BIT: u8 = 2;
-const SERIAL_INTERRUPT_BIT: u8 = 3;
-const JOYPAD_INTERRUPT_BIT: u8 = 4;
+pub const INTERRUPT_T_CYCLES: u8 = 5 * 20;
+
+pub const UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =
+    include_bytes!("../data/unprefixed_instruction_t_cycle_table.dat");
+pub const PREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =
+    include_bytes!("../data/prefixed_instruction_t_cycle_table.dat");
 
 pub struct Cpu {
     pub reg: Registers,
@@ -39,11 +34,6 @@ pub struct Cpu {
     ime: bool,
     ime_pending: bool,
     low_power_mode: bool,
-
-    t_cycles_total: u64,
-    prev_t_cycles_total: u64,
-    tima_t_cycle_counter: u32,
-    tima_overflowed: bool,
 }
 
 impl Cpu {
@@ -55,23 +45,14 @@ impl Cpu {
             ime: true,
             ime_pending: false,
             low_power_mode: false,
-
-            t_cycles_total: 0,
-            prev_t_cycles_total: 0,
-            tima_t_cycle_counter: 0,
-            tima_overflowed: false,
         }
     }
 
-    pub fn step(&mut self) {
-        self.prev_t_cycles_total = self.t_cycles_total;
-
+    pub fn step_instruction(&mut self) {
         if !self.low_power_mode {
             self.execute();
-        } 
+        }
         self.handle_interrupts();
-        self.update_timers();
-
     }
 
     // Wrapper functions arround MMU reads/writes to make them more clear and ergonomic
@@ -124,7 +105,7 @@ impl Cpu {
         if !self.ime {
             return;
         }
-        
+
         println!("Handling interrupt");
 
         let vblank_interrupt = get_bit(if_byte, VBLANK_INTERRUPT_BIT);
@@ -164,7 +145,7 @@ impl Cpu {
         self.rst_vec(interrupt_handler_addr);
         self.instruction_t_cycles += INTERRUPT_T_CYCLES;
     }
-    
+
     fn execute(&mut self) {
         let opcode = self.fetch_byte();
 
@@ -757,8 +738,7 @@ impl Cpu {
     }
 
     // todo!
-    fn stop(&mut self) {
-    }
+    fn stop(&mut self) {}
 
     // todo! implement the halt bug
     fn halt(&mut self) {
@@ -772,6 +752,31 @@ impl Cpu {
             // Due to a hardware bug, the program counter does not increment in this case.
             // let pc = self.reg.get16(R16::PC);
             // self.reg.set16(R16::PC, pc - 2);
+        }
+    }
+}
+
+mod debug {
+    use super::*;
+    pub fn print_t_cycle_tables() {
+        println!("\nUnprefixed Instructions:\n");
+        print_table(UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE);
+        print!("\n\n");
+        println!("Prefixed Instructions:\n");
+        print_table(PREFIXED_INSTRUCTION_T_CYCLE_TABLE);
+        print!("\n\n");
+
+        fn print_table(table: &[u8]) {
+            let mut counter = 0;
+            for i in table {
+                print!("{:02} ", i);
+                counter += 1;
+
+                if counter == 16 {
+                    counter = 0;
+                    println!();
+                }
+            }
         }
     }
 }

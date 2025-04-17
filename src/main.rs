@@ -9,11 +9,15 @@ mod util;
 
 use cli::{Command, parse_cli_inputs};
 
-use cpu::{registers::R8, Cpu};
+use cpu::{Cpu, registers::R8};
 use debugger::run_debug;
 use mmu::Mmu;
 use ppu::Ppu;
-use std::{cell::RefCell, rc::Rc, time::{Duration, Instant}};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    time::{Duration, Instant},
+};
 use ui::UserInterface;
 
 use cpu::registers::R16;
@@ -44,10 +48,16 @@ fn run_rom(path: &str) {
     let mut last_render_time = Instant::now();
 
     // todo! This loop munches up CPU
-    // todo! The only timer this should need is the global clock, 
+    // todo! The only timer this should need is the global clock,
+    // One loop represents one t-cycle
     while ui.running {
         ui.process_inputs();
-        cpu.step();
+        if cpu.instruction_t_cycles == 0 {
+            cpu.step_instruction();           
+        }
+        cpu.instruction_t_cycles -= 1;
+
+        mmu.borrow_mut().tick_timers();
         // todo!
         // The ppu should eventually draw a little bit at a time.
         // For now, just draw everything at once at 60fps
@@ -55,7 +65,7 @@ fn run_rom(path: &str) {
             ppu.splat_tiles();
             ui.render_display(&ppu.display);
             last_render_time = Instant::now();
-        } 
+        }
     }
 }
 
@@ -67,7 +77,7 @@ fn create_gameboy_components() -> (Rc<RefCell<Mmu>>, Cpu, Ppu) {
 }
 
 // While you technically can obtain a copy of the original gameboy bootrom online,
-// it's legally dubious. It's safer and easier for the user if the emulator just 
+// it's legally dubious. It's safer and easier for the user if the emulator just
 // replicates the post-boot state, rather than requiring them to source the bootrom.
 // The pandocs contain good information about this (Section: 22. Power-Up Sequence)
 fn emulate_boot(mmu: &Rc<RefCell<Mmu>>, cpu: &mut Cpu) {
