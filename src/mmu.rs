@@ -131,14 +131,6 @@ impl Mmu {
         self.write_byte(addr + 1, highbyte);
     }
 
-    // The DIV address is special in that writes to it automatically set it to zero.
-    // So, we need to make a special request to the MMU to modify it.
-    pub fn set_div_timer(&mut self, byte: u8) {
-        let (_region, addr_mapped) = map_address(DIV_ADDR);
-        let index = addr_mapped as usize;
-        self.io[index] = byte;
-    }
-
     // An interrupt is requested by setting a specific bit in the IF register
     pub fn request_interrupt(&mut self, interrupt_bit: u8) {
         let mut byte = self.read_byte(IF_ADDR);

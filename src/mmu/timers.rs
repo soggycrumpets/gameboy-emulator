@@ -10,14 +10,14 @@ use super::*;
 
 // TIMA increments when its corresponding bit in the system clock flips from 1 to 0.
 // The corresponding bit is dictated by the lower two bits of TAC, which are mapped as follows.
-// More information can be out at https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html
+// More information can be found at https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html
 const TAC_FREQ_1_SYSTEM_CLOCK_BIT: u8 = 3;
 const TAC_FREQ_2_SYSTEM_CLOCK_BIT: u8 = 5;
 const TAC_FREQ_3_SYSTEM_CLOCK_BIT: u8 = 7;
 const TAC_FREQ_0_SYSTEM_CLOCK_BIT: u8 = 9;
 
 const TAC_ENABLE_BIT: u8 = 2;
-const T_CYCLES_PER_M_CYCLE: u8 = 4;
+const T_CYCLES_PER_M_CYCLE: u16 = 4;
 
 #[derive(Debug)]
 pub struct Timers {
@@ -41,12 +41,11 @@ impl Timers {
 impl Mmu {
     // One tick is 1 t-cycle
     pub fn tick_timers(&mut self) {
-        self.timers.system_clock_prev = self.timers.system_clock;
         self.timers.system_clock_counter += 1;
-        // The system clock is a 16-bit number in t-cycles, but it is only incremented once every 4 m-cycles.
-        if self.timers.system_clock_counter == T_CYCLES_PER_M_CYCLE as u16 {
+        // The system clock is a 16-bit number in t-cycles, but it is only incremented once every m-cycle.
+        if self.timers.system_clock_counter == T_CYCLES_PER_M_CYCLE {
             self.timers.system_clock_counter = 0;
-            self.timers.system_clock = self.timers.system_clock.wrapping_add(4);
+            self.timers.system_clock = self.timers.system_clock.wrapping_add(T_CYCLES_PER_M_CYCLE);
         }
 
         // DIV is the upper 8 bits of the system t cycle counter
@@ -69,6 +68,19 @@ impl Mmu {
         if tac_enable && tima_bit_was_active && !tima_bit_is_active {
             self.increment_tima();
         }
+
+        // It's important to update the previous clockstate here, instead of at the beginning of the loop.
+        // This is because the system clock can be reset if something writes to the div timer.
+        // Therefore, the system clock state might be different by the next time this function is called.
+        self.timers.system_clock_prev = self.timers.system_clock;
+    }
+
+    // The DIV address is special in that writes to it automatically set it to zero.
+    // So we can't use the "write byte" function. We have to reach in directly.
+    pub fn set_div_timer(&mut self, byte: u8) {
+        let (_region, addr_mapped) = map_address(DIV_ADDR);
+        let index = addr_mapped as usize;
+        self.io[index] = byte;
     }
 
     fn increment_tima(&mut self) {
@@ -155,7 +167,6 @@ mod tests {
     const TAC_CLOCK_2_T_CYCLE_PERIOD: u16 = 16 * 4;
     const TAC_CLOCK_3_T_CYCLE_PERIOD: u16 = 64 * 4;
     const TAC_CLOCK_0_T_CYCLE_PERIOD: u16 = 256 * 4;
-
     #[test]
     fn test_system_clock() {
         let mmu = Mmu::new();
@@ -173,12 +184,26 @@ mod tests {
     }
 
     #[test]
-    fn test_tima_clock_mode_0() {
-        let mmu = Mmu::new();
+    fn test_tima_clock_modes_() {
+        test_clock_mode(1);
+        test_clock_mode(2);
+        test_clock_mode(3);
+        test_clock_mode(0);
+    }
 
+    fn test_clock_mode(mode: u8) {
+        let mmu = Mmu::new();
         mmu.borrow_mut().set_tac_enable(true);
-        mmu.borrow_mut().set_tac_clock_select(1);
-        for _i in 0..TAC_CLOCK_1_T_CYCLE_PERIOD - 1 {
+        mmu.borrow_mut().set_tac_clock_select(mode);
+        let period = match mode {
+            1 => TAC_CLOCK_1_T_CYCLE_PERIOD,
+            2 => TAC_CLOCK_2_T_CYCLE_PERIOD,
+            3 => TAC_CLOCK_3_T_CYCLE_PERIOD,
+            0 => TAC_CLOCK_0_T_CYCLE_PERIOD,
+            _ => unreachable!(),
+        };
+
+        for _i in 0..period - 1 {
             mmu.borrow_mut().tick_timers();
             let tima = mmu.borrow().read_byte(TIMA_ADDR);
             assert_eq!(tima, 0);
