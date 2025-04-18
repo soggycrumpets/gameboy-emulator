@@ -53,9 +53,9 @@ fn run_rom(path: &str) {
     while ui.running {
         ui.process_inputs();
         if cpu.instruction_t_cycles == 0 {
-            cpu.step_instruction();           
+            cpu.step_instruction();
         }
-        cpu.instruction_t_cycles -= 1;
+        cpu.instruction_t_cycles = cpu.instruction_t_cycles.saturating_sub(1);
 
         mmu.borrow_mut().tick_timers();
         // todo!

@@ -108,9 +108,9 @@ impl Mmu {
             M::Restricted => self.restricted_memory[index] = byte,
             // IO Has some special cases
             M::Io => match addr {
-                // Writes to DIV do not change memory, they instead reset the system clock
-                DIV_ADDR => self.timers.system_clock = 0,
+                DIV_ADDR => self.write_byte_div(),
                 TMA_ADDR => self.write_byte_tma(byte),
+                TAC_ADDR => self.write_byte_tac(byte),
                 TIMA_ADDR => self.write_byte_tima(byte),
                 _ => self.io[index] = byte,
             },
