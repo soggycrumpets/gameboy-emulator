@@ -3,8 +3,8 @@ const TRANSFER_REQUESTED_VALUE: u8 = 0x81;
 pub mod memmap;
 mod timers;
 use memmap::*;
-use timers::Timers;
 use std::{cell::RefCell, rc::Rc};
+use timers::Timers;
 
 use crate::util::set_bit;
 
@@ -108,8 +108,10 @@ impl Mmu {
             M::Restricted => self.restricted_memory[index] = byte,
             // IO Has some special cases
             M::Io => match addr {
-                // Writes to DIV do not affect the memory directly. They reset the system clock
+                // Writes to DIV do not change memory, they instead reset the system clock
                 DIV_ADDR => self.timers.system_clock = 0,
+                TMA_ADDR => self.io[index] = byte,
+                TIMA_ADDR => self.write_byte_tima(byte),
                 _ => self.io[index] = byte,
             },
             M::Hram => self.hram[index] = byte,

@@ -18,6 +18,7 @@ const TAC_FREQ_0_SYSTEM_CLOCK_BIT: u8 = 9;
 
 const TAC_ENABLE_BIT: u8 = 2;
 const T_CYCLES_PER_M_CYCLE: u16 = 4;
+const TIMA_WRITE_LOCK_CYCLES: u16 = 4;
 
 #[derive(Debug)]
 pub struct Timers {
@@ -25,6 +26,7 @@ pub struct Timers {
     pub system_clock_prev: u16,
     pub system_clock_counter: u16,
     tima_overflowed: bool,
+    tima_write_lock_counter: u16,
 }
 
 impl Timers {
@@ -34,6 +36,7 @@ impl Timers {
             system_clock_prev: 0,
             system_clock_counter: 0,
             tima_overflowed: false,
+            tima_write_lock_counter: 0,
         }
     }
 }
@@ -42,6 +45,7 @@ impl Mmu {
     // One tick is 1 t-cycle
     pub fn tick_timers(&mut self) {
         self.timers.system_clock_counter += 1;
+        self.timers.tima_write_lock_counter = self.timers.tima_write_lock_counter.saturating_sub(1);
         // The system clock is a 16-bit number in t-cycles, but it is only incremented once every m-cycle.
         if self.timers.system_clock_counter == T_CYCLES_PER_M_CYCLE {
             self.timers.system_clock_counter = 0;
@@ -50,15 +54,14 @@ impl Mmu {
 
         // DIV is the upper 8 bits of the system t cycle counter
         let div_value = (self.timers.system_clock >> 8) as u8;
-        self.set_div_timer(div_value);
+        self.bypass_write_byte_div_timer(div_value);
 
         // TIMA
-        // todo! I think there's a problem in here. 3/4 Mooneye timer tests are failing by 1 timer count.
         let tac_enable = self.get_tac_enable();
         let tima_system_clock_bit = self.get_system_clock_bit_for_tima();
         let tima_bit_was_active =
-            (self.timers.system_clock_prev & (1 << tima_system_clock_bit)) > 0;
-        let tima_bit_is_active = (self.timers.system_clock & (1 << tima_system_clock_bit)) > 0;
+            (self.timers.system_clock_prev & (1 << tima_system_clock_bit)) != 0;
+        let tima_bit_is_active = (self.timers.system_clock & (1 << tima_system_clock_bit)) != 0;
 
         // TIMA's special overflow behavior occurs the cycle AFTER an overflow is detected.
         if self.timers.tima_overflowed {
@@ -75,20 +78,13 @@ impl Mmu {
         self.timers.system_clock_prev = self.timers.system_clock;
     }
 
-    // The DIV address is special in that writes to it automatically set it to zero.
-    // So we can't use the "write byte" function. We have to reach in directly.
-    pub fn set_div_timer(&mut self, byte: u8) {
-        let (_region, addr_mapped) = map_address(DIV_ADDR);
-        let index = addr_mapped as usize;
-        self.io[index] = byte;
-    }
-
     fn increment_tima(&mut self) {
         let mut tima_byte = self.read_byte(TIMA_ADDR);
         let overflowed;
 
         (tima_byte, overflowed) = tima_byte.overflowing_add(1);
-        self.write_byte(TIMA_ADDR, tima_byte);
+
+        self.bypass_write_byte_tima(tima_byte);
 
         if overflowed {
             self.timers.tima_overflowed = true;
@@ -99,9 +95,11 @@ impl Mmu {
     // Instead of resetting to 0 on overflow, this timer is set to the value stored in TMA
     fn process_tima_overflow(&mut self) {
         self.timers.tima_overflowed = false;
+        self.timers.tima_write_lock_counter = 4;
+
         self.request_interrupt(TIMER_INTERRUPT_BIT);
         let tma_value = self.read_byte(TMA_ADDR);
-        self.write_byte(TIMA_ADDR, tma_value);
+        self.bypass_write_byte_tima(tma_value);
     }
 
     // TAC enabled is the third bit from the right
@@ -137,6 +135,36 @@ impl Mmu {
         set_bit(&mut byte, 0, bit0);
         set_bit(&mut byte, 1, bit1);
         self.write_byte(TAC_ADDR, byte);
+    }
+
+    // ----- Special-Case Memory Reads/Writes -----
+
+    // The DIV address is different in that writes to it automatically set it to zero.
+    // So we can't use the "write byte" function. We have to reach in directly.
+    fn bypass_write_byte_div_timer(&mut self, byte: u8) {
+        let (_region, addr_mapped) = map_address(DIV_ADDR);
+        let index = addr_mapped as usize;
+        self.io[index] = byte;
+    }
+
+    // Writing to TIMA immediately after it has overflowed will cancel the overflow behavior.
+    // Additionally, for the next machine cycle after TIMA overflows, it ignores writes!
+    // This function is used by the general write_byte function as a wrapper around this weird behavior.
+    pub fn write_byte_tima(&mut self, byte: u8) {
+        let (_region, addr_mapped) = map_address(TIMA_ADDR);
+        let index = addr_mapped as usize;
+        if self.timers.tima_write_lock_counter == 0 {
+            self.io[index] = byte;
+        }
+        self.timers.tima_overflowed = false;
+    }
+
+    // While TIMA is write locked, some other timer functionality can still access it.
+    // Namely, TIMA is still incremented, and TMA's value is still copied into TIMA while it is write protected.
+    fn bypass_write_byte_tima(&mut self, byte: u8) {
+        let (_region, addr_mapped) = map_address(TIMA_ADDR);
+        let index = addr_mapped as usize;
+        self.io[index] = byte;
     }
 }
 
