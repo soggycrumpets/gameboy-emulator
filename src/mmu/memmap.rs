@@ -84,6 +84,7 @@ pub const TOP_OF_STACK_ADDRESS: u16 = 0xFFFE;
 
 
 
+#[derive(PartialEq)]
 pub enum MemRegion {
     RomBank0,
     RomBank1,
@@ -103,7 +104,7 @@ pub enum MemRegion {
 //  offset by that region's start address.
 // The offset address can be used to directly indexing the array
 //  that represents that region of memory
-pub fn map_address(addr: u16) -> (MemRegion, u16) {
+pub fn map_addr(addr: u16) -> (MemRegion, u16) {
     use MemRegion as M;
     let (region, start_addr) = match addr {
         ROM_BANK_0_START..=ROM_BANK_0_END => (M::RomBank0, ROM_BANK_0_START),

@@ -21,6 +21,8 @@ use std::{
 use ui::UserInterface;
 
 use cpu::registers::R16;
+const SYSTEM_CLOCK_FREQUENCY: f64 = (1 << 22) as f64; // Hz
+const SYSTEM_CLOCK_PERIOD: f64 = 1.0 / SYSTEM_CLOCK_FREQUENCY; // Seconds
 
 fn main() {
     let input = parse_cli_inputs();
@@ -44,24 +46,24 @@ fn run_rom(path: &str) {
 
     let mut ui = UserInterface::new();
 
-    let render_timer_duration = Duration::from_secs_f64(1.0 / 60.0);
+    let render_timer_period = Duration::from_secs_f64(1.0 / 60.0);
     let mut last_render_time = Instant::now();
+    let system_clock_period = Duration::from_secs_f64(SYSTEM_CLOCK_PERIOD);
 
     // todo! This loop munches up CPU
     // todo! The only timer this should need is the global clock,
     // One loop represents one t-cycle
     while ui.running {
         ui.process_inputs();
-        if cpu.instruction_t_cycles == 0 {
-            cpu.step_instruction();
-        }
-        cpu.instruction_t_cycles = cpu.instruction_t_cycles.saturating_sub(1);
+
+        cpu.tick();
 
         mmu.borrow_mut().tick_timers();
+        ppu.tick();
         // todo!
         // The ppu should eventually draw a little bit at a time.
         // For now, just draw everything at once at 60fps
-        if last_render_time.elapsed() >= render_timer_duration {
+        if last_render_time.elapsed() >= render_timer_period {
             ppu.splat_tiles();
             ui.render_display(&ppu.display);
             last_render_time = Instant::now();

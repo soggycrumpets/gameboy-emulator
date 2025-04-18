@@ -171,7 +171,7 @@ impl Mmu {
 
     // So we can't use the "write byte" function. We have to reach in directly.
     fn bypass_write_byte_div(&mut self, byte: u8) {
-        let (_region, addr_mapped) = map_address(DIV_ADDR);
+        let (_region, addr_mapped) = map_addr(DIV_ADDR);
         let index = addr_mapped as usize;
         self.io[index] = byte;
     }
@@ -180,7 +180,7 @@ impl Mmu {
     // Additionally, for the next machine cycle after TIMA overflows, it ignores writes!
     // This function is used by the general write_byte function as a wrapper around this weird behavior.
     pub fn write_byte_tima(&mut self, byte: u8) {
-        let (_region, addr_mapped) = map_address(TIMA_ADDR);
+        let (_region, addr_mapped) = map_addr(TIMA_ADDR);
         let index = addr_mapped as usize;
         if self.timers.tima_write_lock_counter == 0 {
             self.io[index] = byte;
@@ -191,7 +191,7 @@ impl Mmu {
     // While TIMA is write locked, some other timer functionality can still access it.
     // Namely, TIMA is still incremented, and TMA's value is still copied into TIMA while it is write protected.
     fn bypass_write_byte_tima(&mut self, byte: u8) {
-        let (_region, addr_mapped) = map_address(TIMA_ADDR);
+        let (_region, addr_mapped) = map_addr(TIMA_ADDR);
         let index = addr_mapped as usize;
         self.io[index] = byte;
     }
@@ -200,7 +200,7 @@ impl Mmu {
     // Additionally, writing to TMA can cause timer ticks in TIMA.
 
     pub fn write_byte_tma(&mut self, byte: u8) {
-        let (_region, addr_mapped) = map_address(TMA_ADDR);
+        let (_region, addr_mapped) = map_addr(TMA_ADDR);
         let index = addr_mapped as usize;
         self.io[index] = byte;
         if self.timers.tima_write_lock_counter != 0 {
@@ -215,7 +215,7 @@ impl Mmu {
     pub fn write_byte_tac(&mut self, byte: u8) {
         let tima_bit_was_active = self.get_tima_bit_state(false);
 
-        let (_region, addr_mapped) = map_address(TAC_ADDR);
+        let (_region, addr_mapped) = map_addr(TAC_ADDR);
         let index = addr_mapped as usize;
         self.io[index] = byte;
 

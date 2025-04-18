@@ -97,7 +97,7 @@ fn parse_step_arg(mut args: Vec<String>) -> DebugCommand {
 
 fn step_gameboy(count: u32, cpu: &mut Cpu, ppu: &mut Ppu) {
     for _i in 0..count {
-        cpu.step_instruction();
+        cpu.tick();
     }
     ppu.splat_tiles();
     if count != 1 {

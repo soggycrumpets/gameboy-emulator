@@ -18,7 +18,7 @@ use crate::util::{get_bit, set_bit};
 
 use alu::{AluBinary, AluUnary};
 use bits::{BitflagOp, BitshiftOp};
-use registers::{Flag, Registers, R8, R16};
+use registers::{Flag, R8, R16, Registers};
 
 pub const INTERRUPT_T_CYCLES: u8 = 5 * 20;
 
@@ -48,7 +48,14 @@ impl Cpu {
         }
     }
 
-    pub fn step_instruction(&mut self) {
+    pub fn tick(&mut self) {
+        if self.instruction_t_cycles == 0 {
+            self.step_instruction();
+        }
+        self.instruction_t_cycles = self.instruction_t_cycles.saturating_sub(1);
+    }
+
+    fn step_instruction(&mut self) {
         self.handle_interrupts();
         if !self.low_power_mode {
             self.execute();

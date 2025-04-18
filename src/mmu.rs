@@ -1,4 +1,5 @@
 const TRANSFER_REQUESTED_VALUE: u8 = 0x81;
+const GARBAGE_VALUE: u8 = 0xFF;
 
 pub mod memmap;
 mod timers;
@@ -23,6 +24,8 @@ pub struct Mmu {
     io: [u8; IO_SIZE],
     hram: [u8; HRAM_SIZE],
     ie: u8,
+
+    pub vram_lock: bool,
 }
 
 impl Mmu {
@@ -41,6 +44,8 @@ impl Mmu {
             io: [0; IO_SIZE],
             hram: [0; HRAM_SIZE],
             ie: 0,
+
+            vram_lock: false,
         };
 
         Rc::new(RefCell::new(mmu))
@@ -59,14 +64,20 @@ impl Mmu {
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
-        let (mem_region, addr_mapped) = map_address(addr);
+        let (mem_region, addr_mapped) = map_addr(addr);
         let index = addr_mapped as usize;
 
         use MemRegion as M;
         match mem_region {
             M::RomBank0 => self.rom_bank_00[index],
             M::RomBank1 => self.rom_bank_01[index],
-            M::Vram => self.vram[index],
+            M::Vram => {
+                if self.vram_lock {
+                    GARBAGE_VALUE
+                } else {
+                    self.vram[index]
+                }
+            }
             M::Exram => self.exram[index],
             M::Wram0 => self.wram_0[index],
             M::Wram1 => self.wram_1[index],
@@ -79,9 +90,20 @@ impl Mmu {
         }
     }
 
+    // The PPU is not affected by the vram lock
+    pub fn bypass_read_byte_vram(&self, addr: u16) -> u8 {
+        let (mem_region, addr_mapped) = map_addr(addr);
+        if mem_region != MemRegion::Vram {
+            self.read_byte(addr)
+        } else {
+            let index = addr_mapped as usize;
+            self.vram[index]
+        }
+    }
+
     // todo! Some writes and reads work differently for different memory spaces
     pub fn write_byte(&mut self, addr: u16, byte: u8) {
-        let (mem_region, addr_mapped) = map_address(addr);
+        let (mem_region, addr_mapped) = map_addr(addr);
         let index = addr_mapped as usize;
 
         if (addr == SERIAL_TRANSFER_CONTROL_ADDR) && (byte == TRANSFER_REQUESTED_VALUE) {
@@ -99,7 +121,11 @@ impl Mmu {
         match mem_region {
             M::RomBank0 => self.rom_bank_00[index] = byte,
             M::RomBank1 => self.rom_bank_01[index] = byte,
-            M::Vram => self.vram[index] = byte,
+            M::Vram => {
+                if !self.vram_lock {
+                    self.vram[index] = byte
+                }
+            }
             M::Exram => self.exram[index] = byte,
             M::Wram0 => self.wram_0[index] = byte,
             M::Wram1 => self.wram_1[index] = byte,

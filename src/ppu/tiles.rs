@@ -67,8 +67,8 @@ impl Ppu {
             // Each row contains 2 bytes of information
             let byte1_addr = tile_start_addr + (tile_row_index as u16) * 2;
             let byte2_addr = byte1_addr + 1;
-            let byte1 = self.mmu.borrow().read_byte(byte1_addr);
-            let byte2 = self.mmu.borrow().read_byte(byte2_addr);
+            let byte1 = self.read_byte(byte1_addr);
+            let byte2 = self.read_byte(byte2_addr);
 
             *tile_row = get_tile_row(byte1, byte2);
         }
@@ -109,8 +109,8 @@ mod debug {
                 // Each row contains 2 bytes of information
                 let byte1_addr = tile_start_addr + (tile_row_index as u16) * 2;
                 let byte2_addr = byte1_addr + 1;
-                let byte1 = self.mmu.borrow().read_byte(byte1_addr);
-                let byte2 = self.mmu.borrow().read_byte(byte2_addr);
+                let byte1 = self.read_byte(byte1_addr);
+                let byte2 = self.read_byte(byte2_addr);
 
                 *tile_row = get_tile_row(byte1, byte2);
             }
