@@ -132,9 +132,14 @@ impl Mmu {
                 TMA_ADDR => self.write_byte_tma(byte),
                 TAC_ADDR => self.write_byte_tac(byte),
                 TIMA_ADDR => self.write_byte_tima(byte),
-                LY_ADDR => (), // Read-only
+                LY_ADDR => (),                                     // Read-only
                 STAT_ADDR => self.io[index] = byte & 0b_1111_1000, // Bottom 3 bits are read-only
-                IF_ADDR => self.io[index] = byte | 0b_1110_0000, // The upper 3 bits never change
+                IF_ADDR => {
+                    print!("WRITE TO IF: {:02x}", byte);
+                    // The upper 3 bits never change
+                    self.io[index] = byte | 0b_1110_0000;
+                    println!(" | STORED AS: {:02x}", self.io[index]);
+                }
                 _ => self.io[index] = byte,
             },
             M::Hram => self.hram[index] = byte,
@@ -143,17 +148,14 @@ impl Mmu {
     }
 
     // LY is read-only by the CPU, but the PPU needs to write to them.
-    pub fn bypass_write_byte_ly(&mut self, byte: u8) {
-
-    }
+    pub fn bypass_write_byte_ly(&mut self, byte: u8) {}
 
     // The same is true for STAT, but only the bottom three bits.
     pub fn bypass_write_byte_stat(&mut self, byte: u8) {
         let (_mem_region, addr_mapped) = map_addr(STAT_ADDR);
         let index = addr_mapped as usize;
-        self.io[index] = byte;         
+        self.io[index] = byte;
     }
-
 
     // Pay extra special attentian here to account for little-endianness
     pub fn read_word(&self, addr: u16) -> u16 {
