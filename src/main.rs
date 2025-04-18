@@ -11,7 +11,7 @@ use cli::{Command, parse_cli_inputs};
 
 use cpu::{Cpu, registers::R8};
 use debugger::run_debug;
-use mmu::Mmu;
+use mmu::{memmap::{JOYPAD_INPUT_ADDR, LYC_ADDR, SCY_ADDR}, Mmu};
 use ppu::Ppu;
 use std::{
     cell::RefCell,
@@ -48,7 +48,6 @@ fn run_rom(path: &str) {
 
     let render_timer_period = Duration::from_secs_f64(1.0 / 60.0);
     let mut last_render_time = Instant::now();
-    let system_clock_period = Duration::from_secs_f64(SYSTEM_CLOCK_PERIOD);
 
     // todo! This loop munches up CPU
     // todo! The only timer this should need is the global clock,
@@ -57,6 +56,7 @@ fn run_rom(path: &str) {
         ui.process_inputs();
 
         cpu.tick();
+        
 
         mmu.borrow_mut().tick_timers();
         ppu.tick();
@@ -67,6 +67,10 @@ fn run_rom(path: &str) {
             ppu.splat_tiles();
             ui.render_display(&ppu.display);
             last_render_time = Instant::now();
+
+            let ly = mmu.borrow().read_byte(LYC_ADDR);
+            let sc = mmu.borrow().read_byte(SCY_ADDR);
+            // println!("{:02x} : {:02x}", ly, sc);
         }
     }
 }
@@ -96,4 +100,6 @@ fn emulate_boot(mmu: &Rc<RefCell<Mmu>>, cpu: &mut Cpu) {
     cpu.reg.set(R8::L, 0x4D);
     cpu.reg.set16(R16::PC, 0x0100);
     cpu.reg.set16(R16::SP, 0xFFFE);
+
+    mmu.borrow_mut().write_byte(JOYPAD_INPUT_ADDR, 0xFF);
 }

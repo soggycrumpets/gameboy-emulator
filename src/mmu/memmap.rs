@@ -54,26 +54,55 @@ pub const HRAM_SIZE: usize = (HRAM_END - HRAM_START + 1) as usize;
 pub const IE_ADDR: u16 = 0xFFFF;
 
 // ----- Register Addresses -----
+// Input
+pub const JOYPAD_INPUT_ADDR: u16 = 0xFF00;
+
 // Timer
 pub const DIV_ADDR: u16 = 0xFF04;
 pub const TIMA_ADDR: u16 = 0xFF05;
 pub const TMA_ADDR: u16 = 0xFF06;
 pub const TAC_ADDR: u16 = 0xFF07;
 
+// PPU
+pub const LCDC_ADDR: u16 = 0xFF40;
+// - Bits within LCDC
+pub const LCD_AND_PPU_ENABLE_BIT: u8 = 7;
+pub const WINDOW_TILE_MAP_BIT: u8 = 6;
+pub const WINDOW_ENABLE_BIT: u8 = 5;
+pub const BG_AND_WINDOW_TILES_BIT: u8 = 4;
+pub const BG_TILE_MAP_BIT: u8 = 3;
+pub const OBJ_SIZE_BIT: u8 = 2;
+pub const OBJ_ENABLE_BIT: u8 = 1;
+pub const BG_AND_WINDOW_ENABLE_BIT: u8 = 0;
+// -
+pub const STAT_ADDR: u16 = 0xFF41;
+// - Bits within STAT
+pub const LCD_INT_SELLECT_BIT: u8 = 6;
+pub const MODE_2_INT_SELECT_BIT: u8 = 5;
+pub const MODE_1_INT_SELECT_BIT: u8 = 4;
+pub const MODE_0_INT_SELECT_BIT: u8 = 3;
+pub const LYC_EQUALS_LY_BIT: u8 = 2;
+//-
+pub const LY_ADDR: u16 = 0xFF44;
+pub const LYC_ADDR: u16 = 0xFF45;
+pub const SCY_ADDR: u16 = 0xFF42;
+pub const SCX_ADDR: u16 = 0xFF43;
+
 // Interrupt (besides IE, which counts but is also its own memory region)
 pub const IF_ADDR: u16 = 0xFF0F;
 // - Bits within IF and IE
 pub const VBLANK_INTERRUPT_BIT: u8 = 0;
-pub const LCD_INTERRUPT_BIT: u8 = 1;
+pub const STAT_INTERRUPT_BIT: u8 = 1;
 pub const TIMER_INTERRUPT_BIT: u8 = 2;
 pub const SERIAL_INTERRUPT_BIT: u8 = 3;
 pub const JOYPAD_INTERRUPT_BIT: u8 = 4;
-
+// -
 pub const VBLANK_INTERRUPT_HANDLER_ADDR: u16 = 0x0040;
 pub const STAT_INTERRUPT_HANDLER_ADDR: u16 = 0x0048;
 pub const TIMER_INTERRUPT_HANDLER_ADDR: u16 = 0x0050;
 pub const SERIAL_INTERRUPT_HANDLER_ADDR: u16 = 0x0058;
 pub const JOYPAD_INTERRUPT_HANDLER_ADDR: u16 = 0x0060;
+
 // Serial transfer
 pub const SERIAL_TRANSFER_CONTROL_ADDR: u16 = 0xFF02;
 pub const SERIAL_TRANSFER_DATA_ADDR: u16 = 0xFF01;
@@ -81,8 +110,6 @@ pub const SERIAL_TRANSFER_DATA_ADDR: u16 = 0xFF01;
 // ----- Other Important Addresses -----
 pub const PROGRAM_START_ADDR: u16 = 0x0100;
 pub const TOP_OF_STACK_ADDRESS: u16 = 0xFFFE;
-
-
 
 #[derive(PartialEq)]
 pub enum MemRegion {

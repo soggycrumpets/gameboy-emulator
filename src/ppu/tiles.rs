@@ -1,6 +1,6 @@
-use crate::util::get_bit;
+use crate::{mmu::memmap::BG_AND_WINDOW_ENABLE_BIT, util::get_bit};
 
-use super::{Ppu, registers::LcdControlFlag};
+use super::Ppu;
 
 // Tiles are stored in VRAM at 0x0000 - 0x94FF.
 
@@ -39,7 +39,7 @@ fn get_tile_row(byte1: u8, byte2: u8) -> TileRow {
 impl Ppu {
     // The way that they are indexed depends on a register flag.
     fn get_tile_start_addr(&self, index: u8) -> u16 {
-        let signed_addressing_mode = !self.get_lcd_control_flag(LcdControlFlag::BgAndWindowEnable);
+        let signed_addressing_mode = !self.get_lcdc_flag(BG_AND_WINDOW_ENABLE_BIT);
         // The base pointer is different between the two addressing modes
         let bp: u16 = if signed_addressing_mode {
             SIGNED_ADDRESSING_MODE_BASE_POINTER

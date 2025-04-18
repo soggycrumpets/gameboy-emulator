@@ -15,19 +15,39 @@ const HBLANK_MIN_T_CYCLES: u32 = 87;
 const HBLANK_MAX_T_CYCLES: u32 = 204;
 const VBLANK_T_CYCLES: u32 = T_CYCLES_PER_SCANLINE * 10;
 
-use crate::mmu::{self, memmap::VBLANK_INTERRUPT_BIT};
+const HBLANK_MODE_NUMBER: u8 = 0;
+const VBLANK_MODE_NUMBER: u8 = 1;
+const OAM_SCAN_MODE_NUMBER: u8 = 2;
+const PIXEL_DRAW_MODE_NUMBER: u8 = 3;
+
+use crate::{
+    mmu::{
+        self,
+        memmap::{
+            LCDC_ADDR, LYC_ADDR, LYC_EQUALS_LY_BIT, STAT_ADDR, STAT_INTERRUPT_BIT, VBLANK_INTERRUPT_BIT
+        },
+    },
+    util::set_bit,
+};
 use mmu::Mmu;
-use registers::{LcdControlFlag, PpuMode};
 use std::{cell::RefCell, rc::Rc};
-use tiles::Tile;
 
 pub type GbDisplay = [[u8; 256]; 256];
+
+#[repr(u8)]
+pub enum PpuMode {
+    HBlank = HBLANK_MODE_NUMBER,
+    VBlank = VBLANK_MODE_NUMBER,
+    OamScan = OAM_SCAN_MODE_NUMBER,
+    PixelDraw = PIXEL_DRAW_MODE_NUMBER,
+}
 
 pub struct Ppu {
     mmu: Rc<RefCell<Mmu>>,
     pub display: GbDisplay,
     frame_t_cycle_count: u32,
     scanline_t_cycle_count: u32,
+    scanline_counter: u8,
 }
 
 impl Ppu {
@@ -37,6 +57,7 @@ impl Ppu {
             display: [[0; 256]; 256],
             frame_t_cycle_count: 0,
             scanline_t_cycle_count: 0,
+            scanline_counter: 0,
         }
     }
 
@@ -50,15 +71,13 @@ impl Ppu {
                 if self.scanline_t_cycle_count == OAM_SCAN_T_CYCLES {
                     self.set_mode(PpuMode::PixelDraw);
                     self.mmu.borrow_mut().vram_lock = true;
-                    // println!("PIXELDRAW")
                 }
             }
             PpuMode::PixelDraw => {
-                // PIXELDRAW -> HBLANK 
+                // PIXELDRAW -> HBLANK
                 if self.scanline_t_cycle_count == PIXEL_DRAW_MIN_T_CYCLES {
                     self.set_mode(PpuMode::HBlank);
                     self.mmu.borrow_mut().vram_lock = false;
-                    // println!("HBLANK")
                 }
             }
             PpuMode::HBlank => {
@@ -68,42 +87,80 @@ impl Ppu {
                     self.mmu
                         .borrow_mut()
                         .request_interrupt(VBLANK_INTERRUPT_BIT);
-                    // println!("VBLANK")
                 // HBLANK -> OAMSCAN
                 } else if self.scanline_t_cycle_count == T_CYCLES_PER_SCANLINE {
                     self.set_mode(PpuMode::OamScan);
-                    // println!("OAMSCAN")
                 }
             }
             PpuMode::VBlank => {
                 // VBLANK -> OAMSCAN
                 if self.frame_t_cycle_count == T_CYCLES_PER_FRAME {
-                    self.frame_t_cycle_count = 0;
                     self.set_mode(PpuMode::OamScan);
-                    // println!("OAMSCAN")
                 }
             }
         }
 
-        // Get tile ID
-        // Get tile row (low)
-        // Get tile row (high)
-        // Push pixels
         if self.frame_t_cycle_count == T_CYCLES_PER_FRAME {
             self.frame_t_cycle_count = 0;
+            self.scanline_counter = 0;
         }
+
         if self.scanline_t_cycle_count == T_CYCLES_PER_SCANLINE {
             self.scanline_t_cycle_count = 0;
         }
+
+        // LY and the LY=LYC bit of the STAT register are updated each cycle
+        self.update_ppu_status_registers();
     }
 
     // The PPU is not affected by the write lock on VRAM - it always bypasses it
     fn read_byte(&self, addr: u16) -> u8 {
-        self.mmu.borrow().bypass_read_byte_vram(addr) 
+        self.mmu.borrow().bypass_read_byte_vram(addr)
+    }
+
+    fn update_ppu_status_registers(&self) {
+        let ly = self.scanline_counter;
+        self.mmu.borrow_mut().bypass_write_byte_ly(ly); // This byte is normally read-only
+
+        let lyc = self.read_byte(LYC_ADDR);
+        let ly_equals_lyc = ly == lyc;
+        if ly_equals_lyc {
+            self.mmu.borrow_mut().request_interrupt(STAT_INTERRUPT_BIT);
+        }
+        // PPU mode is updated during state machine transitions, so it doesn't need to be done here.
+
+        let mut stat_byte = self.read_byte(STAT_ADDR);
+        set_bit(&mut stat_byte, LYC_EQUALS_LY_BIT, ly_equals_lyc);
+        self.mmu.borrow_mut().bypass_write_byte_stat(stat_byte); // This byte is normally read-only
+    }
+
+    pub fn get_mode(&mut self) -> PpuMode {
+        // The mode is represented by the rightmost two bits of the LCDC register.
+        let byte = self.read_byte(LCDC_ADDR);
+        let mode_number = byte & 0b_0000_0011;
+
+        match mode_number {
+            HBLANK_MODE_NUMBER => PpuMode::HBlank,
+            VBLANK_MODE_NUMBER => PpuMode::VBlank,
+            OAM_SCAN_MODE_NUMBER => PpuMode::OamScan,
+            PIXEL_DRAW_MODE_NUMBER => PpuMode::PixelDraw,
+            _ => unreachable!("Impossible value for ppu mode"),
+        }
+    }
+
+    pub fn set_mode(&mut self, mode: PpuMode) {
+        // Only the rightmost two bits should be touched
+        let mode_number = mode as u8;
+        let mut byte = self.read_byte(LCDC_ADDR);
+        byte &= 0b_1111_1100;
+        byte |= mode_number;
+        self.mmu.borrow_mut().bypass_write_byte_stat(byte);
     }
 }
 
 mod debug {
+    use crate::mmu::memmap::BG_AND_WINDOW_ENABLE_BIT;
+
     use super::*;
     impl Ppu {
         // This is so I can just draw a tilemap to the screen without worrying about tick cycles.
@@ -112,7 +169,7 @@ mod debug {
 
             // let mut addr = 0x9C00_u16; <-- This is where the other tilemap starts
 
-            let addressing_mode = self.get_lcd_control_flag(LcdControlFlag::BgAndWindowEnable);
+            let addressing_mode = self.get_lcdc_flag(BG_AND_WINDOW_ENABLE_BIT);
             // println!("Addressing Mode: {}", addressing_mode);
 
             // Tilemap is 32x32 tiles

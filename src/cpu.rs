@@ -8,7 +8,7 @@ pub mod registers;
 
 use crate::mmu::Mmu;
 use crate::mmu::memmap::{
-    IE_ADDR, IF_ADDR, JOYPAD_INTERRUPT_BIT, JOYPAD_INTERRUPT_HANDLER_ADDR, LCD_INTERRUPT_BIT,
+    IE_ADDR, IF_ADDR, JOYPAD_INTERRUPT_BIT, JOYPAD_INTERRUPT_HANDLER_ADDR, STAT_INTERRUPT_BIT,
     SERIAL_INTERRUPT_BIT, SERIAL_INTERRUPT_HANDLER_ADDR, STAT_INTERRUPT_HANDLER_ADDR,
     TIMER_INTERRUPT_BIT, TIMER_INTERRUPT_HANDLER_ADDR, VBLANK_INTERRUPT_BIT,
     VBLANK_INTERRUPT_HANDLER_ADDR,
@@ -20,7 +20,7 @@ use alu::{AluBinary, AluUnary};
 use bits::{BitflagOp, BitshiftOp};
 use registers::{Flag, R8, R16, Registers};
 
-pub const INTERRUPT_T_CYCLES: u8 = 5 * 20;
+pub const INTERRUPT_T_CYCLES: u8 = 5 * 4;
 
 pub const UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =
     include_bytes!("../data/unprefixed_instruction_t_cycle_table.dat");
@@ -57,6 +57,12 @@ impl Cpu {
 
     fn step_instruction(&mut self) {
         self.handle_interrupts();
+
+        if self.ime_pending {
+            self.ime = true;
+            self.ime_pending = false;
+        }
+
         if !self.low_power_mode {
             self.execute();
         }
@@ -97,32 +103,32 @@ impl Cpu {
         word
     }
 
-    fn handle_interrupts(&mut self) {
+    fn handle_interrupts(&mut self) -> bool {
         let ie_byte = self.read_byte(IE_ADDR);
         let if_byte = self.read_byte(IF_ADDR);
 
         let interrupts_are_pending = (ie_byte & if_byte) > 0;
 
         if !interrupts_are_pending {
-            return;
+            return false;
         }
 
         self.low_power_mode = false;
 
         if !self.ime {
-            return;
+            return false;
         }
 
         println!("Handling interrupt");
 
         let vblank_interrupt = get_bit(if_byte, VBLANK_INTERRUPT_BIT);
-        let lcd_interrupt = get_bit(if_byte, LCD_INTERRUPT_BIT);
+        let lcd_interrupt = get_bit(if_byte, STAT_INTERRUPT_BIT);
         let timer_interrupt = get_bit(if_byte, TIMER_INTERRUPT_BIT);
         let serial_interrupt = get_bit(if_byte, SERIAL_INTERRUPT_BIT);
         let joypad_interrupt = get_bit(if_byte, JOYPAD_INTERRUPT_BIT);
 
         let vblank_interrupt_enabled = get_bit(ie_byte, VBLANK_INTERRUPT_BIT);
-        let lcd_interrupt_enabled = get_bit(ie_byte, LCD_INTERRUPT_BIT);
+        let lcd_interrupt_enabled = get_bit(ie_byte, STAT_INTERRUPT_BIT);
         let timer_interrupt_enabled = get_bit(ie_byte, TIMER_INTERRUPT_BIT);
         let serial_interrupt_enabled = get_bit(ie_byte, SERIAL_INTERRUPT_BIT);
         let joypad_interrupt_enabled = get_bit(ie_byte, JOYPAD_INTERRUPT_BIT);
@@ -131,7 +137,7 @@ impl Cpu {
         if vblank_interrupt && vblank_interrupt_enabled {
             self.handle_interrupt(VBLANK_INTERRUPT_HANDLER_ADDR, VBLANK_INTERRUPT_BIT);
         } else if lcd_interrupt && lcd_interrupt_enabled {
-            self.handle_interrupt(STAT_INTERRUPT_HANDLER_ADDR, LCD_INTERRUPT_BIT);
+            self.handle_interrupt(STAT_INTERRUPT_HANDLER_ADDR, STAT_INTERRUPT_BIT);
         } else if timer_interrupt && timer_interrupt_enabled {
             self.handle_interrupt(TIMER_INTERRUPT_HANDLER_ADDR, TIMER_INTERRUPT_BIT);
         } else if serial_interrupt && serial_interrupt_enabled {
@@ -139,6 +145,8 @@ impl Cpu {
         } else if joypad_interrupt && joypad_interrupt_enabled {
             self.handle_interrupt(JOYPAD_INTERRUPT_HANDLER_ADDR, JOYPAD_INTERRUPT_BIT);
         }
+
+        true
     }
 
     fn handle_interrupt(&mut self, interrupt_handler_addr: u16, interrupt_bit: u8) {
@@ -155,6 +163,7 @@ impl Cpu {
 
     fn execute(&mut self) {
         let opcode = self.fetch_byte();
+        // println!("Opcode: {:02x}", opcode);
 
         // Look up the number of clock cycles this instruction will take.
         // In the case of checked condition functions, the minimum
@@ -741,7 +750,7 @@ impl Cpu {
     }
 
     fn ei(&mut self) {
-        self.ime = true;
+        self.ime_pending = true;
     }
 
     // todo!

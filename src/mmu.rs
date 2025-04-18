@@ -111,12 +111,6 @@ impl Mmu {
             print!("{}", c);
         }
 
-        // match addr {
-        //     TAC_ADDR => println!("TAC: {}", byte),
-        //     TIMA_ADDR => println!("TIMA: {}", byte),
-        //     _ => (),
-        // }
-
         use MemRegion as M;
         match mem_region {
             M::RomBank0 => self.rom_bank_00[index] = byte,
@@ -132,18 +126,33 @@ impl Mmu {
             M::EchoRam => self.echo_ram[index] = byte,
             M::Oam => self.oam[index] = byte,
             M::Restricted => self.restricted_memory[index] = byte,
-            // IO Has some special cases
+            // IO writes have special behaviors
             M::Io => match addr {
                 DIV_ADDR => self.write_byte_div(),
                 TMA_ADDR => self.write_byte_tma(byte),
                 TAC_ADDR => self.write_byte_tac(byte),
                 TIMA_ADDR => self.write_byte_tima(byte),
+                LY_ADDR => (), // Read-only
+                STAT_ADDR => self.io[index] = byte & 0b_1111_1000, // Bottom 3 bits are read-only
                 _ => self.io[index] = byte,
             },
             M::Hram => self.hram[index] = byte,
             M::Ie => self.ie = byte,
         };
     }
+
+    // LY is read-only by the CPU, but the PPU needs to write to them.
+    pub fn bypass_write_byte_ly(&mut self, byte: u8) {
+
+    }
+
+    // The same is true for STAT, but only the bottom three bits.
+    pub fn bypass_write_byte_stat(&mut self, byte: u8) {
+        let (_mem_region, addr_mapped) = map_addr(STAT_ADDR);
+        let index = addr_mapped as usize;
+        self.io[index] = byte;         
+    }
+
 
     // Pay extra special attentian here to account for little-endianness
     pub fn read_word(&self, addr: u16) -> u16 {
