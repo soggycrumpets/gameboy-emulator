@@ -110,7 +110,7 @@ impl Mmu {
             M::Io => match addr {
                 // Writes to DIV do not change memory, they instead reset the system clock
                 DIV_ADDR => self.timers.system_clock = 0,
-                TMA_ADDR => self.io[index] = byte,
+                TMA_ADDR => self.write_byte_tma(byte),
                 TIMA_ADDR => self.write_byte_tima(byte),
                 _ => self.io[index] = byte,
             },

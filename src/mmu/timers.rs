@@ -166,6 +166,16 @@ impl Mmu {
         let index = addr_mapped as usize;
         self.io[index] = byte;
     }
+    
+    // While TIMA is write locked, writing to TMA will also write to TIMA (bypassing the lock).
+    pub fn write_byte_tma(&mut self, byte: u8) {
+        let (_region, addr_mapped) = map_address(TMA_ADDR);
+        let index = addr_mapped as usize;
+        self.io[index] = byte;
+        if self.timers.tima_write_lock_counter != 0 {
+            self.bypass_write_byte_tima(byte);
+        }
+    }
 }
 
 mod debug {
