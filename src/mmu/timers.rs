@@ -48,6 +48,7 @@ impl Mmu {
     pub fn tick_timers(&mut self) {
         self.timers.system_clock_counter += 1;
         self.timers.tima_write_lock_counter = self.timers.tima_write_lock_counter.saturating_sub(1);
+
         // The system clock is a 16-bit number in t-cycles, but it is only incremented once every m-cycle.
         if self.timers.system_clock_counter == T_CYCLES_PER_M_CYCLE {
             self.timers.system_clock_counter = 0;
@@ -68,6 +69,8 @@ impl Mmu {
             self.process_tima_overflow();
         }
 
+        // TIMA increments while enabled, and on a falling clock edge. The second condition is
+        // there because memory writes can trigger a clock edge detection that occurs elsewhere.
         if tac_enable && tima_bit_was_active && !tima_bit_is_active
             || self.timers.tima_falling_edge_detected
         {
@@ -156,13 +159,12 @@ impl Mmu {
     // However, resetting the system clock can also increment TIMA if it unsets TIMA's
     // active bit!
     pub fn write_byte_div(&mut self) {
-        let tima_enabled = self.get_tac_enable();
         let tima_bit_was_active = self.get_tima_bit_state(false);
 
         self.timers.system_clock = 0;
 
         let tima_bit_is_active = self.get_tima_bit_state(false);
-        if tima_enabled && tima_bit_was_active && !tima_bit_is_active {
+        if tima_bit_was_active && !tima_bit_is_active {
             self.timers.tima_falling_edge_detected = true;
         }
     }

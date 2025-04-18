@@ -49,10 +49,10 @@ impl Cpu {
     }
 
     pub fn step_instruction(&mut self) {
+        self.handle_interrupts();
         if !self.low_power_mode {
             self.execute();
         }
-        self.handle_interrupts();
     }
 
     // Wrapper functions arround MMU reads/writes to make them more clear and ergonomic
