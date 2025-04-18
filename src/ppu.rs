@@ -110,7 +110,7 @@ impl Ppu {
         }
 
         // LY and the LY=LYC bit of the STAT register are updated each cycle
-        self.update_ppu_status_registers();
+        // self.update_ppu_status_registers();
     }
 
     // The PPU is not affected by the write lock on VRAM - it always bypasses it

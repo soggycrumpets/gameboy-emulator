@@ -134,6 +134,7 @@ impl Mmu {
                 TIMA_ADDR => self.write_byte_tima(byte),
                 LY_ADDR => (), // Read-only
                 STAT_ADDR => self.io[index] = byte & 0b_1111_1000, // Bottom 3 bits are read-only
+                IF_ADDR => self.io[index] = byte | 0b_1110_0000, // The upper 3 bits never change
                 _ => self.io[index] = byte,
             },
             M::Hram => self.hram[index] = byte,

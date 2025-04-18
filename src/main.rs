@@ -11,7 +11,7 @@ use cli::{Command, parse_cli_inputs};
 
 use cpu::{Cpu, registers::R8};
 use debugger::run_debug;
-use mmu::{memmap::{JOYPAD_INPUT_ADDR, LYC_ADDR, SCY_ADDR}, Mmu};
+use mmu::{memmap::{IF_ADDR, JOYPAD_INPUT_ADDR, LYC_ADDR, SCY_ADDR}, Mmu};
 use ppu::Ppu;
 use std::{
     cell::RefCell,
@@ -101,5 +101,9 @@ fn emulate_boot(mmu: &Rc<RefCell<Mmu>>, cpu: &mut Cpu) {
     cpu.reg.set16(R16::PC, 0x0100);
     cpu.reg.set16(R16::SP, 0xFFFE);
 
+    // Joypad bits read high by default, 0 when pressed
     mmu.borrow_mut().write_byte(JOYPAD_INPUT_ADDR, 0xFF);
+    // As far as I can tell from online, the upper 3 bits of this register don't actually exist.
+    // And because of this, they always read high. So I will have the memory reflect this.
+    mmu.borrow_mut().write_byte(IF_ADDR, 0b_1110_0000);
 }

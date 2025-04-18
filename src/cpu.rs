@@ -155,8 +155,10 @@ impl Cpu {
     fn handle_interrupt(&mut self, interrupt_handler_addr: u16, interrupt_bit: u8) {
         // Record that the interrupt has been handled
         let mut if_byte = self.read_byte(IF_ADDR);
+        println!("{}", if_byte);
         set_bit(&mut if_byte, interrupt_bit, false);
         self.write_byte(IF_ADDR, interrupt_bit);
+        println!("{}", if_byte);
         self.ime = false;
 
         self.push_r16(R16::PC);
