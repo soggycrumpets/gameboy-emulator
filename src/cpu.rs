@@ -56,7 +56,10 @@ impl Cpu {
     }
 
     fn step_instruction(&mut self) {
-        self.handle_interrupts();
+        
+        if self.handle_interrupts() {
+            return;
+        }
 
         if self.ime_pending {
             self.ime = true;
@@ -158,7 +161,7 @@ impl Cpu {
 
         self.push_r16(R16::PC);
         self.rst_vec(interrupt_handler_addr);
-        self.instruction_t_cycles += INTERRUPT_T_CYCLES;
+        self.instruction_t_cycles = INTERRUPT_T_CYCLES;
     }
 
     fn execute(&mut self) {
