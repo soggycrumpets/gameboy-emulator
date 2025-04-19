@@ -67,7 +67,6 @@ impl Ppu {
         let ppu_mode = self.get_mode();
         let ppu_enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT);
         
-
         // You're not supposed to turn off the PPU outside of vblank mode, but from
         // what I can tell, the hardware won't prevent it.
         if self.was_enabled && !ppu_enabled {
@@ -124,7 +123,9 @@ impl Ppu {
 
         if self.scanline_t_cycle_count == T_CYCLES_PER_SCANLINE {
             self.scanline_t_cycle_count = 0;
+            self.scanline_counter += 1;
         }
+
 
         // LY and the LY=LYC bit of the STAT register are updated each cycle
         self.update_ppu_status_registers();

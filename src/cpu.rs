@@ -767,6 +767,7 @@ impl Cpu {
         if self.ime || !interrupts_are_pending {
             self.low_power_mode = true;
         } else {
+            // todo!()
             // Due to a hardware bug, the program counter does not increment in this case.
             // let pc = self.reg.get16(R16::PC);
             // self.reg.set16(R16::PC, pc - 2);

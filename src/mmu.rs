@@ -147,7 +147,7 @@ impl Mmu {
 
     // This is only used to initialize memory to the post-boot state.
     // There shouldn't be any exceptions or side effects there.
-    pub fn write_byte_override_all(&mut self, addr: u16, byte: u8) {
+    pub fn write_byte_override(&mut self, addr: u16, byte: u8) {
         let (mem_region, addr_mapped) = map_addr(addr);
         let index = addr_mapped as usize;
         use MemRegion as M;

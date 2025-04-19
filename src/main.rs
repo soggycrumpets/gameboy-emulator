@@ -67,10 +67,6 @@ fn run_rom(path: &str) {
             ppu.splat_tiles();
             ui.render_display(&ppu.display);
             last_render_time = Instant::now();
-
-            let ly = mmu.borrow().read_byte(LYC_ADDR);
-            let sc = mmu.borrow().read_byte(SCY_ADDR);
-            // println!("{:02x} : {:02x}", ly, sc);
         }
     }
 }
@@ -102,39 +98,39 @@ fn emulate_boot(mmu: &Rc<RefCell<Mmu>>, cpu: &mut Cpu) {
     cpu.reg.set16(R16::SP, 0xFFFE);
 
     // Hardware registers
-    mmu.borrow_mut().write_byte_override_all(NR_10_ADDR, 0x80);
-    mmu.borrow_mut().write_byte_override_all(NR_11_ADDR, 0xBF);
-    mmu.borrow_mut().write_byte_override_all(NR_12_ADDR, 0xF3);
-    mmu.borrow_mut().write_byte_override_all(NR_13_ADDR, 0xFF);
-    mmu.borrow_mut().write_byte_override_all(NR_14_ADDR, 0xBF);
-    mmu.borrow_mut().write_byte_override_all(NR_21_ADDR, 0x3F);
-    mmu.borrow_mut().write_byte_override_all(NR_22_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override_all(NR_23_ADDR, 0xFF);
-    mmu.borrow_mut().write_byte_override_all(NR_24_ADDR, 0xBF);
-    mmu.borrow_mut().write_byte_override_all(NR_30_ADDR, 0x7F);
-    mmu.borrow_mut().write_byte_override_all(NR_31_ADDR, 0xFF);
-    mmu.borrow_mut().write_byte_override_all(NR_32_ADDR, 0x9F);
-    mmu.borrow_mut().write_byte_override_all(NR_33_ADDR, 0xFF);
-    mmu.borrow_mut().write_byte_override_all(NR_34_ADDR, 0xBF);
-    mmu.borrow_mut().write_byte_override_all(NR_41_ADDR, 0xFF);
-    mmu.borrow_mut().write_byte_override_all(NR_42_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override_all(NR_43_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override_all(NR_44_ADDR, 0xBF);
-    mmu.borrow_mut().write_byte_override_all(NR_50_ADDR, 0x77);
-    mmu.borrow_mut().write_byte_override_all(NR_51_ADDR, 0xF3);
-    mmu.borrow_mut().write_byte_override_all(NR_52_ADDR, 0xF1);
-    mmu.borrow_mut().write_byte_override_all(LCDC_ADDR, 0x91);
-    mmu.borrow_mut().write_byte_override_all(STAT_ADDR, 0x85);
-    mmu.borrow_mut().write_byte_override_all(SCY_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override_all(SCX_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override_all(LY_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override_all(LYC_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override_all(DMA_ADDR, 0xFF);
-    mmu.borrow_mut().write_byte_override_all(BGP_ADDR, 0xFC);
-    mmu.borrow_mut().write_byte_override_all(OBP0_ADDR, 0x00); // Uninitialized
-    mmu.borrow_mut().write_byte_override_all(OBP1_ADDR, 0x00); // Uninitialized
-    mmu.borrow_mut().write_byte_override_all(WY_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override_all(WX_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override_all(IE_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(NR_10_ADDR, 0x80);
+    mmu.borrow_mut().write_byte_override(NR_11_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override(NR_12_ADDR, 0xF3);
+    mmu.borrow_mut().write_byte_override(NR_13_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override(NR_14_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override(NR_21_ADDR, 0x3F);
+    mmu.borrow_mut().write_byte_override(NR_22_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(NR_23_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override(NR_24_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override(NR_30_ADDR, 0x7F);
+    mmu.borrow_mut().write_byte_override(NR_31_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override(NR_32_ADDR, 0x9F);
+    mmu.borrow_mut().write_byte_override(NR_33_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override(NR_34_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override(NR_41_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override(NR_42_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(NR_43_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(NR_44_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override(NR_50_ADDR, 0x77);
+    mmu.borrow_mut().write_byte_override(NR_51_ADDR, 0xF3);
+    mmu.borrow_mut().write_byte_override(NR_52_ADDR, 0xF1);
+    mmu.borrow_mut().write_byte_override(LCDC_ADDR, 0x91);
+    mmu.borrow_mut().write_byte_override(STAT_ADDR, 0x85);
+    mmu.borrow_mut().write_byte_override(SCY_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(SCX_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(LY_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(LYC_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(DMA_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override(BGP_ADDR, 0xFC);
+    mmu.borrow_mut().write_byte_override(OBP0_ADDR, 0x00); // Uninitialized
+    mmu.borrow_mut().write_byte_override(OBP1_ADDR, 0x00); // Uninitialized
+    mmu.borrow_mut().write_byte_override(WY_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(WX_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(IE_ADDR, 0x00);
 
 }
