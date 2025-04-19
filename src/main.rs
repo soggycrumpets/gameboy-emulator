@@ -14,13 +14,16 @@ use debugger::run_debug;
 use mmu::{Mmu, memmap::*};
 use ppu::Ppu;
 use std::{
-    cell::RefCell, process, rc::Rc, time::{Duration, Instant}
+    cell::RefCell,
+    process,
+    rc::Rc,
+    time::{Duration, Instant},
 };
 use ui::UserInterface;
 
 use cpu::registers::R16;
 const SYSTEM_CLOCK_FREQUENCY: f64 = (1 << 22) as f64; // Hz
-const SYSTEM_CLOCK_PERIOD: f64 = 1.0 /SYSTEM_CLOCK_FREQUENCY; // Seconds
+const SYSTEM_CLOCK_PERIOD: f64 = 1.0 / SYSTEM_CLOCK_FREQUENCY; // Seconds
 
 fn main() {
     let input = parse_cli_inputs();
@@ -51,23 +54,18 @@ fn run_rom(path: &str) {
     // todo! The only timer this should need is the global clock,
     // One loop represents one t-cycle
     while ui.running {
-        ui.process_inputs();
-        process_inputs(&mut ui, &mmu);
 
         cpu.tick();
-        
-
         mmu.borrow_mut().tick_timers();
         ppu.tick();
         // todo!
         // The ppu should eventually draw a little bit at a time.
         // For now, just draw everything at once at 60fps
         if last_render_time.elapsed() >= render_timer_period {
+            process_inputs(&mut ui, &mmu);
             ppu.splat_tiles();
             ui.render_display(&ppu.display);
             last_render_time = Instant::now();
-
-            let pc = cpu.reg.get16(R16::PC);
         }
     }
 }
@@ -88,8 +86,6 @@ fn process_inputs(ui: &mut UserInterface, mmu: &Rc<RefCell<Mmu>>) {
 
     let m_button = ui.inputs_down.m;
     let n_button = ui.inputs_down.n;
-
-
 }
 
 // While you technically can obtain a copy of the original gameboy bootrom online,
@@ -146,5 +142,4 @@ fn emulate_boot(mmu: &Rc<RefCell<Mmu>>, cpu: &mut Cpu) {
     mmu.borrow_mut().write_byte_override(WY_ADDR, 0x00);
     mmu.borrow_mut().write_byte_override(WX_ADDR, 0x00);
     mmu.borrow_mut().write_byte_override(IE_ADDR, 0x00);
-
 }

@@ -129,6 +129,7 @@ impl Mmu {
         if (addr == SC_ADDR) && (byte == TRANSFER_REQUESTED_VALUE) {
             let c = self.read_byte(SB_ADDR) as char;
             print!("{}", c);
+            // println!("HELLO");
         }
 
         use MemRegion as M;
@@ -231,10 +232,6 @@ impl Mmu {
                 let (_, echoed_addr) = map_addr(echo_ram_addr);
                 let index = echoed_addr as usize;
                 // Not all of wram1 is echoed, so make sure to account for that
-                // match echoed_addr {
-                // ECHO_RAM_START..=ECHO_RAM_END => self.echo_ram[index] = byte,
-                // _ => (),
-                // }
                 if (ECHO_RAM_START..=ECHO_RAM_END).contains(&echo_ram_addr) {
                     self.echo_ram[index] = byte
                 }

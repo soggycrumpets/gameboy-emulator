@@ -167,6 +167,11 @@ impl Cpu {
         let opcode = self.fetch_byte();
         // print!("Opcode: {:02x}", opcode);
 
+        let pc = self.reg.get16(R16::PC);
+        if pc == 0x0100 {
+            println!("RESET");
+        }
+
         // Look up the number of clock cycles this instruction will take.
         // In the case of checked condition functions, the minimum
         // number of cycles is assumed. Those functions will adjust the value

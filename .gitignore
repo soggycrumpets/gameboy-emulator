@@ -19,6 +19,7 @@ target/
 # ROM Folders
 roms/*
 test-roms
-
 #Debuggy stuff
 misc
+callgrind.out
+profile.json.gz

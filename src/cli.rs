@@ -1,18 +1,18 @@
-const TEST_ALL_INSTRUCTIONS: &str = "./test-roms/cpu_instrs.gb";
-const TEST_CPU_1_PATH: &str = "./test-roms/01-special.gb";
-const TEST_CPU_2_PATH: &str = "./test-roms/02-interrupts.gb";
-const TEST_CPU_3_PATH: &str = "./test-roms/03-op sp,hl.gb";
-const TEST_CPU_4_PATH: &str = "./test-roms/04-op r,imm.gb";
-const TEST_CPU_5_PATH: &str = "./test-roms/05-op rp.gb";
-const TEST_CPU_6_PATH: &str = "./test-roms/06-ld r,r.gb";
-const TEST_CPU_7_PATH: &str = "./test-roms/07-jr,jp,call,ret,rst.gb";
-const TEST_CPU_8_PATH: &str = "./test-roms/08-misc instrs.gb";
-const TEST_CPU_9_PATH: &str = "./test-roms/09-op r,r.gb";
-const TEST_CPU_10_PATH: &str = "./test-roms/10-bit ops.gb";
-const TEST_CPU_11_PATH: &str = "./test-roms/11-op a,(hl).gb";
+const TEST_ALL_INSTRUCTIONS: &str = "./test-roms/blargg/cpu_instrs.gb";
+const TEST_CPU_1_PATH: &str = "./test-roms/blargg/01-special.gb";
+const TEST_CPU_2_PATH: &str = "./test-roms/blargg/02-interrupts.gb";
+const TEST_CPU_3_PATH: &str = "./test-roms/blargg/03-op sp,hl.gb";
+const TEST_CPU_4_PATH: &str = "./test-roms/blargg/04-op r,imm.gb";
+const TEST_CPU_5_PATH: &str = "./test-roms/blargg/05-op rp.gb";
+const TEST_CPU_6_PATH: &str = "./test-roms/blargg/06-ld r,r.gb";
+const TEST_CPU_7_PATH: &str = "./test-roms/blargg/07-jr,jp,call,ret,rst.gb";
+const TEST_CPU_8_PATH: &str = "./test-roms/blargg/08-misc instrs.gb";
+const TEST_CPU_9_PATH: &str = "./test-roms/blargg/09-op r,r.gb";
+const TEST_CPU_10_PATH: &str = "./test-roms/blargg/10-bit ops.gb";
+const TEST_CPU_11_PATH: &str = "./test-roms/blargg/11-op a,(hl).gb";
 
-const TEST_INSTR_TIMING_PATH: &str = "./test-roms/instr_timing.gb";
-const TEST_MEM_TIMING_PATH: &str = "./test-roms/mem_timing.gb";
+const TEST_INSTR_TIMING_PATH: &str = "./test-roms/blargg/instr_timing.gb";
+const TEST_MEM_TIMING_PATH: &str = "./test-roms/blargg/mem_timing.gb";
 
 const DMG_ACID_PATH: &str = "./test-roms/dmg-acid2.gb";
 
