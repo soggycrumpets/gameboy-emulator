@@ -78,11 +78,11 @@ pub const BG_AND_WINDOW_ENABLE_BIT: u8 = 0;
 // -
 pub const STAT_ADDR: u16 = 0xFF41;
 // - Bits within STAT
-pub const LCD_INT_SELLECT_BIT: u8 = 6;
+pub const LYC_INT_SELECT_BIT: u8 = 6;
 pub const MODE_2_INT_SELECT_BIT: u8 = 5;
 pub const MODE_1_INT_SELECT_BIT: u8 = 4;
 pub const MODE_0_INT_SELECT_BIT: u8 = 3;
-pub const LYC_EQUALS_LY_BIT: u8 = 2;
+pub const LY_EQUALS_LYC_BIT: u8 = 2;
 //-
 pub const LY_ADDR: u16 = 0xFF44;
 pub const LYC_ADDR: u16 = 0xFF45;

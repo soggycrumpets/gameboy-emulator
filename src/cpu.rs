@@ -158,7 +158,6 @@ impl Cpu {
         self.write_byte(IF_ADDR, if_byte);
         self.ime = false; 
 
-        self.push_r16(R16::PC);
         self.rst_vec(interrupt_handler_addr);
         self.instruction_t_cycles = INTERRUPT_T_CYCLES;
     }

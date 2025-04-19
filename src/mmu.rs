@@ -94,7 +94,13 @@ impl Mmu {
                 }
             }
             M::Restricted => self.restricted_memory[index],
-            M::Io => self.io[index],
+            M::Io => {
+                if addr == P1_ADDR {
+                    0x0F
+                } else {
+                    self.io[index]
+                }
+            }
             M::Hram => self.hram[index],
             M::Ie => self.ie,
         }

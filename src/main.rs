@@ -65,6 +65,11 @@ fn run_rom(path: &str) {
             process_inputs(&mut ui, &mmu);
             ppu.splat_tiles();
             ui.render_display(&ppu.display);
+
+            // let joyp = mmu.borrow().read_byte(0xff44);
+            // println!("{:02x}", joyp);
+
+
             last_render_time = Instant::now();
         }
     }
@@ -142,4 +147,6 @@ fn emulate_boot(mmu: &Rc<RefCell<Mmu>>, cpu: &mut Cpu) {
     mmu.borrow_mut().write_byte_override(WY_ADDR, 0x00);
     mmu.borrow_mut().write_byte_override(WX_ADDR, 0x00);
     mmu.borrow_mut().write_byte_override(IE_ADDR, 0x00);
+
+
 }

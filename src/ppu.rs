@@ -21,12 +21,8 @@ const OAM_SCAN_MODE_NUMBER: u8 = 2;
 const PIXEL_DRAW_MODE_NUMBER: u8 = 3;
 
 use crate::{
-    mmu::{
-        self,
-        memmap::{
-            LCDC_ADDR, LCD_AND_PPU_ENABLE_BIT, LYC_ADDR, LYC_EQUALS_LY_BIT, STAT_ADDR, STAT_INTERRUPT_BIT, VBLANK_INTERRUPT_BIT
-        },
-    }, ppu, util::set_bit
+    mmu::{self, memmap::*},
+    util::{get_bit, set_bit},
 };
 use mmu::Mmu;
 use std::{cell::RefCell, rc::Rc};
@@ -49,6 +45,7 @@ pub struct Ppu {
     frame_t_cycle_count: u32,
     scanline_t_cycle_count: u32,
     scanline_counter: u8,
+    stat_interrupt_line: bool,
 }
 
 impl Ppu {
@@ -60,13 +57,14 @@ impl Ppu {
             frame_t_cycle_count: 0,
             scanline_t_cycle_count: 0,
             scanline_counter: 0,
+            stat_interrupt_line: false,
         }
     }
 
     pub fn tick(&mut self) {
         let ppu_mode = self.get_mode();
         let ppu_enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT);
-        
+
         // You're not supposed to turn off the PPU outside of vblank mode, but from
         // what I can tell, the hardware won't prevent it.
         if self.was_enabled && !ppu_enabled {
@@ -129,7 +127,6 @@ impl Ppu {
             self.scanline_counter += 1;
         }
 
-
         // LY and the LY=LYC bit of the STAT register are updated each cycle
         self.update_ppu_status_registers();
     }
@@ -139,20 +136,39 @@ impl Ppu {
         self.mmu.borrow().bypass_read_byte_vram(addr)
     }
 
-    fn update_ppu_status_registers(&self) {
+    fn update_ppu_status_registers(&mut self) {
+        // ly
         let ly = self.scanline_counter;
         self.mmu.borrow_mut().bypass_write_byte_ly(ly); // This byte is normally read-only
 
+        // PPU mode is updated during state machine transitions, so it doesn't need to be done here.
+        // But LY == LYC bit still needs to be updated
+        let mut stat_byte = self.read_byte(STAT_ADDR);
         let lyc = self.read_byte(LYC_ADDR);
-        let ly_equals_lyc = ly == lyc;
-        if ly_equals_lyc {
+        set_bit(&mut stat_byte, LY_EQUALS_LYC_BIT, ly == lyc);
+        self.mmu.borrow_mut().bypass_write_byte_stat(stat_byte); // This byte is normally read-only
+        
+        // Statis interrupt selects
+        let enable_ly_equals_lyc = get_bit(stat_byte, LYC_INT_SELECT_BIT);
+        let enable_hblank = get_bit(stat_byte, MODE_0_INT_SELECT_BIT);
+        let enable_vblank = get_bit(stat_byte, MODE_1_INT_SELECT_BIT);
+        let enable_oam = get_bit(stat_byte, MODE_2_INT_SELECT_BIT);
+
+        // STAT interrupts are triggered on a rising edge in the stat_interrupt_line variable
+        // Weird behavior with VBlank mode triggering with vblank select OR oam select described here:
+        // https://raw.githubusercontent.com/geaz/emu-gameboy/master/docs/The%20Cycle-Accurate%20Game%20Boy%20Docs.pdf
+        // On page 29 section 8.7, STAT Interrupt
+        let mode = self.get_mode();
+        let stat_interrupt_line = ((ly == lyc) && enable_ly_equals_lyc)
+            || ((mode == PpuMode::HBlank) && enable_hblank)
+            || ((mode == PpuMode::OamScan) && (enable_oam))
+            || ((mode == PpuMode::VBlank) && (enable_vblank || enable_oam));
+
+        if stat_interrupt_line && !self.stat_interrupt_line {
             self.mmu.borrow_mut().request_interrupt(STAT_INTERRUPT_BIT);
         }
-        // PPU mode is updated during state machine transitions, so it doesn't need to be done here.
+        self.stat_interrupt_line = stat_interrupt_line;
 
-        let mut stat_byte = self.read_byte(STAT_ADDR);
-        set_bit(&mut stat_byte, LYC_EQUALS_LY_BIT, ly_equals_lyc);
-        self.mmu.borrow_mut().bypass_write_byte_stat(stat_byte); // This byte is normally read-only
     }
 
     pub fn get_mode(&mut self) -> PpuMode {
@@ -182,7 +198,7 @@ impl Ppu {
         self.frame_t_cycle_count = 0;
         self.scanline_t_cycle_count = 0;
         self.scanline_counter = 0;
-        self.mmu.borrow_mut().bypass_write_byte_ly(0x00);        
+        self.mmu.borrow_mut().bypass_write_byte_ly(0x00);
         self.mmu.borrow_mut().vram_lock = false;
         self.mmu.borrow_mut().oam_lock = false;
     }
