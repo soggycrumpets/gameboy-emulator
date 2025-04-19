@@ -8,7 +8,10 @@ pub mod registers;
 
 use crate::mmu::Mmu;
 use crate::mmu::memmap::{
-    IE_ADDR, IF_ADDR, JOYPAD_INTERRUPT_BIT, JOYPAD_INTERRUPT_HANDLER_ADDR, LY_ADDR, SERIAL_INTERRUPT_BIT, SERIAL_INTERRUPT_HANDLER_ADDR, STAT_INTERRUPT_BIT, STAT_INTERRUPT_HANDLER_ADDR, TIMER_INTERRUPT_BIT, TIMER_INTERRUPT_HANDLER_ADDR, VBLANK_INTERRUPT_BIT, VBLANK_INTERRUPT_HANDLER_ADDR
+    IE_ADDR, IF_ADDR, JOYPAD_INTERRUPT_BIT, JOYPAD_INTERRUPT_HANDLER_ADDR, LY_ADDR,
+    SERIAL_INTERRUPT_BIT, SERIAL_INTERRUPT_HANDLER_ADDR, STAT_INTERRUPT_BIT,
+    STAT_INTERRUPT_HANDLER_ADDR, TIMER_INTERRUPT_BIT, TIMER_INTERRUPT_HANDLER_ADDR,
+    VBLANK_INTERRUPT_BIT, VBLANK_INTERRUPT_HANDLER_ADDR,
 };
 
 use crate::util::{get_bit, set_bit};
@@ -53,6 +56,10 @@ impl Cpu {
     }
 
     fn step_instruction(&mut self) {
+
+        let ie_byte = self.read_byte(IE_ADDR);
+        let if_byte = self.read_byte(IF_ADDR);
+        // println!("Low power mode: {}, IE: {:02x}, IF: {:02x} IE & IF != 0: {}", self.low_power_mode, ie_byte, if_byte, (ie_byte & if_byte) != 0);
         
         if self.handle_interrupts() {
             return;
@@ -107,7 +114,7 @@ impl Cpu {
         let ie_byte = self.read_byte(IE_ADDR);
         let if_byte = self.read_byte(IF_ADDR);
 
-        let interrupts_are_pending = (ie_byte & if_byte) > 0;
+        let interrupts_are_pending = (ie_byte & if_byte) != 0;
 
         if !interrupts_are_pending {
             return false;
@@ -156,7 +163,7 @@ impl Cpu {
         let mut if_byte = self.read_byte(IF_ADDR);
         set_bit(&mut if_byte, interrupt_bit, false);
         self.write_byte(IF_ADDR, if_byte);
-        self.ime = false; 
+        self.ime = false;
 
         self.rst_vec(interrupt_handler_addr);
         self.instruction_t_cycles = INTERRUPT_T_CYCLES;
@@ -764,18 +771,7 @@ impl Cpu {
 
     // todo! implement the halt bug
     fn halt(&mut self) {
-        let ie_byte = self.read_byte(IE_ADDR);
-        let if_byte = self.read_byte(IF_ADDR);
-        let interrupts_are_pending = (ie_byte & if_byte) > 0;
-
-        if self.ime || !interrupts_are_pending {
-            self.low_power_mode = true;
-        } else {
-            // todo!()
-            // Due to a hardware bug, the program counter does not increment in this case.
-            // let pc = self.reg.get16(R16::PC);
-            // self.reg.set16(R16::PC, pc - 2);
-        }
+        self.low_power_mode = true;
     }
 }
 

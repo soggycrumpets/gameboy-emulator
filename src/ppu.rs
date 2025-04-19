@@ -30,7 +30,7 @@ use std::{cell::RefCell, rc::Rc};
 pub type GbDisplay = [[u8; 256]; 256];
 
 #[repr(u8)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum PpuMode {
     HBlank = HBLANK_MODE_NUMBER,
     VBlank = VBLANK_MODE_NUMBER,
@@ -42,8 +42,11 @@ pub struct Ppu {
     mmu: Rc<RefCell<Mmu>>,
     was_enabled: bool,
     pub display: GbDisplay,
+
     frame_t_cycle_count: u32,
     scanline_t_cycle_count: u32,
+    mode_t_cycle_count: u32,
+
     scanline_counter: u8,
     stat_interrupt_line: bool,
 }
@@ -54,8 +57,10 @@ impl Ppu {
             mmu,
             was_enabled: false,
             display: [[0; 256]; 256],
+
             frame_t_cycle_count: 0,
             scanline_t_cycle_count: 0,
+            mode_t_cycle_count: 0,
             scanline_counter: 0,
             stat_interrupt_line: false,
         }
@@ -64,6 +69,8 @@ impl Ppu {
     pub fn tick(&mut self) {
         let ppu_mode = self.get_mode();
         let ppu_enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT);
+
+        // println!("PPU Enabled: {}, PPU Mode: {}", ppu_enabled, ppu_mode as u8);
 
         // You're not supposed to turn off the PPU outside of vblank mode, but from
         // what I can tell, the hardware won't prevent it.
@@ -78,6 +85,7 @@ impl Ppu {
 
         self.frame_t_cycle_count += 1;
         self.scanline_t_cycle_count += 1;
+        self.mode_t_cycle_count += 1;
 
         match ppu_mode {
             PpuMode::OamScan => {
@@ -89,28 +97,30 @@ impl Ppu {
             }
             PpuMode::PixelDraw => {
                 // PIXELDRAW -> HBLANK
-                if self.scanline_t_cycle_count == PIXEL_DRAW_MIN_T_CYCLES {
+                if self.scanline_t_cycle_count == OAM_SCAN_T_CYCLES + PIXEL_DRAW_MIN_T_CYCLES {
                     self.set_mode(PpuMode::HBlank);
                     self.mmu.borrow_mut().vram_lock = false;
                     self.mmu.borrow_mut().oam_lock = false;
                 }
             }
             PpuMode::HBlank => {
-                // VBLANK -> OAMSCAN
+                // HBLANK -> VBLANK
                 if self.frame_t_cycle_count == T_CYCLES_PER_FRAME - 4650 {
                     self.set_mode(PpuMode::VBlank);
-                    self.mmu.borrow_mut().oam_lock = true;
                     self.mmu
                         .borrow_mut()
                         .request_interrupt(VBLANK_INTERRUPT_BIT);
                 // HBLANK -> OAMSCAN
-                } else if self.scanline_t_cycle_count == T_CYCLES_PER_SCANLINE {
+                } else if self.scanline_t_cycle_count
+                    == OAM_SCAN_T_CYCLES + PIXEL_DRAW_MIN_T_CYCLES + HBLANK_MAX_T_CYCLES
+                {
                     self.set_mode(PpuMode::OamScan);
+                    self.mmu.borrow_mut().oam_lock = true;
                 }
             }
             PpuMode::VBlank => {
-                // VBLANK -> OAMSCAN
                 if self.frame_t_cycle_count == T_CYCLES_PER_FRAME {
+                    // println!("VBLANK -> OAM");
                     self.set_mode(PpuMode::OamScan);
                     self.mmu.borrow_mut().oam_lock = true;
                 }
@@ -147,7 +157,7 @@ impl Ppu {
         let lyc = self.read_byte(LYC_ADDR);
         set_bit(&mut stat_byte, LY_EQUALS_LYC_BIT, ly == lyc);
         self.mmu.borrow_mut().bypass_write_byte_stat(stat_byte); // This byte is normally read-only
-        
+
         // Statis interrupt selects
         let enable_ly_equals_lyc = get_bit(stat_byte, LYC_INT_SELECT_BIT);
         let enable_hblank = get_bit(stat_byte, MODE_0_INT_SELECT_BIT);
@@ -168,12 +178,11 @@ impl Ppu {
             self.mmu.borrow_mut().request_interrupt(STAT_INTERRUPT_BIT);
         }
         self.stat_interrupt_line = stat_interrupt_line;
-
     }
 
     pub fn get_mode(&mut self) -> PpuMode {
         // The mode is represented by the rightmost two bits of the LCDC register.
-        let byte = self.read_byte(LCDC_ADDR);
+        let byte = self.read_byte(STAT_ADDR);
         let mode_number = byte & 0b_0000_0011;
 
         match mode_number {
@@ -191,6 +200,7 @@ impl Ppu {
         let mut byte = self.read_byte(LCDC_ADDR);
         byte &= 0b_1111_1100;
         byte |= mode_number;
+
         self.mmu.borrow_mut().bypass_write_byte_stat(byte);
     }
 
