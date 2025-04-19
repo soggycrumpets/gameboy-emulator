@@ -26,6 +26,7 @@ pub struct Mmu {
     ie: u8,
 
     pub vram_lock: bool,
+    pub oam_lock: bool,
 }
 
 impl Mmu {
@@ -46,6 +47,7 @@ impl Mmu {
             ie: 0,
 
             vram_lock: false,
+            oam_lock: false,
         };
 
         Rc::new(RefCell::new(mmu))
@@ -63,6 +65,8 @@ impl Mmu {
         true
     }
 
+    // Memory regions are all treated separately, and lots of regions and addresses
+    // have special rules that determine what happens when a read or write is done.
     pub fn read_byte(&self, addr: u16) -> u8 {
         let (mem_region, addr_mapped) = map_addr(addr);
         let index = addr_mapped as usize;
@@ -101,13 +105,12 @@ impl Mmu {
         }
     }
 
-    // todo! Some writes and reads work differently for different memory spaces
     pub fn write_byte(&mut self, addr: u16, byte: u8) {
         let (mem_region, addr_mapped) = map_addr(addr);
         let index = addr_mapped as usize;
 
-        if (addr == SERIAL_TRANSFER_CONTROL_ADDR) && (byte == TRANSFER_REQUESTED_VALUE) {
-            let c = self.read_byte(SERIAL_TRANSFER_DATA_ADDR) as char;
+        if (addr == SC_ADDR) && (byte == TRANSFER_REQUESTED_VALUE) {
+            let c = self.read_byte(SB_ADDR) as char;
             print!("{}", c);
         }
 
@@ -134,12 +137,7 @@ impl Mmu {
                 TIMA_ADDR => self.write_byte_tima(byte),
                 LY_ADDR => (),                                     // Read-only
                 STAT_ADDR => self.io[index] = byte & 0b_1111_1000, // Bottom 3 bits are read-only
-                IF_ADDR => {
-                    print!("WRITE TO IF: {:02x}", byte);
-                    // The upper 3 bits never change
-                    self.io[index] = byte | 0b_1110_0000;
-                    println!(" | STORED AS: {:02x}", self.io[index]);
-                }
+                IF_ADDR => self.io[index] = byte | 0b_1110_0000,   // Top 3 bits are always 1
                 _ => self.io[index] = byte,
             },
             M::Hram => self.hram[index] = byte,
@@ -147,8 +145,34 @@ impl Mmu {
         };
     }
 
+    // This is only used to initialize memory to the post-boot state.
+    // There shouldn't be any exceptions or side effects there.
+    pub fn write_byte_override_all(&mut self, addr: u16, byte: u8) {
+        let (mem_region, addr_mapped) = map_addr(addr);
+        let index = addr_mapped as usize;
+        use MemRegion as M;
+        match mem_region {
+            M::RomBank0 => self.rom_bank_00[index] = byte,
+            M::RomBank1 => self.rom_bank_01[index] = byte,
+            M::Vram => self.vram[index] = byte,
+            M::Exram => self.exram[index] = byte,
+            M::Wram0 => self.wram_0[index] = byte,
+            M::Wram1 => self.wram_1[index] = byte,
+            M::EchoRam => self.echo_ram[index] = byte,
+            M::Oam => self.oam[index] = byte,
+            M::Restricted => self.restricted_memory[index] = byte,
+            M::Io => self.io[index] = byte,
+            M::Hram => self.hram[index] = byte,
+            M::Ie => self.ie = byte,
+        };
+    }
+
     // LY is read-only by the CPU, but the PPU needs to write to them.
-    pub fn bypass_write_byte_ly(&mut self, byte: u8) {}
+    pub fn bypass_write_byte_ly(&mut self, byte: u8) {
+        let (_mem_region, addr_mapped) = map_addr(LY_ADDR);
+        let index = addr_mapped as usize;
+        self.io[index] = byte;
+    }
 
     // The same is true for STAT, but only the bottom three bits.
     pub fn bypass_write_byte_stat(&mut self, byte: u8) {

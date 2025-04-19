@@ -11,7 +11,7 @@ use cli::{Command, parse_cli_inputs};
 
 use cpu::{Cpu, registers::R8};
 use debugger::run_debug;
-use mmu::{memmap::{IF_ADDR, JOYPAD_INPUT_ADDR, LYC_ADDR, SCY_ADDR}, Mmu};
+use mmu::{Mmu, memmap::*};
 use ppu::Ppu;
 use std::{
     cell::RefCell,
@@ -22,7 +22,7 @@ use ui::UserInterface;
 
 use cpu::registers::R16;
 const SYSTEM_CLOCK_FREQUENCY: f64 = (1 << 22) as f64; // Hz
-const SYSTEM_CLOCK_PERIOD: f64 = 1.0 / SYSTEM_CLOCK_FREQUENCY; // Seconds
+const SYSTEM_CLOCK_PERIOD: f64 = 1.0 /SYSTEM_CLOCK_FREQUENCY; // Seconds
 
 fn main() {
     let input = parse_cli_inputs();
@@ -101,9 +101,40 @@ fn emulate_boot(mmu: &Rc<RefCell<Mmu>>, cpu: &mut Cpu) {
     cpu.reg.set16(R16::PC, 0x0100);
     cpu.reg.set16(R16::SP, 0xFFFE);
 
-    // Joypad bits read high by default, 0 when pressed
-    mmu.borrow_mut().write_byte(JOYPAD_INPUT_ADDR, 0xFF);
-    // As far as I can tell from online, the upper 3 bits of this register don't actually exist.
-    // And because of this, they always read high. So I will have the memory reflect this.
-    mmu.borrow_mut().write_byte(IF_ADDR, 0b_1110_0000);
+    // Hardware registers
+    mmu.borrow_mut().write_byte_override_all(NR_10_ADDR, 0x80);
+    mmu.borrow_mut().write_byte_override_all(NR_11_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override_all(NR_12_ADDR, 0xF3);
+    mmu.borrow_mut().write_byte_override_all(NR_13_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override_all(NR_14_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override_all(NR_21_ADDR, 0x3F);
+    mmu.borrow_mut().write_byte_override_all(NR_22_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override_all(NR_23_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override_all(NR_24_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override_all(NR_30_ADDR, 0x7F);
+    mmu.borrow_mut().write_byte_override_all(NR_31_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override_all(NR_32_ADDR, 0x9F);
+    mmu.borrow_mut().write_byte_override_all(NR_33_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override_all(NR_34_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override_all(NR_41_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override_all(NR_42_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override_all(NR_43_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override_all(NR_44_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override_all(NR_50_ADDR, 0x77);
+    mmu.borrow_mut().write_byte_override_all(NR_51_ADDR, 0xF3);
+    mmu.borrow_mut().write_byte_override_all(NR_52_ADDR, 0xF1);
+    mmu.borrow_mut().write_byte_override_all(LCDC_ADDR, 0x91);
+    mmu.borrow_mut().write_byte_override_all(STAT_ADDR, 0x85);
+    mmu.borrow_mut().write_byte_override_all(SCY_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override_all(SCX_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override_all(LY_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override_all(LYC_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override_all(DMA_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override_all(BGP_ADDR, 0xFC);
+    mmu.borrow_mut().write_byte_override_all(OBP0_ADDR, 0x00); // Uninitialized
+    mmu.borrow_mut().write_byte_override_all(OBP1_ADDR, 0x00); // Uninitialized
+    mmu.borrow_mut().write_byte_override_all(WY_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override_all(WX_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override_all(IE_ADDR, 0x00);
+
 }

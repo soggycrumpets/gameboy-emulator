@@ -55,7 +55,7 @@ pub const IE_ADDR: u16 = 0xFFFF;
 
 // ----- Register Addresses -----
 // Input
-pub const JOYPAD_INPUT_ADDR: u16 = 0xFF00;
+pub const P1_ADDR: u16 = 0xFF00;
 
 // Timer
 pub const DIV_ADDR: u16 = 0xFF04;
@@ -87,6 +87,12 @@ pub const LY_ADDR: u16 = 0xFF44;
 pub const LYC_ADDR: u16 = 0xFF45;
 pub const SCY_ADDR: u16 = 0xFF42;
 pub const SCX_ADDR: u16 = 0xFF43;
+pub const DMA_ADDR: u16 = 0xFF46;
+pub const BGP_ADDR: u16 = 0xFF47;
+pub const OBP0_ADDR: u16 = 0xFF48;
+pub const OBP1_ADDR: u16 = 0xFF49;
+pub const WY_ADDR: u16 = 0xFF4A;
+pub const WX_ADDR: u16 = 0xFF4B;
 
 // Interrupt (besides IE, which counts but is also its own memory region)
 pub const IF_ADDR: u16 = 0xFF0F;
@@ -104,8 +110,35 @@ pub const SERIAL_INTERRUPT_HANDLER_ADDR: u16 = 0x0058;
 pub const JOYPAD_INTERRUPT_HANDLER_ADDR: u16 = 0x0060;
 
 // Serial transfer
-pub const SERIAL_TRANSFER_CONTROL_ADDR: u16 = 0xFF02;
-pub const SERIAL_TRANSFER_DATA_ADDR: u16 = 0xFF01;
+pub const SC_ADDR: u16 = 0xFF02;
+pub const SB_ADDR: u16 = 0xFF01;
+
+// Audio
+pub const NR_10_ADDR: u16 = 0xFF10;
+pub const NR_11_ADDR: u16 = 0xFF11;
+pub const NR_12_ADDR: u16 = 0xFF12;
+pub const NR_13_ADDR: u16 = 0xFF13;
+pub const NR_14_ADDR: u16 = 0xFF14;
+
+pub const NR_21_ADDR: u16 = 0xFF16;
+pub const NR_22_ADDR: u16 = 0xFF17;
+pub const NR_23_ADDR: u16 = 0xFF18;
+pub const NR_24_ADDR: u16 = 0xFF19;
+
+pub const NR_30_ADDR: u16 = 0xFF1A;
+pub const NR_31_ADDR: u16 = 0xFF1B;
+pub const NR_32_ADDR: u16 = 0xFF1C;
+pub const NR_33_ADDR: u16 = 0xFF1D;
+pub const NR_34_ADDR: u16 = 0xFF1E;
+
+pub const NR_41_ADDR: u16 = 0xFF20;
+pub const NR_42_ADDR: u16 = 0xFF21;
+pub const NR_43_ADDR: u16 = 0xFF22;
+pub const NR_44_ADDR: u16 = 0xFF23;
+
+pub const NR_50_ADDR: u16 = 0xFF24;
+pub const NR_51_ADDR: u16 = 0xFF25;
+pub const NR_52_ADDR: u16 = 0xFF26;
 
 // ----- Other Important Addresses -----
 pub const PROGRAM_START_ADDR: u16 = 0x0100;

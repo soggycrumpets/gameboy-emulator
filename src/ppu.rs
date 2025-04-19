@@ -24,10 +24,9 @@ use crate::{
     mmu::{
         self,
         memmap::{
-            LCDC_ADDR, LYC_ADDR, LYC_EQUALS_LY_BIT, STAT_ADDR, STAT_INTERRUPT_BIT, VBLANK_INTERRUPT_BIT
+            LCDC_ADDR, LCD_AND_PPU_ENABLE_BIT, LYC_ADDR, LYC_EQUALS_LY_BIT, STAT_ADDR, STAT_INTERRUPT_BIT, VBLANK_INTERRUPT_BIT
         },
-    },
-    util::set_bit,
+    }, ppu, util::set_bit
 };
 use mmu::Mmu;
 use std::{cell::RefCell, rc::Rc};
@@ -35,6 +34,7 @@ use std::{cell::RefCell, rc::Rc};
 pub type GbDisplay = [[u8; 256]; 256];
 
 #[repr(u8)]
+#[derive(PartialEq)]
 pub enum PpuMode {
     HBlank = HBLANK_MODE_NUMBER,
     VBlank = VBLANK_MODE_NUMBER,
@@ -44,6 +44,7 @@ pub enum PpuMode {
 
 pub struct Ppu {
     mmu: Rc<RefCell<Mmu>>,
+    was_enabled: bool,
     pub display: GbDisplay,
     frame_t_cycle_count: u32,
     scanline_t_cycle_count: u32,
@@ -54,6 +55,7 @@ impl Ppu {
     pub fn new(mmu: Rc<RefCell<Mmu>>) -> Self {
         Ppu {
             mmu,
+            was_enabled: false,
             display: [[0; 256]; 256],
             frame_t_cycle_count: 0,
             scanline_t_cycle_count: 0,
@@ -62,10 +64,25 @@ impl Ppu {
     }
 
     pub fn tick(&mut self) {
+        let ppu_mode = self.get_mode();
+        let ppu_enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT);
+        
+
+        // You're not supposed to turn off the PPU outside of vblank mode, but from
+        // what I can tell, the hardware won't prevent it.
+        if self.was_enabled && !ppu_enabled {
+            self.turn_off();
+        }
+        self.was_enabled = ppu_enabled;
+
+        if !ppu_enabled {
+            return;
+        }
+
         self.frame_t_cycle_count += 1;
         self.scanline_t_cycle_count += 1;
 
-        match self.get_mode() {
+        match ppu_mode {
             PpuMode::OamScan => {
                 // OAMSCAN -> PIXELDRAW
                 if self.scanline_t_cycle_count == OAM_SCAN_T_CYCLES {
@@ -110,7 +127,7 @@ impl Ppu {
         }
 
         // LY and the LY=LYC bit of the STAT register are updated each cycle
-        // self.update_ppu_status_registers();
+        self.update_ppu_status_registers();
     }
 
     // The PPU is not affected by the write lock on VRAM - it always bypasses it
@@ -155,6 +172,15 @@ impl Ppu {
         byte &= 0b_1111_1100;
         byte |= mode_number;
         self.mmu.borrow_mut().bypass_write_byte_stat(byte);
+    }
+
+    fn turn_off(&mut self) {
+        self.frame_t_cycle_count = 0;
+        self.scanline_t_cycle_count = 0;
+        self.scanline_counter = 0;
+        self.mmu.borrow_mut().bypass_write_byte_ly(0x00);        
+        self.mmu.borrow_mut().vram_lock = false;
+        self.mmu.borrow_mut().oam_lock = false;
     }
 }
 
