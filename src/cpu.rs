@@ -134,16 +134,16 @@ impl Cpu {
         // Interrupts are prioritized in order of their bit position (bit 0 first, bit 4 last)
         if vblank_interrupt && vblank_interrupt_enabled {
             self.handle_interrupt(VBLANK_INTERRUPT_HANDLER_ADDR, VBLANK_INTERRUPT_BIT);
-            // println!("VBLANK INTERRUPT");
+            println!("VBLANK INTERRUPT");
         } else if stat_interrupt && stat_interrupt_enabled {
             self.handle_interrupt(STAT_INTERRUPT_HANDLER_ADDR, STAT_INTERRUPT_BIT);
-            // println!("STAT INTERRUPT");
+            println!("STAT INTERRUPT");
         } else if timer_interrupt && timer_interrupt_enabled {
             self.handle_interrupt(TIMER_INTERRUPT_HANDLER_ADDR, TIMER_INTERRUPT_BIT);
-            // println!("TIMER INTERRUPT");
+            println!("TIMER INTERRUPT");
         } else if serial_interrupt && serial_interrupt_enabled {
             self.handle_interrupt(SERIAL_INTERRUPT_HANDLER_ADDR, SERIAL_INTERRUPT_BIT);
-            // println!("SERIAL INTERRUPT");
+            println!("SERIAL INTERRUPT");
         } else if joypad_interrupt && joypad_interrupt_enabled {
             self.handle_interrupt(JOYPAD_INTERRUPT_HANDLER_ADDR, JOYPAD_INTERRUPT_BIT);
         }

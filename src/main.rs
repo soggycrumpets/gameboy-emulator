@@ -14,9 +14,7 @@ use debugger::run_debug;
 use mmu::{Mmu, memmap::*};
 use ppu::Ppu;
 use std::{
-    cell::RefCell,
-    rc::Rc,
-    time::{Duration, Instant},
+    cell::RefCell, process, rc::Rc, time::{Duration, Instant}
 };
 use ui::UserInterface;
 
@@ -54,6 +52,7 @@ fn run_rom(path: &str) {
     // One loop represents one t-cycle
     while ui.running {
         ui.process_inputs();
+        process_inputs(&mut ui, &mmu);
 
         cpu.tick();
         
@@ -67,6 +66,8 @@ fn run_rom(path: &str) {
             ppu.splat_tiles();
             ui.render_display(&ppu.display);
             last_render_time = Instant::now();
+
+            let pc = cpu.reg.get16(R16::PC);
         }
     }
 }
@@ -76,6 +77,19 @@ fn create_gameboy_components() -> (Rc<RefCell<Mmu>>, Cpu, Ppu) {
     let cpu = Cpu::new(Rc::clone(&mmu));
     let ppu = Ppu::new(Rc::clone(&mmu));
     (mmu, cpu, ppu)
+}
+
+fn process_inputs(ui: &mut UserInterface, mmu: &Rc<RefCell<Mmu>>) {
+    ui.process_inputs();
+    let b = ui.inputs_down.w;
+    let a_button = ui.inputs_down.a;
+    let s_button = ui.inputs_down.s;
+    let d_button = ui.inputs_down.d;
+
+    let m_button = ui.inputs_down.m;
+    let n_button = ui.inputs_down.n;
+
+
 }
 
 // While you technically can obtain a copy of the original gameboy bootrom online,

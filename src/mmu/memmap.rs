@@ -33,6 +33,7 @@ pub const WRAM_1_SIZE: usize = (WRAM_1_END - WRAM_1_START + 1) as usize;
 pub const ECHO_RAM_START: u16 = 0xE000;
 pub const ECHO_RAM_END: u16 = 0xFDFF;
 pub const ECHO_RAM_SIZE: usize = (ECHO_RAM_END - ECHO_RAM_START + 1) as usize;
+pub const ECHO_OFFSET: u16 = ECHO_RAM_START - WRAM_0_START;
 
 pub const OAM_START: u16 = 0xFE00;
 pub const OAM_END: u16 = 0xFE9F;

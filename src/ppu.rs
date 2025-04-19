@@ -94,12 +94,14 @@ impl Ppu {
                 if self.scanline_t_cycle_count == PIXEL_DRAW_MIN_T_CYCLES {
                     self.set_mode(PpuMode::HBlank);
                     self.mmu.borrow_mut().vram_lock = false;
+                    self.mmu.borrow_mut().oam_lock = false;
                 }
             }
             PpuMode::HBlank => {
                 // VBLANK -> OAMSCAN
                 if self.frame_t_cycle_count == T_CYCLES_PER_FRAME - 4650 {
                     self.set_mode(PpuMode::VBlank);
+                    self.mmu.borrow_mut().oam_lock = true;
                     self.mmu
                         .borrow_mut()
                         .request_interrupt(VBLANK_INTERRUPT_BIT);
@@ -112,6 +114,7 @@ impl Ppu {
                 // VBLANK -> OAMSCAN
                 if self.frame_t_cycle_count == T_CYCLES_PER_FRAME {
                     self.set_mode(PpuMode::OamScan);
+                    self.mmu.borrow_mut().oam_lock = true;
                 }
             }
         }

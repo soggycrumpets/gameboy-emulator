@@ -86,7 +86,13 @@ impl Mmu {
             M::Wram0 => self.wram_0[index],
             M::Wram1 => self.wram_1[index],
             M::EchoRam => self.echo_ram[index],
-            M::Oam => self.oam[index],
+            M::Oam => {
+                if self.oam_lock {
+                    GARBAGE_VALUE
+                } else {
+                    self.oam[index]
+                }
+            }
             M::Restricted => self.restricted_memory[index],
             M::Io => self.io[index],
             M::Hram => self.hram[index],
@@ -98,6 +104,17 @@ impl Mmu {
     pub fn bypass_read_byte_vram(&self, addr: u16) -> u8 {
         let (mem_region, addr_mapped) = map_addr(addr);
         if mem_region != MemRegion::Vram {
+            self.read_byte(addr)
+        } else {
+            let index = addr_mapped as usize;
+            self.vram[index]
+        }
+    }
+
+    // Also not affected by OAM
+    pub fn bypass_read_byte_oam(&self, addr: u16) -> u8 {
+        let (mem_region, addr_mapped) = map_addr(addr);
+        if mem_region != MemRegion::Oam {
             self.read_byte(addr)
         } else {
             let index = addr_mapped as usize;
@@ -124,10 +141,23 @@ impl Mmu {
                 }
             }
             M::Exram => self.exram[index] = byte,
-            M::Wram0 => self.wram_0[index] = byte,
-            M::Wram1 => self.wram_1[index] = byte,
-            M::EchoRam => self.echo_ram[index] = byte,
-            M::Oam => self.oam[index] = byte,
+            M::Wram0 => {
+                self.wram_0[index] = byte;
+                self.echo_ram_mirror_write(addr, byte, MemRegion::Wram0);
+            }
+            M::Wram1 => {
+                self.wram_1[index] = byte;
+                self.echo_ram_mirror_write(addr, byte, MemRegion::Wram1);
+            }
+            M::EchoRam => {
+                self.echo_ram[index] = byte;
+                self.echo_ram_mirror_write(addr, byte, MemRegion::EchoRam);
+            }
+            M::Oam => {
+                if !self.oam_lock {
+                    self.oam[index] = byte
+                }
+            }
             M::Restricted => self.restricted_memory[index] = byte,
             // IO writes have special behaviors
             M::Io => match addr {
@@ -150,6 +180,7 @@ impl Mmu {
     pub fn write_byte_override(&mut self, addr: u16, byte: u8) {
         let (mem_region, addr_mapped) = map_addr(addr);
         let index = addr_mapped as usize;
+
         use MemRegion as M;
         match mem_region {
             M::RomBank0 => self.rom_bank_00[index] = byte,
@@ -179,6 +210,37 @@ impl Mmu {
         let (_mem_region, addr_mapped) = map_addr(STAT_ADDR);
         let index = addr_mapped as usize;
         self.io[index] = byte;
+    }
+
+    // Echo ram "echoes" or mirrors wram 0xC00-0xDFF. Reading or writing
+    // to one will also affect the other.
+    fn echo_ram_mirror_write(&mut self, addr: u16, byte: u8, source_region: MemRegion) {
+        match source_region {
+            MemRegion::EchoRam => {
+                let wram_addr = addr - ECHO_OFFSET;
+                let (_, echoed_addr) = map_addr(wram_addr);
+                let index = echoed_addr as usize;
+                match wram_addr {
+                    WRAM_0_START..=WRAM_0_END => self.wram_0[index] = byte,
+                    WRAM_1_START..=WRAM_1_END => self.wram_1[index] = byte,
+                    _ => (), // Falls into the un-echoed part of wram1
+                };
+            }
+            MemRegion::Wram0 | MemRegion::Wram1 => {
+                let echo_ram_addr = addr + ECHO_OFFSET;
+                let (_, echoed_addr) = map_addr(echo_ram_addr);
+                let index = echoed_addr as usize;
+                // Not all of wram1 is echoed, so make sure to account for that
+                // match echoed_addr {
+                // ECHO_RAM_START..=ECHO_RAM_END => self.echo_ram[index] = byte,
+                // _ => (),
+                // }
+                if (ECHO_RAM_START..=ECHO_RAM_END).contains(&echo_ram_addr) {
+                    self.echo_ram[index] = byte
+                }
+            }
+            _ => unreachable!(),
+        }
     }
 
     // Pay extra special attentian here to account for little-endianness
@@ -221,6 +283,8 @@ mod debug {
 
 #[cfg(test)]
 mod tests {
+    use crate::create_gameboy_components;
+
     use super::*;
 
     // For now, this is just a non-zero number that I picked.
@@ -372,6 +436,35 @@ mod tests {
                 assert_ne!(first_byte_reading, first_byte);
             }
             assert_eq!(last_byte_reading, last_byte)
+        }
+    }
+
+    #[test]
+    fn test_echo_ram() {
+        let (mmu, _, _) = create_gameboy_components();
+        let target_byte = 0xFF;
+
+        // Writes to wram mirror to echo ram
+        {
+            let initial_byte = mmu.borrow().read_byte(ECHO_RAM_START);
+            assert_ne!(target_byte, initial_byte);
+
+            mmu.borrow_mut().write_byte(WRAM_0_START, target_byte);
+
+            let echoed_byte = mmu.borrow().read_byte(ECHO_RAM_START);
+            assert_eq!(target_byte, echoed_byte);
+        }
+
+        {
+            // Writes to echo ram occur in wram (and work with wram1)
+            let initial_byte = mmu.borrow().read_byte(WRAM_1_START);
+            assert_ne!(target_byte, initial_byte);
+
+            mmu.borrow_mut()
+                .write_byte(WRAM_1_START + ECHO_OFFSET, target_byte);
+
+            let echoed_byte = mmu.borrow().read_byte(WRAM_1_START);
+            assert_eq!(target_byte, echoed_byte);
         }
     }
 }

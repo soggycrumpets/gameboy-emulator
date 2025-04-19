@@ -11,10 +11,14 @@ pub const WINDOW_SCALE_FACTOR: usize = 2;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Inputs {
+    pub w: bool,
     pub a: bool,
-    pub g: bool,
+    pub s: bool,
+    pub d: bool,
     pub m: bool,
     pub n: bool,
+
+    pub g: bool,
     pub r: bool,
     pub p: bool,
 }
@@ -22,10 +26,14 @@ pub struct Inputs {
 impl Inputs {
     fn new() -> Self {
         Inputs {
+            w: false,
             a: false,
-            g: false,
+            s: false,
+            d: false,
             m: false,
             n: false,
+
+            g: false,
             r: false,
             p: false,
         }
@@ -34,10 +42,14 @@ impl Inputs {
     // Returns false if the key has not been implemented
     fn get(&self, scancode: Scancode) -> bool {
         match scancode {
+            Scancode::W => self.w,
             Scancode::A => self.a,
-            Scancode::G => self.g,
+            Scancode::S => self.s,
+            Scancode::D => self.d,
             Scancode::M => self.m,
             Scancode::N => self.n,
+
+            Scancode::G => self.g,
             Scancode::R => self.r,
             Scancode::P => self.p,
             _ => false,
@@ -154,10 +166,14 @@ impl UserInterface {
         // Update unique inputs
         // TODO: Inplement a generic unique input checking system (Loop through all scancodes)
         for scancode in [
+            Scancode::W,
             Scancode::A,
-            Scancode::G,
+            Scancode::S,
+            Scancode::D,
             Scancode::M,
             Scancode::N,
+
+            Scancode::G,
             Scancode::R,
             Scancode::P,
         ] {
