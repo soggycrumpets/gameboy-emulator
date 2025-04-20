@@ -30,10 +30,16 @@ pub const PREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =
 pub struct Cpu {
     pub reg: Registers,
     pub mmu: Rc<RefCell<Mmu>>,
-    pub instruction_t_cycles: u8,
+
     ime: bool,
     ime_pending: bool,
-    low_power_mode: bool,
+    halted: bool,
+    halt_bug_active: bool,
+
+    current_instruction_prefixed: bool,
+    current_instruction: u8,
+    pub instruction_t_cycles: u8,
+    micro_op_t_cycles: u8,
 }
 
 impl Cpu {
@@ -41,26 +47,32 @@ impl Cpu {
         Cpu {
             reg: Registers::new(),
             mmu,
-            instruction_t_cycles: 0,
+
             ime: true,
             ime_pending: false,
-            low_power_mode: false,
+            halted: false,
+            halt_bug_active: false,
+
+            current_instruction_prefixed: false,
+            current_instruction: 0,
+            instruction_t_cycles: 0,
+            micro_op_t_cycles: 0,
         }
     }
 
     pub fn tick(&mut self) {
-        if self.instruction_t_cycles == 0 {
+        if self.micro_op_t_cycles == 0 {
+            self.micro_op_t_cycles = 4;
             self.step_instruction();
         }
         self.instruction_t_cycles = self.instruction_t_cycles.saturating_sub(1);
+        self.micro_op_t_cycles = self.micro_op_t_cycles.saturating_sub(1);
     }
 
     fn step_instruction(&mut self) {
-
         let ie_byte = self.read_byte(IE_ADDR);
         let if_byte = self.read_byte(IF_ADDR);
-        // println!("Low power mode: {}, IE: {:02x}, IF: {:02x} IE & IF != 0: {}", self.low_power_mode, ie_byte, if_byte, (ie_byte & if_byte) != 0);
-        
+
         if self.handle_interrupts() {
             return;
         }
@@ -70,26 +82,29 @@ impl Cpu {
             self.ime_pending = false;
         }
 
-        if !self.low_power_mode {
+        if !self.halted {
             self.execute();
         }
     }
 
-    // Wrapper functions arround MMU reads/writes to make them more clear and ergonomic
-    fn read_byte(&self, addr: u16) -> u8 {
-        self.mmu.borrow().read_byte(addr)
-    }
+    // This is differentiated from fetch_byte because the CPU is able to fetch instructions
+    // parallel to its execution during the last m-cycle of an instruction.
+    // Therefore, it's being modeled here as taking zero m-cycles and happening at the same time as execution.
+    // Also, the halt bug should only happen on instruction fetches.
+    fn fetch_instruction(&mut self) -> u8 {
+        let pc = self.reg.get16(R16::PC);
+        let byte = self.read_byte(pc);
 
-    fn read_word(&self, addr: u16) -> u16 {
-        self.mmu.borrow().read_word(addr)
-    }
+        let next_addr = if !self.halt_bug_active {
+            pc + 1
+        } else {
+            println!("Halt bug!");
+            self.halt_bug_active = false;
+            pc
+        };
 
-    fn write_byte(&self, addr: u16, byte: u8) {
-        self.mmu.borrow_mut().write_byte(addr, byte);
-    }
-
-    fn write_word(&self, addr: u16, word: u16) {
-        self.mmu.borrow_mut().write_word(addr, word);
+        self.reg.set16(R16::PC, next_addr);
+        byte
     }
 
     fn fetch_byte(&mut self) -> u8 {
@@ -97,6 +112,7 @@ impl Cpu {
         let byte = self.read_byte(pc);
 
         let next_addr = pc + 1;
+
         self.reg.set16(R16::PC, next_addr);
         byte
     }
@@ -111,20 +127,29 @@ impl Cpu {
     }
 
     fn handle_interrupts(&mut self) -> bool {
+        
+        // Interrupts can only be handled in-between full instructions
+        if self.instruction_t_cycles != 0 {
+            return false
+        }
+
         let ie_byte = self.read_byte(IE_ADDR);
         let if_byte = self.read_byte(IF_ADDR);
-
-        let interrupts_are_pending = (ie_byte & if_byte) != 0;
+        let interrupts_are_pending = (ie_byte & if_byte & 0x1f) != 0;
 
         if !interrupts_are_pending {
             return false;
         }
 
-        self.low_power_mode = false;
-
         if !self.ime {
+            if self.halted {
+                self.halt_bug_active = true;
+                self.halted = false;
+            }
             return false;
         }
+
+        self.halted = false;
 
         let vblank_interrupt = get_bit(if_byte, VBLANK_INTERRUPT_BIT);
         let stat_interrupt = get_bit(if_byte, STAT_INTERRUPT_BIT);
@@ -170,24 +195,31 @@ impl Cpu {
     }
 
     fn execute(&mut self) {
-        let opcode = self.fetch_byte();
-        // print!("Opcode: {:02x}", opcode);
+        let instruction = if self.instruction_t_cycles == 0 {
+            let opcode = self.fetch_instruction();
+            self.instruction_t_cycles = UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
+            opcode
+        } else {
+            self.current_instruction
+        };
 
         let pc = self.reg.get16(R16::PC);
+        let sp = self.reg.get16(R16::SP);
         if pc == 0x0100 {
             println!("RESET");
         }
+        // println!("OP: {:02x}, PC: {:04x}, SP: {:04x} ", opcode, pc, sp);
+        // println!("{} {}", self.instruction_t_cycles, self.micro_op_t_cycles);
 
         // Look up the number of clock cycles this instruction will take.
         // In the case of checked condition functions, the minimum
         // number of cycles is assumed. Those functions will adjust the value
         // when called if the condition is met.
-        self.instruction_t_cycles = UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
 
         // Every instruction that contains an n8, a8, or e8 will fetch a byte.
         // Every instruction that contains an n16 or a16 will fetch a word.
 
-        match opcode {
+        match instruction {
             0x00 => (),                                // NOP
             0x01 => self.ld_r16_n16(R16::BC),          // LD BC, n16
             0x02 => self.ld_at_r16_a(R16::BC),         // LD BC, A
@@ -463,7 +495,7 @@ impl Cpu {
     }
 
     fn execute_prefixed(&mut self) {
-        let opcode = self.fetch_byte();
+        let opcode = self.fetch_instruction();
 
         // The numbers in this table are the TOTAL number of cycles that
         // the instruction takes, including the cycles of the prefix
@@ -771,7 +803,24 @@ impl Cpu {
 
     // todo! implement the halt bug
     fn halt(&mut self) {
-        self.low_power_mode = true;
+        self.halted = true;
+    }
+
+    // Wrapper functions arround MMU reads/writes to make them more clear and ergonomic
+    fn read_byte(&self, addr: u16) -> u8 {
+        self.mmu.borrow().read_byte(addr)
+    }
+
+    fn read_word(&self, addr: u16) -> u16 {
+        self.mmu.borrow().read_word(addr)
+    }
+
+    fn write_byte(&self, addr: u16, byte: u8) {
+        self.mmu.borrow_mut().write_byte(addr, byte);
+    }
+
+    fn write_word(&self, addr: u16, word: u16) {
+        self.mmu.borrow_mut().write_word(addr, word);
     }
 }
 

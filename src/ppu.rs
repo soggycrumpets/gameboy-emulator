@@ -30,7 +30,7 @@ use std::{cell::RefCell, rc::Rc};
 pub type GbDisplay = [[u8; 256]; 256];
 
 #[repr(u8)]
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum PpuMode {
     HBlank = HBLANK_MODE_NUMBER,
     VBlank = VBLANK_MODE_NUMBER,
@@ -70,8 +70,6 @@ impl Ppu {
         let ppu_mode = self.get_mode();
         let ppu_enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT);
 
-        // println!("PPU Enabled: {}, PPU Mode: {}", ppu_enabled, ppu_mode as u8);
-
         // You're not supposed to turn off the PPU outside of vblank mode, but from
         // what I can tell, the hardware won't prevent it.
         if self.was_enabled && !ppu_enabled {
@@ -86,6 +84,9 @@ impl Ppu {
         self.frame_t_cycle_count += 1;
         self.scanline_t_cycle_count += 1;
         self.mode_t_cycle_count += 1;
+
+        self.mmu.borrow_mut().bypass_write_byte_ly(self.scanline_counter);
+
 
         match ppu_mode {
             PpuMode::OamScan => {
@@ -105,7 +106,7 @@ impl Ppu {
             }
             PpuMode::HBlank => {
                 // HBLANK -> VBLANK
-                if self.frame_t_cycle_count == T_CYCLES_PER_FRAME - 4650 {
+                if self.frame_t_cycle_count == T_CYCLES_PER_FRAME - VBLANK_T_CYCLES {
                     self.set_mode(PpuMode::VBlank);
                     self.mmu
                         .borrow_mut()
@@ -127,29 +128,25 @@ impl Ppu {
             }
         }
 
-        if self.frame_t_cycle_count == T_CYCLES_PER_FRAME {
-            self.frame_t_cycle_count = 0;
-            self.scanline_counter = 0;
-        }
-
         if self.scanline_t_cycle_count == T_CYCLES_PER_SCANLINE {
             self.scanline_t_cycle_count = 0;
             self.scanline_counter += 1;
         }
 
-        // LY and the LY=LYC bit of the STAT register are updated each cycle
+        if self.frame_t_cycle_count == T_CYCLES_PER_FRAME {
+            self.frame_t_cycle_count = 0;
+            self.scanline_counter = 0;
+        }
+
+        // LY and the LY=LYC bit of the STAT register are updated each cycle,
+        // and interrupts are requested based on the current PPU mode and stat register.
         self.update_ppu_status_registers();
     }
 
-    // The PPU is not affected by the write lock on VRAM - it always bypasses it
-    fn read_byte(&self, addr: u16) -> u8 {
-        self.mmu.borrow().bypass_read_byte_vram(addr)
-    }
+   
 
     fn update_ppu_status_registers(&mut self) {
-        // ly
-        let ly = self.scanline_counter;
-        self.mmu.borrow_mut().bypass_write_byte_ly(ly); // This byte is normally read-only
+        let ly = self.read_byte(LY_ADDR);
 
         // PPU mode is updated during state machine transitions, so it doesn't need to be done here.
         // But LY == LYC bit still needs to be updated
@@ -208,9 +205,15 @@ impl Ppu {
         self.frame_t_cycle_count = 0;
         self.scanline_t_cycle_count = 0;
         self.scanline_counter = 0;
+        self.set_mode(PpuMode::OamScan);
         self.mmu.borrow_mut().bypass_write_byte_ly(0x00);
         self.mmu.borrow_mut().vram_lock = false;
         self.mmu.borrow_mut().oam_lock = false;
+    }
+    
+    // The PPU is not affected by the write lock on VRAM - it always bypasses it
+    fn read_byte(&self, addr: u16) -> u8 {
+        self.mmu.borrow().bypass_read_byte_vram(addr)
     }
 }
 
@@ -248,4 +251,68 @@ mod debug {
             }
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::{
+        create_gameboy_components, emulate_boot,
+        util::get_bit,
+    };
+
+    // todo! This test is unfinished
+    // Test PPU registers cycle-by-cycle
+    // Comparing to timing table in the cycle-accurate gameboy docs, 8.9.1 - Timings in DMG
+    // #[test]
+    // fn test_ly_equals_lyc_interrupt_timing() {
+    //     let (mmu, mut cpu, mut ppu) = create_gameboy_components();
+
+    //     // The LCDC has to be on for anything to happen
+    //     ppu.set_lcdc_flag(LCD_AND_PPU_ENABLE_BIT, true);
+
+    //     let mut t_cycles: u32 = 0;
+
+    //     loop {
+    //         let stat = ppu.read_byte(STAT_ADDR);
+    //         let stat_mode = ppu.get_mode() as u8;
+    //         let lyc = ppu.read_byte(LYC_ADDR);
+
+    //         let ly = ppu.read_byte(LY_ADDR);
+    //         // let ly_to_compare_lyc = ly == lyc;
+    //         let if_flag = get_bit(stat, LY_EQUALS_LYC_BIT) as u8;
+
+    //         ppu.tick();
+
+    //         match t_cycles {
+    //             0..4 => {
+    //                 test_t_cycle(t_cycles, ly, 0, stat_mode, 0, if_flag, 0);
+    //             }
+    //             4..448 => {
+    //                 test_t_cycle(t_cycles, ly, 0, stat_mode, 2, if_flag, 0);
+    //             }
+    //             _ => break,
+    //         }
+
+    //         ppu.tick();
+    //         t_cycles += 1;
+    //     }
+    // }
+
+    // fn test_t_cycle(
+    //     t_cycles: u32,
+    //     ly: u8,
+    //     ly_expect: u8,
+    //     stat_mode: u8,
+    //     stat_mode_expect: u8,
+    //     if_flag: u8,
+    //     if_flag_expect: u8,
+    // ) {
+    //     eprintln!("Cycle count: {}", t_cycles);
+    //     assert_eq!(ly, ly_expect, "LY");
+    //     assert_eq!(stat_mode, stat_mode_expect, "STAT Mode");
+    //     // assert_eq!(ly_to_compare_lyc, false, "LY to compare LYC");
+    //     assert_eq!(if_flag, if_flag_expect, "IF Flag (LY=LYC)");
+    // }
 }

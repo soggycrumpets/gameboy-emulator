@@ -118,9 +118,6 @@ impl Cpu {
 
         let result = (sp as i16).wrapping_add(e8) as u16;
 
-        // For flag checking, take the low byte of sp
-        // let sp_low = sp as u8;
-
         self.reg.set_flag(Flag::Z, false);
         self.reg.set_flag(Flag::N, false);
         self.reg

@@ -66,10 +66,6 @@ fn run_rom(path: &str) {
             ppu.splat_tiles();
             ui.render_display(&ppu.display);
 
-            // let joyp = mmu.borrow().read_byte(0xff44);
-            // println!("{:02x}", joyp);
-
-
             last_render_time = Instant::now();
         }
     }
@@ -77,7 +73,7 @@ fn run_rom(path: &str) {
 
 fn create_gameboy_components() -> (Rc<RefCell<Mmu>>, Cpu, Ppu) {
     let mmu = Mmu::new();
-    let cpu = Cpu::new(Rc::clone(&mmu));
+    let mut cpu = Cpu::new(Rc::clone(&mmu));
     let ppu = Ppu::new(Rc::clone(&mmu));
     (mmu, cpu, ppu)
 }
