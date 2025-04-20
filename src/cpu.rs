@@ -6,6 +6,7 @@ mod jumps;
 mod loads;
 pub mod registers;
 
+use crate::constants::M_CYCLE_DURATION;
 use crate::mmu::Mmu;
 use crate::mmu::memmap::{
     IE_ADDR, IF_ADDR, JOYPAD_INTERRUPT_BIT, JOYPAD_INTERRUPT_HANDLER_ADDR, LY_ADDR,
@@ -61,7 +62,6 @@ impl Cpu {
     }
 
     pub fn tick(&mut self) {
-
         // One instruction per m-cycle
         if self.instruction_t_cycles_remaining % 4 == 0 {
             self.step_instruction();
@@ -73,7 +73,6 @@ impl Cpu {
     }
 
     fn step_instruction(&mut self) {
-
         if self.handle_interrupts() {
             return;
         }
@@ -84,7 +83,11 @@ impl Cpu {
         }
 
         if !self.halted {
-            self.execute();
+            if !self.current_instruction_prefixed {
+                self.execute();
+            } else {
+                self.execute_prefixed();
+            }
         }
     }
 
@@ -135,7 +138,7 @@ impl Cpu {
 
         let ie_byte = self.read_byte(IE_ADDR);
         let if_byte = self.read_byte(IF_ADDR);
-        let interrupts_are_pending = (ie_byte & if_byte & 0x1f) != 0;
+        let interrupts_are_pending = (ie_byte & if_byte) != 0;
 
         if !interrupts_are_pending {
             return false;
@@ -198,7 +201,8 @@ impl Cpu {
         let instruction = if self.instruction_t_cycles_remaining == 0 {
             let opcode = self.fetch_instruction();
             self.current_instruction = opcode;
-            self.instruction_t_cycles_remaining = UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
+            self.instruction_t_cycles_remaining =
+                UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
             self.instruction_m_cycles_remaining = self.instruction_t_cycles_remaining / 4;
             opcode
         } else {
@@ -217,6 +221,7 @@ impl Cpu {
         if pc == 0x0100 {
             println!("RESET");
         }
+
         // println!(
         //     "OP: {:02x}, PC: {:04x}, SP: {:04x} ",
         //     self.current_instruction, pc, sp
@@ -441,7 +446,7 @@ impl Cpu {
             0xC8 => self.ret_cc(Flag::Z, true),       // RET Z
             0xC9 => self.ret(),                       // RET
             0xCA => self.jp_cc_a16(Flag::Z, true),    // JP Z, a16
-            0xCB => self.execute_prefixed(),          // PREFIX
+            0xCB => self.prefix(),                    // PREFIX
             0xCC => self.call_cc_a16(Flag::Z, true),  // CALL Z, a16
             0xCD => self.call_a16(),                  // CALL a16
             0xCE => self.alu_a_n8(AluBinary::Adc),    // ADC A, n8
@@ -501,14 +506,21 @@ impl Cpu {
     }
 
     fn execute_prefixed(&mut self) {
-        let opcode = self.fetch_instruction();
+        let current_instruction_duration = PREFIXED_INSTRUCTION_T_CYCLE_TABLE
+            [self.current_instruction as usize]
+            - M_CYCLE_DURATION as u8;
+      
 
-        // The numbers in this table are the TOTAL number of cycles that
-        // the instruction takes, including the cycles of the prefix
-        // instruction! This is why it's set equal to, not added to.
-        self.instruction_t_cycles_remaining = PREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
+        let instruction = if self.instruction_t_cycles_remaining == current_instruction_duration {
+            self.current_instruction
+        } else if self.instruction_t_cycles_remaining == 0 {
+            self.current_instruction_prefixed = false;
+            return;
+        } else {
+            return;
+        };
 
-        match opcode {
+        match instruction {
             0x00 => self.bitshift_r8(BitshiftOp::Rlc, R8::B), // RLC B
             0x01 => self.bitshift_r8(BitshiftOp::Rlc, R8::C), // RLC C
             0x02 => self.bitshift_r8(BitshiftOp::Rlc, R8::D), // RLC D
@@ -781,6 +793,15 @@ impl Cpu {
             0xFE => self.bitflag_u3_at_hl(BitflagOp::Set, 7),     // SET 7, [HL]
             0xFF => self.bitflag_u3_r8(BitflagOp::Set, 7, R8::A), // SET 7, A
         }
+    }
+
+    fn prefix(&mut self) {
+        self.current_instruction_prefixed = true;
+        let opcode = self.fetch_instruction();
+        self.current_instruction = opcode;
+        // The table includes the time to execute the prefix, but that has already been accounted for, so subtract it
+        self.instruction_t_cycles_remaining = PREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
+        self.instruction_m_cycles_remaining = self.instruction_t_cycles_remaining / 4;
     }
 
     // Tons of instructions read or write at hl, so I extracted out the logic here

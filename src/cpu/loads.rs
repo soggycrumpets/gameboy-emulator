@@ -29,7 +29,6 @@ impl Cpu {
                 let sp = self.reg.get16(R16::SP).wrapping_sub(1);
                 self.reg.set16(R16::SP, sp);
 
-                let sp = self.reg.get16(R16::SP);
                 let low_byte = self.reg.get16(r16) as u8;
                 self.write_byte(sp, low_byte);
 

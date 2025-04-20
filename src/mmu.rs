@@ -1,11 +1,11 @@
 const TRANSFER_REQUESTED_VALUE: u8 = 0x81;
 const GARBAGE_VALUE: u8 = 0xFF;
 
+mod dma;
 pub mod memmap;
 mod timers;
-mod dma;
-use memmap::*;
 use dma::Dma;
+use memmap::*;
 use std::{cell::RefCell, rc::Rc};
 use timers::Timers;
 
@@ -20,7 +20,6 @@ pub struct Mmu {
     exram: [u8; EXRAM_SIZE],
     wram_0: [u8; WRAM_0_SIZE],
     wram_1: [u8; WRAM_1_SIZE],
-    echo_ram: [u8; ECHO_RAM_SIZE],
     oam: [u8; OAM_SIZE],
     restricted_memory: [u8; RESTRICTED_MEM_SIZE],
     io: [u8; IO_SIZE],
@@ -42,7 +41,6 @@ impl Mmu {
             exram: [0; EXRAM_SIZE],
             wram_0: [0; WRAM_0_SIZE],
             wram_1: [0; WRAM_1_SIZE],
-            echo_ram: [0; ECHO_RAM_SIZE],
             oam: [0; OAM_SIZE],
             restricted_memory: [0; RESTRICTED_MEM_SIZE],
             io: [0; IO_SIZE],
@@ -88,7 +86,7 @@ impl Mmu {
             M::Exram => self.exram[index],
             M::Wram0 => self.wram_0[index],
             M::Wram1 => self.wram_1[index],
-            M::EchoRam => self.echo_ram[index],
+            M::EchoRam => self.read_byte(addr - ECHO_OFFSET),
             M::Oam => {
                 if self.oam_lock || self.dma.active {
                     GARBAGE_VALUE
@@ -109,6 +107,28 @@ impl Mmu {
         }
     }
 
+    // Ignore all special rules
+    pub fn read_byte_override(&mut self, addr: u16) -> u8 {
+        let (mem_region, addr_mapped) = map_addr(addr);
+        let index = addr_mapped as usize;
+
+        use MemRegion as M;
+        match mem_region {
+            M::RomBank0 => self.rom_bank_00[index],
+            M::RomBank1 => self.rom_bank_01[index],
+            M::Vram => self.vram[index],
+            M::Exram => self.exram[index],
+            M::Wram0 => self.wram_0[index],
+            M::Wram1 => self.wram_1[index],
+            M::EchoRam => self.read_byte(addr - ECHO_OFFSET),
+            M::Oam => self.oam[index],
+            M::Restricted => self.restricted_memory[index],
+            M::Io => self.io[index],
+            M::Hram => self.hram[index],
+            M::Ie => self.ie,
+        }
+    }
+
     // The PPU is not affected by the vram lock
     pub fn bypass_read_byte_vram(&self, addr: u16) -> u8 {
         let (mem_region, addr_mapped) = map_addr(addr);
@@ -120,16 +140,15 @@ impl Mmu {
         }
     }
 
-    // Also not affected by OAM
-    pub fn bypass_read_byte_oam(&self, addr: u16) -> u8 {
-        let (mem_region, addr_mapped) = map_addr(addr);
-        if mem_region != MemRegion::Oam {
-            self.read_byte(addr)
-        } else {
-            let index = addr_mapped as usize;
-            self.vram[index]
-        }
-    }
+    // pub fn bypass_read_byte_oam(&self, addr: u16) -> u8 {
+    //     let (mem_region, addr_mapped) = map_addr(addr);
+    //     if mem_region != MemRegion::Oam {
+    //         self.read_byte(addr)
+    //     } else {
+    //         let index = addr_mapped as usize;
+    //         self.vram[index]
+    //     }
+    // }
 
     pub fn write_byte(&mut self, addr: u16, byte: u8) {
         let (mem_region, addr_mapped) = map_addr(addr);
@@ -138,7 +157,6 @@ impl Mmu {
         if (addr == SC_ADDR) && (byte == TRANSFER_REQUESTED_VALUE) {
             let c = self.read_byte(SB_ADDR) as char;
             print!("{}", c);
-            // println!("HELLO");
         }
 
         use MemRegion as M;
@@ -151,18 +169,9 @@ impl Mmu {
                 }
             }
             M::Exram => self.exram[index] = byte,
-            M::Wram0 => {
-                self.wram_0[index] = byte;
-                self.echo_ram_mirror_write(addr, byte, MemRegion::Wram0);
-            }
-            M::Wram1 => {
-                self.wram_1[index] = byte;
-                self.echo_ram_mirror_write(addr, byte, MemRegion::Wram1);
-            }
-            M::EchoRam => {
-                self.echo_ram[index] = byte;
-                self.echo_ram_mirror_write(addr, byte, MemRegion::EchoRam);
-            }
+            M::Wram0 => self.wram_0[index] = byte,
+            M::Wram1 => self.wram_1[index] = byte,
+            M::EchoRam => self.write_byte(addr - ECHO_OFFSET, byte),
             M::Oam => {
                 if !self.oam_lock && !self.dma.active {
                     self.oam[index] = byte
@@ -187,12 +196,9 @@ impl Mmu {
     }
 
     // During DMA, the CPU only has access to HRAM
-    fn dma_write() {
-        
-    }
+    fn dma_write() {}
 
-    // This is only used to initialize memory to the post-boot state.
-    // There shouldn't be any exceptions or side effects there.
+    // Ignore all special rules (except echo ram)
     pub fn write_byte_override(&mut self, addr: u16, byte: u8) {
         let (mem_region, addr_mapped) = map_addr(addr);
         let index = addr_mapped as usize;
@@ -205,7 +211,7 @@ impl Mmu {
             M::Exram => self.exram[index] = byte,
             M::Wram0 => self.wram_0[index] = byte,
             M::Wram1 => self.wram_1[index] = byte,
-            M::EchoRam => self.echo_ram[index] = byte,
+            M::EchoRam => self.write_byte(addr - ECHO_OFFSET, byte),
             M::Oam => self.oam[index] = byte,
             M::Restricted => self.restricted_memory[index] = byte,
             M::Io => self.io[index] = byte,
@@ -226,33 +232,6 @@ impl Mmu {
         let (_mem_region, addr_mapped) = map_addr(STAT_ADDR);
         let index = addr_mapped as usize;
         self.io[index] = byte;
-    }
-
-    // Echo ram "echoes" or mirrors wram 0xC00-0xDFF. Reading or writing
-    // to one will also affect the other.
-    fn echo_ram_mirror_write(&mut self, addr: u16, byte: u8, source_region: MemRegion) {
-        match source_region {
-            MemRegion::EchoRam => {
-                let wram_addr = addr - ECHO_OFFSET;
-                let (_, echoed_addr) = map_addr(wram_addr);
-                let index = echoed_addr as usize;
-                match wram_addr {
-                    WRAM_0_START..=WRAM_0_END => self.wram_0[index] = byte,
-                    WRAM_1_START..=WRAM_1_END => self.wram_1[index] = byte,
-                    _ => (), // Falls into the un-echoed part of wram1
-                };
-            }
-            MemRegion::Wram0 | MemRegion::Wram1 => {
-                let echo_ram_addr = addr + ECHO_OFFSET;
-                let (_, echoed_addr) = map_addr(echo_ram_addr);
-                let index = echoed_addr as usize;
-                // Not all of wram1 is echoed, so make sure to account for that
-                if (ECHO_RAM_START..=ECHO_RAM_END).contains(&echo_ram_addr) {
-                    self.echo_ram[index] = byte
-                }
-            }
-            _ => unreachable!(),
-        }
     }
 
     // Pay extra special attentian here to account for little-endianness
