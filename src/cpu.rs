@@ -41,6 +41,8 @@ pub struct Cpu {
     current_instruction: u8,
     pub instruction_t_cycles_remaining: u8,
     instruction_m_cycles_remaining: u8,
+    
+    byte_buf: u8,
 }
 
 impl Cpu {
@@ -58,6 +60,8 @@ impl Cpu {
             current_instruction: 0,
             instruction_t_cycles_remaining: 0,
             instruction_m_cycles_remaining: 0,
+
+            byte_buf: 0x00,
         }
     }
 
@@ -446,7 +450,7 @@ impl Cpu {
             0xC8 => self.ret_cc(Flag::Z, true),       // RET Z
             0xC9 => self.ret(),                       // RET
             0xCA => self.jp_cc_a16(Flag::Z, true),    // JP Z, a16
-            0xCB => self.prefix(),                    // PREFIX
+            0xCB => self.current_instruction_prefixed = true, // PREFIX
             0xCC => self.call_cc_a16(Flag::Z, true),  // CALL Z, a16
             0xCD => self.call_a16(),                  // CALL a16
             0xCE => self.alu_a_n8(AluBinary::Adc),    // ADC A, n8
@@ -506,19 +510,25 @@ impl Cpu {
     }
 
     fn execute_prefixed(&mut self) {
-        let current_instruction_duration = PREFIXED_INSTRUCTION_T_CYCLE_TABLE
-            [self.current_instruction as usize]
-            - M_CYCLE_DURATION as u8;
-      
+        let instruction = if self.current_instruction == 0xCB {
+            self.current_instruction = self.fetch_instruction();
+            self.instruction_t_cycles_remaining = PREFIXED_INSTRUCTION_T_CYCLE_TABLE
+                [self.current_instruction as usize]
+                - M_CYCLE_DURATION as u8;
+            self.instruction_m_cycles_remaining =
+                self.instruction_t_cycles_remaining / M_CYCLE_DURATION as u8;
 
-        let instruction = if self.instruction_t_cycles_remaining == current_instruction_duration {
+            // println!("Duration: {}", self.instruction_m_cycles_remaining);
+
             self.current_instruction
-        } else if self.instruction_t_cycles_remaining == 0 {
-            self.current_instruction_prefixed = false;
-            return;
         } else {
-            return;
+            self.current_instruction
         };
+
+        // If this is the last cycle of the instruction, get ready to execute an unprefixed instruction next time
+        if self.instruction_m_cycles_remaining == 1 {
+            self.current_instruction_prefixed = false;
+        }
 
         match instruction {
             0x00 => self.bitshift_r8(BitshiftOp::Rlc, R8::B), // RLC B
@@ -793,15 +803,6 @@ impl Cpu {
             0xFE => self.bitflag_u3_at_hl(BitflagOp::Set, 7),     // SET 7, [HL]
             0xFF => self.bitflag_u3_r8(BitflagOp::Set, 7, R8::A), // SET 7, A
         }
-    }
-
-    fn prefix(&mut self) {
-        self.current_instruction_prefixed = true;
-        let opcode = self.fetch_instruction();
-        self.current_instruction = opcode;
-        // The table includes the time to execute the prefix, but that has already been accounted for, so subtract it
-        self.instruction_t_cycles_remaining = PREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
-        self.instruction_m_cycles_remaining = self.instruction_t_cycles_remaining / 4;
     }
 
     // Tons of instructions read or write at hl, so I extracted out the logic here

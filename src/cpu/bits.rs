@@ -27,11 +27,21 @@ impl Cpu {
     }
 
     pub fn bitshift_at_hl(&mut self, op: BitshiftOp) {
-        let bits = self.read_at_hl();
-        let result = self.bitshift_u8(op, bits);
 
-        self.write_at_hl(result);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            1 => (),
+            // Read
+            3 => self.byte_buf = self.read_at_hl(),
+            // Write
+            2 => {
+                let result = self.bitshift_u8(op, self.byte_buf);
+                self.write_at_hl(result);
+            }
+            _ => unreachable!(),
+        }
     }
+
 
     pub fn bitflag_u3_r8(&mut self, op: BitflagOp, bit: u8, r8: R8) {
         let bits = self.reg.get(r8);
@@ -40,10 +50,36 @@ impl Cpu {
     }
 
     pub fn bitflag_u3_at_hl(&mut self, op: BitflagOp, bit: u8) {
-        let bits = self.read_at_hl();
-        let result = self.bitflag_u3_u8(op, bit, bits);
 
-        self.write_at_hl(result);
+        match op {
+            BitflagOp::Bit  => match self.instruction_m_cycles_remaining {
+            // Fetch
+            1 => (),
+            // Read
+            2 => {
+                let byte = self.read_at_hl();
+                self.bitflag_u3_u8(op, bit, byte);
+            }
+            _ => unreachable!(),
+            }
+            BitflagOp::Res | BitflagOp::Set => match self.instruction_m_cycles_remaining {
+                // Fetch
+                1 => (),
+                // Read
+                3 => self.byte_buf = self.read_at_hl(),
+                2 => {
+                    let result = self.bitflag_u3_u8(op, bit, self.byte_buf);
+                    self.write_at_hl(result);
+                }
+                _ => unreachable!(),
+            }
+        }
+        
+
+        // let bits = self.read_at_hl();
+        // let result = self.bitflag_u3_u8(op, bit, bits);
+
+        // self.write_at_hl(result);
     }
 
     // Special unprefixed operations
