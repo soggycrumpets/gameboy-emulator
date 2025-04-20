@@ -28,7 +28,7 @@ impl Cpu {
 
         if expect == self.reg.get_flag(flag) {
             self.jp_u16(a16);
-            self.instruction_t_cycles += JP_CC_EXTRA_T_CYCLES;
+            self.instruction_t_cycles_remaining += JP_CC_EXTRA_T_CYCLES;
         }
     }
 
@@ -51,13 +51,13 @@ impl Cpu {
 
         if expect == self.reg.get_flag(flag) {
             self.jr(byte);
-            self.instruction_t_cycles += 4;
+            self.instruction_t_cycles_remaining += 4;
         }
     }
 
     // CALL
     pub fn rst_vec(&mut self, addr: u16) {
-        self.push_r16(R16::PC);
+        self.push_r16_instant(R16::PC);
         self.jp_u16(addr);    
     }
 
@@ -71,7 +71,7 @@ impl Cpu {
 
         if expect == self.reg.get_flag(flag) {
             self.rst_vec(word);
-            self.instruction_t_cycles += CALL_CC_EXTRA_T_CYCLES;
+            self.instruction_t_cycles_remaining += CALL_CC_EXTRA_T_CYCLES;
         }
     }
 
@@ -83,7 +83,7 @@ impl Cpu {
     pub fn ret_cc(&mut self, flag: Flag, expect: bool) {
         if expect == self.reg.get_flag(flag) {
             self.ret();
-            self.instruction_t_cycles += RET_CC_EXTRA_T_CYCLES;
+            self.instruction_t_cycles_remaining += RET_CC_EXTRA_T_CYCLES;
         }
 
     }

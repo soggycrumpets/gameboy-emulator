@@ -182,6 +182,11 @@ impl Mmu {
         };
     }
 
+    // During DMA, the CPU only has access to HRAM
+    fn dma_write() {
+        
+    }
+
     // This is only used to initialize memory to the post-boot state.
     // There shouldn't be any exceptions or side effects there.
     pub fn write_byte_override(&mut self, addr: u16, byte: u8) {

@@ -73,7 +73,7 @@ fn run_rom(path: &str) {
 
 fn create_gameboy_components() -> (Rc<RefCell<Mmu>>, Cpu, Ppu) {
     let mmu = Mmu::new();
-    let mut cpu = Cpu::new(Rc::clone(&mmu));
+    let cpu = Cpu::new(Rc::clone(&mmu));
     let ppu = Ppu::new(Rc::clone(&mmu));
     (mmu, cpu, ppu)
 }

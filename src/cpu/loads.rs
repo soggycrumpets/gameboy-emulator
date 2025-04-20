@@ -1,7 +1,47 @@
 use super::*;
 impl Cpu {
-    // 2-byte PUSH
     pub fn push_r16(&mut self, r16: R16) {
+        // print!(
+        // "M: {}, T: {}",
+        // self.instruction_m_cycles_remaining, self.instruction_t_cycles_remaining
+        // );
+
+        let lock = self.mmu.borrow().oam_lock;
+
+        match self.instruction_m_cycles_remaining {
+            // Instruction decoding
+            4 => (),
+            // Internal delay
+            3 => (),
+            // Write the high byte to memory
+            2 => {
+                let sp = self.reg.get16(R16::SP).wrapping_sub(1);
+                self.reg.set16(R16::SP, sp);
+
+                let high_byte = (self.reg.get16(r16) >> 8) as u8;
+                self.write_byte(sp, high_byte);
+
+                // println!("PUSH HI: {:02x} TO: {:04x} TICKS REMAINING: {} LOCKED: {}", high_byte, sp, self.instruction_t_cycles_remaining, lock);
+            }
+            // Write the low byte to memory
+            1 => {
+                // Decrement sp
+                let sp = self.reg.get16(R16::SP).wrapping_sub(1);
+                self.reg.set16(R16::SP, sp);
+
+                let sp = self.reg.get16(R16::SP);
+                let low_byte = self.reg.get16(r16) as u8;
+                self.write_byte(sp, low_byte);
+
+                // println!("PUSH LO: {:02x} TO: {:04x} TICKS REMAINING: {} LOCKED: {}", low_byte, sp, self.instruction_t_cycles_remaining, lock);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    // todo!
+    // This function will go away once all opcodes are m-cycle accurate
+    pub fn push_r16_instant(&mut self, r16: R16) {
         // Decrement sp first
         let sp = self.reg.get16(R16::SP).wrapping_sub(2);
         self.reg.set16(R16::SP, sp);
@@ -120,11 +160,7 @@ impl Cpu {
     }
 
     fn step_hl_1(&mut self, increment: bool) {
-        let step: i8 = if increment {
-            1
-        } else {
-            -1
-        };
+        let step: i8 = if increment { 1 } else { -1 };
 
         let hl = self.reg.get16(R16::HL);
         let result = hl as i32 + step as i32;

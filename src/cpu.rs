@@ -38,8 +38,8 @@ pub struct Cpu {
 
     current_instruction_prefixed: bool,
     current_instruction: u8,
-    pub instruction_t_cycles: u8,
-    micro_op_t_cycles: u8,
+    pub instruction_t_cycles_remaining: u8,
+    instruction_m_cycles_remaining: u8,
 }
 
 impl Cpu {
@@ -55,23 +55,24 @@ impl Cpu {
 
             current_instruction_prefixed: false,
             current_instruction: 0,
-            instruction_t_cycles: 0,
-            micro_op_t_cycles: 0,
+            instruction_t_cycles_remaining: 0,
+            instruction_m_cycles_remaining: 0,
         }
     }
 
     pub fn tick(&mut self) {
-        if self.micro_op_t_cycles == 0 {
-            self.micro_op_t_cycles = 4;
+
+        // One instruction per m-cycle
+        if self.instruction_t_cycles_remaining % 4 == 0 {
             self.step_instruction();
         }
-        self.instruction_t_cycles = self.instruction_t_cycles.saturating_sub(1);
-        self.micro_op_t_cycles = self.micro_op_t_cycles.saturating_sub(1);
+
+        // Update timings
+        self.instruction_t_cycles_remaining = self.instruction_t_cycles_remaining.saturating_sub(1);
+        self.instruction_m_cycles_remaining = self.instruction_t_cycles_remaining / 4;
     }
 
     fn step_instruction(&mut self) {
-        let ie_byte = self.read_byte(IE_ADDR);
-        let if_byte = self.read_byte(IF_ADDR);
 
         if self.handle_interrupts() {
             return;
@@ -127,10 +128,9 @@ impl Cpu {
     }
 
     fn handle_interrupts(&mut self) -> bool {
-        
         // Interrupts can only be handled in-between full instructions
-        if self.instruction_t_cycles != 0 {
-            return false
+        if self.instruction_t_cycles_remaining != 0 {
+            return false;
         }
 
         let ie_byte = self.read_byte(IE_ADDR);
@@ -191,16 +191,25 @@ impl Cpu {
         self.ime = false;
 
         self.rst_vec(interrupt_handler_addr);
-        self.instruction_t_cycles = INTERRUPT_T_CYCLES;
+        self.instruction_t_cycles_remaining = INTERRUPT_T_CYCLES;
     }
 
     fn execute(&mut self) {
-        let instruction = if self.instruction_t_cycles == 0 {
+        let instruction = if self.instruction_t_cycles_remaining == 0 {
             let opcode = self.fetch_instruction();
-            self.instruction_t_cycles = UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
+            self.current_instruction = opcode;
+            self.instruction_t_cycles_remaining = UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
+            self.instruction_m_cycles_remaining = self.instruction_t_cycles_remaining / 4;
             opcode
         } else {
-            self.current_instruction
+            match self.current_instruction {
+                // This part will only be reached for multi-step instructions.
+                // By the time all of them are implemented, this match won't be needed.
+                // This is just to keep unimplemented multi-steps from breaking
+                // by executing multiple times
+                0xC5 | 0xD5 | 0xE5 | 0xF5 => self.current_instruction, // PUSH
+                _ => 0x00, // Default to no-ops for unimplemented multi-step instructions
+            }
         };
 
         let pc = self.reg.get16(R16::PC);
@@ -208,13 +217,10 @@ impl Cpu {
         if pc == 0x0100 {
             println!("RESET");
         }
-        // println!("OP: {:02x}, PC: {:04x}, SP: {:04x} ", opcode, pc, sp);
-        // println!("{} {}", self.instruction_t_cycles, self.micro_op_t_cycles);
-
-        // Look up the number of clock cycles this instruction will take.
-        // In the case of checked condition functions, the minimum
-        // number of cycles is assumed. Those functions will adjust the value
-        // when called if the condition is met.
+        // println!(
+        //     "OP: {:02x}, PC: {:04x}, SP: {:04x} ",
+        //     self.current_instruction, pc, sp
+        // );
 
         // Every instruction that contains an n8, a8, or e8 will fetch a byte.
         // Every instruction that contains an n16 or a16 will fetch a word.
@@ -500,7 +506,7 @@ impl Cpu {
         // The numbers in this table are the TOTAL number of cycles that
         // the instruction takes, including the cycles of the prefix
         // instruction! This is why it's set equal to, not added to.
-        self.instruction_t_cycles = PREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
+        self.instruction_t_cycles_remaining = PREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
 
         match opcode {
             0x00 => self.bitshift_r8(BitshiftOp::Rlc, R8::B), // RLC B
