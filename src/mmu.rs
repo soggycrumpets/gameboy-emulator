@@ -3,14 +3,16 @@ const GARBAGE_VALUE: u8 = 0xFF;
 
 pub mod memmap;
 mod timers;
+mod dma;
 use memmap::*;
+use dma::Dma;
 use std::{cell::RefCell, rc::Rc};
 use timers::Timers;
 
 use crate::util::set_bit;
 
-#[derive(Debug)]
 pub struct Mmu {
+    dma: Dma,
     timers: Timers,
     rom_bank_00: [u8; ROM_BANK_0_SIZE],
     rom_bank_01: [u8; ROM_BANK_1_SIZE],
@@ -32,6 +34,7 @@ pub struct Mmu {
 impl Mmu {
     pub fn new() -> Rc<RefCell<Mmu>> {
         let mmu = Mmu {
+            dma: Dma::new(),
             timers: Timers::new(),
             rom_bank_00: [0; ROM_BANK_0_SIZE],
             rom_bank_01: [0; ROM_BANK_1_SIZE],
@@ -172,6 +175,7 @@ impl Mmu {
                 TMA_ADDR => self.write_byte_tma(byte),
                 TAC_ADDR => self.write_byte_tac(byte),
                 TIMA_ADDR => self.write_byte_tima(byte),
+                DMA_ADDR => self.start_dma_transfer(byte),
                 LY_ADDR => (),                                     // Read-only
                 STAT_ADDR => self.io[index] = byte & 0b_1111_1000, // Bottom 3 bits are read-only
                 IF_ADDR => self.io[index] = byte | 0b_1110_0000,   // Top 3 bits are always 1

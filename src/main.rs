@@ -57,6 +57,7 @@ fn run_rom(path: &str) {
 
         cpu.tick();
         mmu.borrow_mut().tick_timers();
+        mmu.borrow_mut().tick_dma();
         ppu.tick();
         // todo!
         // The ppu should eventually draw a little bit at a time.
