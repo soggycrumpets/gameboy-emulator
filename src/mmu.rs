@@ -90,7 +90,7 @@ impl Mmu {
             M::Wram1 => self.wram_1[index],
             M::EchoRam => self.echo_ram[index],
             M::Oam => {
-                if self.oam_lock {
+                if self.oam_lock || self.dma.active {
                     GARBAGE_VALUE
                 } else {
                     self.oam[index]
@@ -164,7 +164,7 @@ impl Mmu {
                 self.echo_ram_mirror_write(addr, byte, MemRegion::EchoRam);
             }
             M::Oam => {
-                if !self.oam_lock {
+                if !self.oam_lock && !self.dma.active {
                     self.oam[index] = byte
                 }
             }
