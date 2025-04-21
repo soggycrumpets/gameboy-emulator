@@ -233,6 +233,7 @@ impl Cpu {
                 | 0xE8 // ADD SP, e8
                 | 0xF8 // LD HL, SP + e8
                 | 0xC3 // JP a16
+                | 0xC2 | 0xD2 | 0xCA | 0xDA // JP CC, a16
                 | 0xC7 | 0xD7 | 0xE7 | 0xF7 | 0xCF | 0xDF | 0xEF | 0xFF // RST VEC
                 | 0xCD // CALL u16
                 | 0xC9 // RET
