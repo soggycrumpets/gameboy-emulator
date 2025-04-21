@@ -234,6 +234,7 @@ impl Cpu {
                 | 0xF8 // LD HL, SP + e8
                 | 0xC3 // JP a16
                 | 0xC7 | 0xD7 | 0xE7 | 0xF7 | 0xCF | 0xDF | 0xEF | 0xFF // RST VEC
+                | 0xCD // CALL u16
                 | 0x70 | 0x71 | 0x72 | 0x73 | 0x74 | 0x75 | 0x77 // LC [HL], r8
                 | 0x46 | 0x56 | 0x66 | 0x4E | 0x5E | 0x6E | 0x7E // LC r8, [HL]
                 | 0x36 // LD [HL], n8
@@ -483,7 +484,7 @@ impl Cpu {
             0xC6 => self.alu_a_n8(AluBinary::Add),    // ADD A, n8
             0xC7 => self.rst_vec(0x00),               // RST $00
             0xC8 => self.ret_cc(Flag::Z, true),       // RET Z
-            0xC9 => self.ret(),                       // RET
+            0xC9 => self.ret_instant(),                       // RET
             0xCA => self.jp_cc_a16(Flag::Z, true),    // JP Z, a16
             0xCB => self.current_instruction_prefixed = true, // PREFIX
             0xCC => self.call_cc_a16(Flag::Z, true),  // CALL Z, a16

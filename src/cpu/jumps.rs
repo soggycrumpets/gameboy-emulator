@@ -94,8 +94,27 @@ impl Cpu {
     }
 
     pub fn call_a16(&mut self) {
-        let word = self.fetch_word();
-        self.rst_vec_instant(word);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            6 => (),
+            // Read the low byte of a16
+            5 => self.word_buf_low = self.fetch_byte(),
+            // Read the high byte of a16
+            4 => self.word_buf_high = self.fetch_byte(),
+            // Internal
+            3 => (),
+            // Write low PC to SP
+            2 => {
+                let word = self.get_word_buf();
+                self.rst_vec(word);
+            }
+            // Write high PC to SP
+            1 => {
+                let word = self.get_word_buf();
+                self.rst_vec(word);
+            }
+            _ => unreachable!(),
+        }
     }
 
     pub fn call_cc_a16(&mut self, flag: Flag, expect: bool) {
@@ -108,19 +127,33 @@ impl Cpu {
     }
 
     // RET
-    pub fn ret(&mut self) {
+    /*   pub fn ret(&mut self) {
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            4 => (),
+            3 =>
+            2 =>
+            // Internal
+            1 => (),
+        }
+        self.pop_r16_instant(R16::PC);
+    } */
+
+    // todo!
+    // This function will go away once all opcodes are m-cycle accurate
+    pub fn ret_instant(&mut self) {
         self.pop_r16_instant(R16::PC);
     }
 
     pub fn ret_cc(&mut self, flag: Flag, expect: bool) {
         if expect == self.reg.get_flag(flag) {
-            self.ret();
+            self.ret_instant();
             self.instruction_t_cycles_remaining += RET_CC_EXTRA_T_CYCLES;
         }
     }
 
     pub fn reti(&mut self) {
-        self.ret();
+        self.ret_instant();
         self.ei();
     }
 }
