@@ -52,7 +52,6 @@ impl Cpu {
                 word &= 0xFF00;
                 word |= (low_byte as u16);
                 self.reg.set16(r16, word);
-                println!("low: {:04x}", word);
 
                 self.reg.set16(R16::SP, sp.wrapping_add(1));
             }
@@ -65,7 +64,6 @@ impl Cpu {
                 word &= 0x00FF;
                 word |= (high_byte as u16) << 8;
                 self.reg.set16(r16, word);
-                println!("high: {:04x}", word);
 
                 self.reg.set16(R16::SP, sp.wrapping_add(1));
             }

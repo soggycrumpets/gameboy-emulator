@@ -213,6 +213,7 @@ impl Cpu {
     }
 
     fn execute(&mut self) {
+        // todo! Move this under "Fetch instruction"
         let instruction = if self.instruction_t_cycles_remaining == 0 {
             let opcode = self.fetch_instruction();
             self.current_instruction = opcode;
@@ -229,6 +230,7 @@ impl Cpu {
                 // Also just for keeping track of which ones I've implemented so far.
                 0xC5 | 0xD5 | 0xE5 | 0xF5  // PUSH
                 | 0xC1 | 0xD1 | 0xE1 | 0xF1 // POP
+                | 0xC3 // JP a16
                 | 0x70 | 0x71 | 0x72 | 0x73 | 0x74 | 0x75 | 0x77 // LC [HL], r8
                 | 0x46 | 0x56 | 0x66 | 0x4E | 0x5E | 0x6E | 0x7E // LC r8, [HL]
                 | 0x36 // LD [HL], n8
@@ -263,9 +265,6 @@ impl Cpu {
         //     "OP: {:02x}, PC: {:04x}, SP: {:04x} CYCLE: {}",
         //     self.current_instruction, pc, sp, self.instruction_m_cycles_remaining
         // );
-
-        // Every instruction that contains an n8, a8, or e8 will fetch a byte.
-        // Every instruction that contains an n16 or a16 will fetch a word.
 
         match instruction {
             0x00 => (),                                // NOP
@@ -543,6 +542,7 @@ impl Cpu {
     }
 
     fn execute_prefixed(&mut self) {
+        // todo! Move this under "Fetch instruction"
         let instruction = if self.current_instruction == 0xCB {
             self.current_instruction = self.fetch_instruction();
             self.instruction_t_cycles_remaining = PREFIXED_INSTRUCTION_T_CYCLE_TABLE
@@ -550,8 +550,6 @@ impl Cpu {
                 - M_CYCLE_DURATION as u8;
             self.instruction_m_cycles_remaining =
                 self.instruction_t_cycles_remaining / M_CYCLE_DURATION as u8;
-
-            // println!("Duration: {}", self.instruction_m_cycles_remaining);
 
             self.current_instruction
         } else {

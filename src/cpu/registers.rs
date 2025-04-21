@@ -80,32 +80,74 @@ impl Registers {
         let high = self.get(high_register);
         let low = self.get(low_register);
 
-        let mut combined: u16 = 0;
-        combined |= (high as u16) << 8;
-        combined |= low as u16;
-        combined
+        let mut word: u16 = 0;
+        word |= (high as u16) << 8;
+        word |= low as u16;
+        word
     }
 
-    pub fn set16(&mut self, register: R16, value: u16) {
+    pub fn set16(&mut self, register: R16, word: u16) {
         let (high, low) = match register {
             R16::AF => (R8::A, R8::F),
             R16::BC => (R8::B, R8::C),
             R16::DE => (R8::D, R8::E),
             R16::HL => (R8::H, R8::L),
             R16::SP => {
-                self.sp = value;
+                self.sp = word;
                 return;
             }
             R16::PC => {
-                self.pc = value;
+                self.pc = word;
                 return;
             }
         };
 
-        let high_value = (value >> 8) as u8;
-        let low_value = value as u8;
+        let high_value = (word >> 8) as u8;
+        let low_value = word as u8;
         self.set(high, high_value);
         self.set(low, low_value);
+    }
+
+    pub fn set16_low(&mut self, register: R16, byte: u8) {
+        let low_register = match register {
+            R16::AF => R8::F,
+            R16::BC => R8::C,
+            R16::DE => R8::E,
+            R16::HL => R8::L,
+            R16::SP => {
+                self.sp &= 0xFF00;
+                self.sp |= byte as u16;
+                return;
+            }
+            R16::PC => {
+                self.pc &= 0xFF00;
+                self.pc |= byte as u16;
+                return;
+            }
+        };
+
+        self.set(low_register, byte);
+    }
+
+    pub fn set16_high(&mut self, register: R16, byte: u8) {
+        let high_register= match register {
+            R16::AF => R8::A,
+            R16::BC => R8::B,
+            R16::DE => R8::D,
+            R16::HL => R8::H,
+            R16::SP => {
+                self.sp &= 0x00FF;
+                self.sp |= ((byte as u16) << 8);
+                return;
+            }
+            R16::PC => {
+                self.pc &= 0x00FF;
+                self.pc |= ((byte as u16) << 8);
+                return;
+            }
+        };
+
+        self.set(high_register, byte);
     }
 
     pub fn get(&self, register: R8) -> u8 {
@@ -121,16 +163,16 @@ impl Registers {
         }
     }
 
-    pub fn set(&mut self, register: R8, value: u8) {
+    pub fn set(&mut self, register: R8, byte: u8) {
         match register {
-            R8::A => self.a = value,
-            R8::B => self.b = value,
-            R8::C => self.c = value,
-            R8::D => self.d = value,
-            R8::E => self.e = value,
-            R8::F => self.f = (value & 0xF0).into(), // Low bits always 0
-            R8::H => self.h = value,
-            R8::L => self.l = value,
+            R8::A => self.a = byte,
+            R8::B => self.b = byte,
+            R8::C => self.c = byte,
+            R8::D => self.d = byte,
+            R8::E => self.e = byte,
+            R8::F => self.f = (byte & 0xF0).into(), // Low bits always 0
+            R8::H => self.h = byte,
+            R8::L => self.l = byte,
         };
     }
 

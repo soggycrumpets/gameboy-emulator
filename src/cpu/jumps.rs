@@ -19,14 +19,28 @@ impl Cpu {
     }
 
     pub fn jp_a16(&mut self) {
-        let a16 = self.fetch_word();
-        self.jp_u16(a16);
+
+   match self.instruction_m_cycles_remaining {
+            // Fetch
+            4 => (),
+            // Read u16 lower byte
+            3 => self.word_buf_low = self.fetch_byte(),
+            // Read u16 upper byte and jump to a16
+            2 => {
+                self.word_buf_high = self.fetch_byte();
+                let addr = self.get_word_buf();
+                self.jp_u16(addr);
+            }
+            // Extra time for a branch decision or something
+            1 => (),
+            _ => unreachable!(),
+        }
     }
 
     pub fn jp_cc_a16(&mut self, flag: Flag, expect: bool) {
         let a16 = self.fetch_word();
 
-        if expect == self.reg.get_flag(flag) {
+             if expect == self.reg.get_flag(flag) {
             self.jp_u16(a16);
             self.instruction_t_cycles_remaining += JP_CC_EXTRA_T_CYCLES;
         }
