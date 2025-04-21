@@ -127,17 +127,32 @@ impl Cpu {
     }
 
     // RET
-    /*   pub fn ret(&mut self) {
+    // RET is just POP SP, with slightly different timings
+    pub fn ret(&mut self) {
         match self.instruction_m_cycles_remaining {
             // Fetch
             4 => (),
-            3 =>
-            2 =>
+            // Read the low byte from memory
+            3 => {
+                let sp = self.reg.get16(R16::SP);
+                let low_byte = self.read_byte(sp);
+
+                self.reg.set16_low(R16::PC, low_byte);
+                self.reg.set16(R16::SP, sp.wrapping_add(1));
+            }
+            // Read the high byte from memory
+            2 => {
+                let sp = self.reg.get16(R16::SP);
+                let high_byte = self.read_byte(sp);
+
+                self.reg.set16_high(R16::PC, high_byte);
+                self.reg.set16(R16::SP, sp.wrapping_add(1));
+            }
             // Internal
             1 => (),
+            _ => unreachable!(),
         }
-        self.pop_r16_instant(R16::PC);
-    } */
+    }
 
     // todo!
     // This function will go away once all opcodes are m-cycle accurate
@@ -153,7 +168,22 @@ impl Cpu {
     }
 
     pub fn reti(&mut self) {
-        self.ret_instant();
-        self.ei();
+        // self.ret_instant();
+        // self.ei();
+
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            4 => (),
+            // Read SP lower
+            3 => self.ret(),
+            // Read SP upper and enable interrupts
+            2 => {
+                self.ret();
+                self.ei();
+            }
+            // Internal
+            1 => (),
+            _ => unreachable!(),
+        }
     }
 }
