@@ -55,10 +55,25 @@ impl Cpu {
         match self.instruction_m_cycles_remaining {
             // Fetch
             2 => (),
-            // Read at HL
+            // Op on A with [HL]
             1 => {
                 let value = self.read_at_hl();
                 self.alu_a_u8(op, value);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn alu_at_hl(&mut self, op: AluUnary) {
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            3 => (),
+            // Read from [HL]
+            2 => self.byte_buf = self.read_at_hl(),
+            // Write to [HL]
+            1 => {
+                let result = self.alu_u8(op, self.byte_buf);
+                self.write_at_hl(result);
             }
             _ => unreachable!(),
         }
@@ -74,13 +89,6 @@ impl Cpu {
         let result = self.alu_u8(op, value);
 
         self.reg.set(r8, result);
-    }
-
-    pub fn alu_at_hl(&mut self, op: AluUnary) {
-        let value = self.read_at_hl();
-        let result = self.alu_u8(op, value);
-
-        self.write_at_hl(result);
     }
 
     // ----- ADD -----

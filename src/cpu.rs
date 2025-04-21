@@ -220,7 +220,8 @@ impl Cpu {
                 // This part will only be reached for multi-step instructions.
                 // By the time all of them are implemented, this match won't be needed.
                 // This is just to keep unimplemented multi-steps from breaking
-                // by executing multiple times
+                // by executing multiple times.
+                // Also just for keeping track of which ones I've implemented so far.
                 0xC5 | 0xD5 | 0xE5 | 0xF5  // PUSH
                 | 0x70 | 0x71 | 0x72 | 0x73 | 0x74 | 0x75 | 0x77 // LC [HL], r8
                 | 0x46 | 0x56 | 0x66 | 0x4E | 0x5E | 0x6E | 0x7E // LC r8, [HL]
@@ -239,6 +240,8 @@ impl Cpu {
                 | 0x32 // LD [HL-], A
                 | 0x2A // LD A, [HL+]
                 | 0x3A // LD A, [HL-]
+                | 0x34 // INC [HL]
+                | 0x35 // DEC [HL]
                 => self.current_instruction, 
                 _ => 0x00, // Default to no-ops for unimplemented multi-step instructions
             }
