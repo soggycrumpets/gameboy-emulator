@@ -117,12 +117,12 @@ impl Cpu {
             4 => self.word_buf_high = self.fetch_byte(),
             // Internal
             3 => (),
-            // Write low PC to SP
+            // Write high PC to SP
             2 => {
                 let word = self.get_word_buf();
                 self.rst_vec(word);
             }
-            // Write high PC to SP
+            // Write low PC to SP
             1 => {
                 let word = self.get_word_buf();
                 self.rst_vec(word);
@@ -132,12 +132,32 @@ impl Cpu {
     }
 
     pub fn call_cc_a16(&mut self, flag: Flag, expect: bool) {
-        let word = self.fetch_word();
-
-        if expect == self.reg.get_flag(flag) {
-            self.rst_vec_instant(word);
-        } else {
-            self.instruction_t_cycles_remaining -= CALL_CC_EXTRA_T_CYCLES;
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            6 => (),
+            // Read the low byte of a16
+            5 => self.word_buf_low = self.fetch_byte(),
+            // Read the high byte of a16 and check condition
+            4 => {
+                self.word_buf_high = self.fetch_byte();
+                let word = self.get_word_buf();
+                if expect != self.reg.get_flag(flag) {
+                    self.instruction_t_cycles_remaining -= CALL_CC_EXTRA_T_CYCLES;
+                }
+            }
+            // Internal
+            3 => (),
+            // Write high PC to SP and check condition
+            2 => {
+                let word = self.get_word_buf();
+                self.rst_vec(word);
+            }
+            // Write low PC to SP
+            1 => {
+                let word = self.get_word_buf();
+                self.rst_vec(word);
+            }
+            _ => unreachable!(),
         }
     }
 
@@ -184,9 +204,6 @@ impl Cpu {
     }
 
     pub fn reti(&mut self) {
-        // self.ret_instant();
-        // self.ei();
-
         match self.instruction_m_cycles_remaining {
             // Fetch
             4 => (),

@@ -12,7 +12,7 @@ mod util;
 
 use cli::{Command, parse_cli_inputs};
 
-use cpu::{Cpu, registers::R8};
+use cpu::{debug::print_t_cycle_tables, registers::R8, Cpu};
 use debugger::run_debug;
 use mmu::{Mmu, memmap::*};
 use ppu::Ppu;
@@ -52,6 +52,8 @@ fn run_rom(path: &str) {
 
     let render_timer_period = Duration::from_secs_f64(1.0 / 60.0);
     let mut last_render_time = Instant::now();
+
+//    print_t_cycle_tables(); 
 
     // todo! This loop munches up CPU
     // todo! The only timer this should need is the global clock,

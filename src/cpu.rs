@@ -236,6 +236,7 @@ impl Cpu {
                 | 0xC2 | 0xD2 | 0xCA | 0xDA // JP CC, a16
                 | 0xC7 | 0xD7 | 0xE7 | 0xF7 | 0xCF | 0xDF | 0xEF | 0xFF // RST VEC
                 | 0xCD // CALL u16
+                | 0xC4 | 0xD4 | 0xCC | 0xDC // CALL CC, u16
                 | 0xC9 // RET
                 | 0xD9 // RETI
                 | 0x70 | 0x71 | 0x72 | 0x73 | 0x74 | 0x75 | 0x77 // LC [HL], r8
@@ -889,7 +890,7 @@ impl Cpu {
     }
 }
 
-mod debug {
+pub mod debug {
     use super::*;
     pub fn print_t_cycle_tables() {
         println!("\nUnprefixed Instructions:\n");
