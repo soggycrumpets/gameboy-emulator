@@ -52,8 +52,16 @@ impl Cpu {
     }
 
     pub fn alu_a_at_hl(&mut self, op: AluBinary) {
-        let value = self.read_at_hl();
-        self.alu_a_u8(op, value);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            2 => (),
+            // Read at HL
+            1 => {
+                let value = self.read_at_hl();
+                self.alu_a_u8(op, value);
+            }
+            _ => unreachable!(),
+        }
     }
 
     pub fn alu_a_n8(&mut self, op: AluBinary) {
@@ -122,10 +130,8 @@ impl Cpu {
         self.reg.set_flag(Flag::N, false);
         self.reg
             .set_flag(Flag::H, (sp as u8 & 0x0F) + (n8 & 0x0F) > 0x0F);
-        self.reg.set_flag(
-            Flag::C,
-            (sp & 0x00FF) + ((n8 as u16) & 0x00FF) > 0xFF,
-        );
+        self.reg
+            .set_flag(Flag::C, (sp & 0x00FF) + ((n8 as u16) & 0x00FF) > 0xFF);
 
         result
     }

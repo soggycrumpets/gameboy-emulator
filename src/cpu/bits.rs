@@ -30,11 +30,11 @@ impl Cpu {
 
         match self.instruction_m_cycles_remaining {
             // Fetch
-            1 => (),
+            3 => (),
             // Read
-            3 => self.byte_buf = self.read_at_hl(),
+            2 => self.byte_buf = self.read_at_hl(),
             // Write
-            2 => {
+            1 => {
                 let result = self.bitshift_u8(op, self.byte_buf);
                 self.write_at_hl(result);
             }
@@ -54,9 +54,9 @@ impl Cpu {
         match op {
             BitflagOp::Bit  => match self.instruction_m_cycles_remaining {
             // Fetch
-            1 => (),
+            2 => (),
             // Read
-            2 => {
+            1 => {
                 let byte = self.read_at_hl();
                 self.bitflag_u3_u8(op, bit, byte);
             }
@@ -64,10 +64,11 @@ impl Cpu {
             }
             BitflagOp::Res | BitflagOp::Set => match self.instruction_m_cycles_remaining {
                 // Fetch
-                1 => (),
+                3 => (),
                 // Read
-                3 => self.byte_buf = self.read_at_hl(),
-                2 => {
+                2 => self.byte_buf = self.read_at_hl(),
+                // Write
+                1 => {
                     let result = self.bitflag_u3_u8(op, bit, self.byte_buf);
                     self.write_at_hl(result);
                 }

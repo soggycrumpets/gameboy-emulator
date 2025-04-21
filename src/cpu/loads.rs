@@ -71,8 +71,16 @@ impl Cpu {
     }
 
     pub fn ld_r8_n8(&mut self, r8: R8) {
-        let byte = self.fetch_byte();
-        self.reg.set(r8, byte);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            2 => (),
+            // Read n8
+            1 => {
+                let byte = self.fetch_byte();
+                self.reg.set(r8, byte);
+            }
+            _ => unreachable!(),
+        }
     }
 
     pub fn ld_r16_n16(&mut self, r16: R16) {
@@ -84,7 +92,7 @@ impl Cpu {
         match self.instruction_m_cycles_remaining {
             // Fetch
             2 => (),
-            // Write
+            // Write [HL]
             1 => {
                 let byte = self.reg.get(r8);
                 self.write_at_hl(byte);
@@ -94,15 +102,24 @@ impl Cpu {
     }
 
     pub fn ld_at_hl_n8(&mut self) {
-        let byte = self.fetch_byte();
-        self.write_at_hl(byte);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            3 => (),
+            // Read n8
+            2 => self.byte_buf = self.fetch_byte(),
+            // Write [HL]
+            1 => {
+                self.write_at_hl(self.byte_buf);
+            }
+            _ => unreachable!(),
+        }
     }
 
     pub fn ld_r8_at_hl(&mut self, r8: R8) {
         match self.instruction_m_cycles_remaining {
             // Fetch
             2 => (),
-            // Read
+            // Read [HL]
             1 => {
                 let byte = self.read_at_hl();
                 self.reg.set(r8, byte);
