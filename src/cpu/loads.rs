@@ -48,11 +48,7 @@ impl Cpu {
                 let sp = self.reg.get16(R16::SP);
                 let low_byte = self.read_byte(sp);
 
-                let mut word = self.reg.get16(r16);
-                word &= 0xFF00;
-                word |= (low_byte as u16);
-                self.reg.set16(r16, word);
-
+                self.reg.set16_low(r16, low_byte);
                 self.reg.set16(R16::SP, sp.wrapping_add(1));
             }
             // Read the high byte from memory
@@ -60,11 +56,7 @@ impl Cpu {
                 let sp = self.reg.get16(R16::SP);
                 let high_byte = self.read_byte(sp);
 
-                let mut word = self.reg.get16(r16);
-                word &= 0x00FF;
-                word |= (high_byte as u16) << 8;
-                self.reg.set16(r16, word);
-
+                self.reg.set16_high(r16, high_byte);
                 self.reg.set16(R16::SP, sp.wrapping_add(1));
             }
             _ => unreachable!(),
@@ -356,8 +348,19 @@ impl Cpu {
 
     // This is a weird one. I'm having it use a function from alu.rs ADD 16-bit
     pub fn ld_hl_sp_e8(&mut self) {
-        let result = self.calc_sp_plus_e8();
-        self.reg.set16(R16::HL, result);
+        match self.instruction_m_cycles_remaining {
+            // Internal
+            3 => (),
+            // Read e8, load SP + e8 into HL
+            2 => {
+                let byte = self.fetch_byte();
+                let result = self.calc_sp_plus_e8(byte);
+                self.reg.set16(R16::HL, result);
+            }
+            // Internal
+            1 => (),
+            _ => unreachable!(),
+        }
     }
 
     pub fn ld_sp_hl(&mut self) {

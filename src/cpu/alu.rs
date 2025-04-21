@@ -124,29 +124,41 @@ impl Cpu {
     }
 
     // This contains the core functionality of add_sp_e8, as well as ld_hl_sp_e8 from load.rs
-    pub fn calc_sp_plus_e8(&mut self) -> u16 {
+    pub fn calc_sp_plus_e8(&mut self, byte: u8) -> u16 {
         let sp = self.reg.get16(R16::SP);
-        let n8 = self.fetch_byte();
 
         // Casting this way allows e8 to be negative if n8 is big enough (n8 > i8_MAX results in a negative)
         // Casting directly to an i16 would not change the sign
-        let e8 = (n8 as i8) as i16;
+        let e8 = (byte as i8) as i16;
 
         let result = (sp as i16).wrapping_add(e8) as u16;
 
         self.reg.set_flag(Flag::Z, false);
         self.reg.set_flag(Flag::N, false);
         self.reg
-            .set_flag(Flag::H, (sp as u8 & 0x0F) + (n8 & 0x0F) > 0x0F);
+            .set_flag(Flag::H, (sp as u8 & 0x0F) + (byte & 0x0F) > 0x0F);
         self.reg
-            .set_flag(Flag::C, (sp & 0x00FF) + ((n8 as u16) & 0x00FF) > 0xFF);
+            .set_flag(Flag::C, (sp & 0x00FF) + ((byte as u16) & 0x00FF) > 0xFF);
 
         result
     }
 
     pub fn add_sp_e8(&mut self) {
-        let result = self.calc_sp_plus_e8();
-        self.reg.set16(R16::SP, result);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            4 => (),
+            // Read e8, calculate, write to SP
+            3 => {
+                self.byte_buf = self.fetch_byte();
+                let word = self.calc_sp_plus_e8(self.byte_buf);
+                self.reg.set16(R16::SP, word);
+            }
+            // Internal 
+            2 => (),
+            // Internal
+            1 => (),
+            _ => unreachable!(),
+        }
     }
 
     // ----- ADC -----

@@ -208,7 +208,7 @@ impl Cpu {
         self.write_byte(IF_ADDR, if_byte);
         self.ime = false;
 
-        self.rst_vec(interrupt_handler_addr);
+        self.rst_vec_instant(interrupt_handler_addr);
         self.interrupt_t_cycles_remaining = INTERRUPT_T_CYCLES;
     }
 
@@ -230,7 +230,10 @@ impl Cpu {
                 // Also just for keeping track of which ones I've implemented so far.
                 0xC5 | 0xD5 | 0xE5 | 0xF5  // PUSH
                 | 0xC1 | 0xD1 | 0xE1 | 0xF1 // POP
+                | 0xE8 // ADD SP, e8
+                | 0xF8 // LD HL, SP + e8
                 | 0xC3 // JP a16
+                | 0xC7 | 0xD7 | 0xE7 | 0xF7 | 0xCF | 0xDF | 0xEF | 0xFF // RST VEC
                 | 0x70 | 0x71 | 0x72 | 0x73 | 0x74 | 0x75 | 0x77 // LC [HL], r8
                 | 0x46 | 0x56 | 0x66 | 0x4E | 0x5E | 0x6E | 0x7E // LC r8, [HL]
                 | 0x36 // LD [HL], n8
