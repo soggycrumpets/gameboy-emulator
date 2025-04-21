@@ -11,7 +11,7 @@ const DMA_TRANSFER_T_CYCLES: u16 = DMA_BYTE_TRANSFER_AMOUNT * M_CYCLE_DURATION a
 const DMA_TARGET_START_ADDR: u16 = 0xFE00;
 
 // todo! This is bad!
-const FUDGE_FACTOR: u16 = 0;
+const FUDGE_FACTOR: u16 = 4;
 
 pub struct Dma {
     timer: u16,

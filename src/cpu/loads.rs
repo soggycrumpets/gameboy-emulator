@@ -129,15 +129,62 @@ impl Cpu {
     }
 
     pub fn ld_at_r16_a(&mut self, r16: R16) {
-        let addr = self.reg.get16(r16);
-        let byte = self.reg.get(R8::A);
-        self.write_byte(addr, byte);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            2 => (),
+            // Write at r16
+            1 => {
+                let addr = self.reg.get16(r16);
+                let byte = self.reg.get(R8::A);
+                self.write_byte(addr, byte);
+            }
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn ld_a_at_a16(&mut self) {
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            4 => (),
+            // Read the lower byte
+            3 => {
+                self.word_buf_low = self.fetch_byte();
+            }
+            // Read the upper byte
+            2 => self.word_buf_high = self.fetch_byte(),
+            // Load [a16] into A
+            1 => {
+                let addr = self.get_word_buf();
+                let byte = self.read_byte(addr);
+                self.reg.set(R8::A, byte);
+            }
+            _ => unimplemented!(),
+        }
     }
 
     pub fn ld_at_a16_a(&mut self) {
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            4 => (),
+            // Read the lower byte
+            3 => {
+                self.word_buf_low = self.fetch_byte();
+            }
+            // Read the upper byte
+            2 => self.word_buf_high = self.fetch_byte(),
+            // Load A into [a16]
+            1 => {
+                let addr = self.get_word_buf();
+                let byte = self.reg.get(R8::A);
+                self.write_byte(addr, byte);
+            }
+            _ => unimplemented!(),
+        }
+        /* 
         let addr = self.fetch_word();
         let byte = self.reg.get(R8::A);
         self.write_byte(addr, byte);
+        */
     }
 
     pub fn ldh_at_a8_a(&mut self) {
@@ -148,10 +195,33 @@ impl Cpu {
     }
 
     pub fn ldh_c_a(&mut self) {
-        let ra = self.reg.get(R8::A);
-        let rc = self.reg.get(R8::C);
-        let addr = 0xFF00 + (rc as u16);
-        self.write_byte(addr, ra);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            2 => (),
+            // Write at C
+            1 => {
+                let ra = self.reg.get(R8::A);
+                let rc = self.reg.get(R8::C);
+                let addr = 0xFF00 + (rc as u16);
+                self.write_byte(addr, ra);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn ldh_a_at_c(&mut self) {
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            2 => (),
+            // Read at C
+            1 => {
+                let rc = self.reg.get(R8::C);
+                let addr = 0xFF00 + (rc as u16);
+                let byte = self.read_byte(addr);
+                self.reg.set(R8::A, byte);
+            }
+            _ => unreachable!(),
+        }
     }
 
     pub fn ld_a_at_r16(&mut self, r16: R16) {
@@ -160,22 +230,9 @@ impl Cpu {
         self.reg.set(R8::A, byte);
     }
 
-    pub fn ld_a_at_a16(&mut self) {
-        let a16 = self.fetch_word();
-        let byte = self.read_byte(a16);
-        self.reg.set(R8::A, byte);
-    }
-
     pub fn ldh_a_a8(&mut self) {
         let a8 = self.fetch_byte();
         let addr = 0xFF00 + (a8 as u16);
-        let byte = self.read_byte(addr);
-        self.reg.set(R8::A, byte);
-    }
-
-    pub fn ldh_a_at_c(&mut self) {
-        let rc = self.reg.get(R8::C);
-        let addr = 0xFF00 + (rc as u16);
         let byte = self.read_byte(addr);
         self.reg.set(R8::A, byte);
     }

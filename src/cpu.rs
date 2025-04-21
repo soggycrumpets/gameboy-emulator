@@ -43,6 +43,8 @@ pub struct Cpu {
     instruction_m_cycles_remaining: u8,
 
     byte_buf: u8,
+    word_buf_low: u8,
+    word_buf_high: u8,
 }
 
 impl Cpu {
@@ -62,6 +64,8 @@ impl Cpu {
             instruction_m_cycles_remaining: 0,
 
             byte_buf: 0x00,
+            word_buf_high: 0x00,
+            word_buf_low: 0x00,
         }
     }
 
@@ -95,10 +99,7 @@ impl Cpu {
         }
     }
 
-    // This is differentiated from fetch_byte because the CPU is able to fetch instructions
-    // parallel to its execution during the last m-cycle of an instruction.
-    // Therefore, it's being modeled here as taking zero m-cycles and happening at the same time as execution.
-    // Also, the halt bug should only happen on instruction fetches.
+    // This is basically fetch_byte, but with the halt bug implemented.
     pub fn fetch_instruction(&mut self) -> u8 {
         let pc = self.reg.get16(R16::PC);
         let byte = self.read_byte(pc);
@@ -125,12 +126,17 @@ impl Cpu {
         byte
     }
 
+    fn get_word_buf(&mut self) -> u16 {
+        (self.word_buf_low as u16) | ((self.word_buf_high as u16) << 8)
+    }
+
     fn fetch_word(&mut self) -> u16 {
         let pc = self.reg.get16(R16::PC);
         let word = self.mmu.borrow_mut().read_word(pc);
 
         let next_addr = pc + 2;
         self.reg.set16(R16::PC, next_addr);
+
         word
     }
 
@@ -221,6 +227,11 @@ impl Cpu {
                 | 0x36 // LD [HL], n8
                 | 0x06 | 0x16 | 0x26 | 0x0E | 0x1E | 0x2E | 0x3E // LD r8, n8
                 | 0x86 | 0x96 | 0xA6 | 0xB6 | 0x8E | 0x9E | 0xAE | 0xBE // ALU A, [HL]
+                | 0xF2 // LD A, [C]
+                | 0xE2 // LD [C], A
+                | 0x02 | 0x12 // LD [r16], A
+                | 0xEA // LD [a16], A
+                | 0xFA // LD A, [a16]
                 => self.current_instruction, 
                 _ => 0x00, // Default to no-ops for unimplemented multi-step instructions
             }
@@ -835,7 +846,6 @@ impl Cpu {
     // todo!
     fn stop(&mut self) {}
 
-    // todo! implement the halt bug
     fn halt(&mut self) {
         self.halted = true;
     }

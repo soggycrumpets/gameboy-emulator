@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused)]
+
 mod cli;
 mod constants;
 mod cpu;

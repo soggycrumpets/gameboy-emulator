@@ -178,7 +178,6 @@ impl Mmu {
 
     // Writing to TIMA immediately after it has overflowed will cancel the overflow behavior.
     // Additionally, for the next machine cycle after TIMA overflows, it ignores writes!
-    // This function is used by the general write_byte function as a wrapper around this weird behavior.
     pub fn write_byte_tima(&mut self, byte: u8) {
         let (_region, addr_mapped) = map_addr(TIMA_ADDR);
         let index = addr_mapped as usize;
@@ -198,7 +197,6 @@ impl Mmu {
 
     // While TIMA is write locked, writing to TMA will also write to TIMA (bypassing the lock).
     // Additionally, writing to TMA can cause timer ticks in TIMA.
-
     pub fn write_byte_tma(&mut self, byte: u8) {
         let (_region, addr_mapped) = map_addr(TMA_ADDR);
         let index = addr_mapped as usize;
@@ -208,10 +206,10 @@ impl Mmu {
         }
     }
 
-    // If TIMA was tracking a set bit, but changes TAC change its tracking to an unset bit,
+    // If TIMA was tracking a set bit, but a change to TAC changes its tracked bit to an unset bit,
     // TIMA will see that is a falling edge and increment.
     // Additionally, disabling the timer while TIMA's selected bit was set will
-    //  also trigger an increment
+    // also trigger an increment
     pub fn write_byte_tac(&mut self, byte: u8) {
         let tima_bit_was_active = self.get_tima_bit_state(false);
 
