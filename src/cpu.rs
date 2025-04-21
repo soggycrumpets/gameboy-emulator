@@ -41,7 +41,7 @@ pub struct Cpu {
     current_instruction: u8,
     pub instruction_t_cycles_remaining: u8,
     instruction_m_cycles_remaining: u8,
-    
+
     byte_buf: u8,
 }
 
@@ -66,17 +66,17 @@ impl Cpu {
     }
 
     pub fn tick(&mut self) {
-        // One instruction per m-cycle
-        if self.instruction_t_cycles_remaining % 4 == 0 {
-            self.step_instruction();
-        }
-
         // Update timings
         self.instruction_t_cycles_remaining = self.instruction_t_cycles_remaining.saturating_sub(1);
         self.instruction_m_cycles_remaining = self.instruction_t_cycles_remaining / 4;
+
+        // One instruction per m-cycle
+        if self.instruction_t_cycles_remaining % 4 == 0 {
+            self.step();
+        }
     }
 
-    fn step_instruction(&mut self) {
+    fn step(&mut self) {
         if self.handle_interrupts() {
             return;
         }
@@ -99,7 +99,7 @@ impl Cpu {
     // parallel to its execution during the last m-cycle of an instruction.
     // Therefore, it's being modeled here as taking zero m-cycles and happening at the same time as execution.
     // Also, the halt bug should only happen on instruction fetches.
-    fn fetch_instruction(&mut self) -> u8 {
+    pub fn fetch_instruction(&mut self) -> u8 {
         let pc = self.reg.get16(R16::PC);
         let byte = self.read_byte(pc);
 
@@ -215,7 +215,9 @@ impl Cpu {
                 // By the time all of them are implemented, this match won't be needed.
                 // This is just to keep unimplemented multi-steps from breaking
                 // by executing multiple times
-                0xC5 | 0xD5 | 0xE5 | 0xF5 => self.current_instruction, // PUSH
+                0xC5 | 0xD5 | 0xE5 | 0xF5 |  // PUSH
+                0x70 | 0x71 | 0x72 | 0x73 | 0x74 | 0x75 | 0x77 | // LC [HL], r8
+                0x46 | 0x56 | 0x66 | 0x4E | 0x5E | 0x6E | 0x7E => self.current_instruction, // LC r8, [HL]
                 _ => 0x00, // Default to no-ops for unimplemented multi-step instructions
             }
         };
