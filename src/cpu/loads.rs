@@ -138,7 +138,21 @@ impl Cpu {
                 let byte = self.reg.get(R8::A);
                 self.write_byte(addr, byte);
             }
-            _ => unimplemented!(),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn ld_a_at_r16(&mut self, r16: R16) {
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            2 => (),
+            // Read at r16
+            1 => {
+                let addr = self.reg.get16(r16);
+                let byte = self.read_byte(addr);
+                self.reg.set(R8::A, byte);
+            }
+            _ => unreachable!(),
         }
     }
 
@@ -158,7 +172,7 @@ impl Cpu {
                 let byte = self.read_byte(addr);
                 self.reg.set(R8::A, byte);
             }
-            _ => unimplemented!(),
+            _ => unreachable!(),
         }
     }
 
@@ -178,20 +192,40 @@ impl Cpu {
                 let byte = self.reg.get(R8::A);
                 self.write_byte(addr, byte);
             }
-            _ => unimplemented!(),
+            _ => unreachable!(),
         }
-        /* 
-        let addr = self.fetch_word();
-        let byte = self.reg.get(R8::A);
-        self.write_byte(addr, byte);
-        */
+    }
+
+    pub fn ldh_a_at_a8(&mut self) {
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            3 => (),
+            // Read a8
+            2 => self.byte_buf = self.fetch_byte(),
+            // Load [a8] into A
+            1 => {
+                let addr = 0xFF00 + (self.byte_buf as u16);
+                let byte = self.read_byte(addr);
+                self.reg.set(R8::A, byte);
+            }
+            _ => unreachable!(),
+        }
     }
 
     pub fn ldh_at_a8_a(&mut self) {
-        let a8 = self.fetch_byte();
-        let ra = self.reg.get(R8::A);
-        let addr = 0xFF00 + (a8 as u16);
-        self.write_byte(addr, ra);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            3 => (),
+            // Read a8
+            2 => self.byte_buf = self.fetch_byte(),
+            // Load A into [a8]
+            1 => {
+                let ra = self.reg.get(R8::A);
+                let addr = 0xFF00 + (self.byte_buf as u16);
+                self.write_byte(addr, ra);
+            }
+            _ => unreachable!(),
+        }
     }
 
     pub fn ldh_c_a(&mut self) {
@@ -224,19 +258,6 @@ impl Cpu {
         }
     }
 
-    pub fn ld_a_at_r16(&mut self, r16: R16) {
-        let addr = self.reg.get16(r16);
-        let byte = self.read_byte(addr);
-        self.reg.set(R8::A, byte);
-    }
-
-    pub fn ldh_a_a8(&mut self) {
-        let a8 = self.fetch_byte();
-        let addr = 0xFF00 + (a8 as u16);
-        let byte = self.read_byte(addr);
-        self.reg.set(R8::A, byte);
-    }
-
     // [HL+]/[HL-] use some repeated logic, so I extracted it out here
     fn ld_at_hl_a(&mut self) {
         let byte = self.reg.get(R8::A);
@@ -257,24 +278,56 @@ impl Cpu {
         self.reg.set16(R16::HL, result as u16);
     }
 
-    pub fn ld_at_hli_a(&mut self) {
-        self.ld_at_hl_a();
-        self.step_hl_1(true);
+    pub fn ld_a_at_hli(&mut self) {
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            2 => (),
+            // Load [hl+] into A
+            1 => {
+                self.ld_a_at_hl();
+                self.step_hl_1(true);
+            }
+            _ => unreachable!(),
+        }
     }
 
-    pub fn ld_at_hld_a(&mut self) {
-        self.ld_at_hl_a();
-        self.step_hl_1(false);
+    pub fn ld_at_hli_a(&mut self) {
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            2 => (),
+            // Load A into [hl+]
+            1 => {
+                self.ld_at_hl_a();
+                self.step_hl_1(true);
+            }
+            _ => unreachable!(),
+        }
     }
 
     pub fn ld_a_at_hld(&mut self) {
-        self.ld_a_at_hl();
-        self.step_hl_1(false);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            2 => (),
+            // Load [hl-] into A
+            1 => {
+                self.ld_a_at_hl();
+                self.step_hl_1(false);
+            }
+            _ => unreachable!(),
+        }
     }
 
-    pub fn ld_a_at_hli(&mut self) {
-        self.ld_a_at_hl();
-        self.step_hl_1(true);
+    pub fn ld_at_hld_a(&mut self) {
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            2 => (),
+            // Load A into [hl-]
+            1 => {
+                self.ld_at_hl_a();
+                self.step_hl_1(false);
+            }
+            _ => unreachable!(),
+        }
     }
 
     pub fn ld_at_n16_sp(&mut self) {

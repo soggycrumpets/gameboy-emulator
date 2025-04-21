@@ -230,8 +230,15 @@ impl Cpu {
                 | 0xF2 // LD A, [C]
                 | 0xE2 // LD [C], A
                 | 0x02 | 0x12 // LD [r16], A
+                | 0x0A | 0x1A // LD A, [r16]
                 | 0xEA // LD [a16], A
                 | 0xFA // LD A, [a16]
+                | 0xE0 // LDH [a8], A
+                | 0xF0 // LDH A, [a8]
+                | 0x22 // LD [HL+], A
+                | 0x32 // LD [HL-], A
+                | 0x2A // LD A, [HL+]
+                | 0x3A // LD A, [HL-]
                 => self.current_instruction, 
                 _ => 0x00, // Default to no-ops for unimplemented multi-step instructions
             }
@@ -507,7 +514,7 @@ impl Cpu {
             0xEE => self.alu_a_n8(AluBinary::Xor), // XOR A, n8
             0xEF => self.rst_vec(0x28),            // RST $28
 
-            0xF0 => self.ldh_a_a8(),               // LDH A, [a8]
+            0xF0 => self.ldh_a_at_a8(),               // LDH A, [a8]
             0xF1 => self.pop_r16(R16::AF),         // POP AF
             0xF2 => self.ldh_a_at_c(),             // LDH A, [C]
             0xF3 => self.di(),                     // DI
