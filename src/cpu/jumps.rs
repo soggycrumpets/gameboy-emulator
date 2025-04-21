@@ -77,7 +77,7 @@ impl Cpu {
 
     // RET
     pub fn ret(&mut self) {
-        self.pop_r16(R16::PC);
+        self.pop_r16_instant(R16::PC);
     }
 
     pub fn ret_cc(&mut self, flag: Flag, expect: bool) {

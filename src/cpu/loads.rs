@@ -1,13 +1,6 @@
 use super::*;
 impl Cpu {
     pub fn push_r16(&mut self, r16: R16) {
-        // print!(
-        // "M: {}, T: {}",
-        // self.instruction_m_cycles_remaining, self.instruction_t_cycles_remaining
-        // );
-
-        let lock = self.mmu.borrow().oam_lock;
-
         match self.instruction_m_cycles_remaining {
             // Instruction decoding
             4 => (),
@@ -20,8 +13,6 @@ impl Cpu {
 
                 let high_byte = (self.reg.get16(r16) >> 8) as u8;
                 self.write_byte(sp, high_byte);
-
-                // println!("PUSH HI: {:02x} TO: {:04x} TICKS REMAINING: {} LOCKED: {}", high_byte, sp, self.instruction_t_cycles_remaining, lock);
             }
             // Write the low byte to memory
             1 => {
@@ -31,8 +22,6 @@ impl Cpu {
 
                 let low_byte = self.reg.get16(r16) as u8;
                 self.write_byte(sp, low_byte);
-
-                // println!("PUSH LO: {:02x} TO: {:04x} TICKS REMAINING: {} LOCKED: {}", low_byte, sp, self.instruction_t_cycles_remaining, lock);
             }
             _ => unreachable!(),
         }
@@ -50,18 +39,49 @@ impl Cpu {
         self.write_word(sp, word);
     }
 
-    // 2-byte POP
     pub fn pop_r16(&mut self, r16: R16) {
+        match self.instruction_m_cycles_remaining {
+            // Internal delay
+            3 => (),
+            // Read the low byte from memory
+            2 => {
+                let sp = self.reg.get16(R16::SP);
+                let low_byte = self.read_byte(sp);
+
+                let mut word = self.reg.get16(r16);
+                word &= 0xFF00;
+                word |= (low_byte as u16);
+                self.reg.set16(r16, word);
+                println!("low: {:04x}", word);
+
+                self.reg.set16(R16::SP, sp.wrapping_add(1));
+            }
+            // Read the high byte from memory
+            1 => {
+                let sp = self.reg.get16(R16::SP);
+                let high_byte = self.read_byte(sp);
+
+                let mut word = self.reg.get16(r16);
+                word &= 0x00FF;
+                word |= (high_byte as u16) << 8;
+                self.reg.set16(r16, word);
+                println!("high: {:04x}", word);
+
+                self.reg.set16(R16::SP, sp.wrapping_add(1));
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    // todo!
+    // This function will go away once all opcodes are m-cycle accurate
+    pub fn pop_r16_instant(&mut self, r16: R16) {
         let sp = self.reg.get16(R16::SP);
 
         // Pop the stack first
         let word = self.read_word(sp);
         self.reg.set16(r16, word);
 
-        // Increment sp next
-        if (sp as u32) + 2 > 0xFFFF {
-            panic!("Stack underflow");
-        }
         self.reg.set16(R16::SP, sp.wrapping_add(2));
     }
 

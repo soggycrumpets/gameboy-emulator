@@ -223,6 +223,7 @@ impl Cpu {
                 // by executing multiple times.
                 // Also just for keeping track of which ones I've implemented so far.
                 0xC5 | 0xD5 | 0xE5 | 0xF5  // PUSH
+                | 0xC1 | 0xD1 | 0xE1 | 0xF1 // POP
                 | 0x70 | 0x71 | 0x72 | 0x73 | 0x74 | 0x75 | 0x77 // LC [HL], r8
                 | 0x46 | 0x56 | 0x66 | 0x4E | 0x5E | 0x6E | 0x7E // LC r8, [HL]
                 | 0x36 // LD [HL], n8
