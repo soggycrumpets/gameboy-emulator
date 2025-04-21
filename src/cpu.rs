@@ -36,6 +36,8 @@ pub struct Cpu {
     ime_pending: bool,
     halted: bool,
     halt_bug_active: bool,
+    handling_interrupt: bool,
+    interrupt_t_cycles_remaining: u8,
 
     current_instruction_prefixed: bool,
     current_instruction: u8,
@@ -57,6 +59,8 @@ impl Cpu {
             ime_pending: false,
             halted: false,
             halt_bug_active: false,
+            handling_interrupt: false,
+            interrupt_t_cycles_remaining: 0,
 
             current_instruction_prefixed: false,
             current_instruction: 0,
@@ -73,6 +77,7 @@ impl Cpu {
         // Update timings
         self.instruction_t_cycles_remaining = self.instruction_t_cycles_remaining.saturating_sub(1);
         self.instruction_m_cycles_remaining = self.instruction_t_cycles_remaining / 4;
+        self.interrupt_t_cycles_remaining = self.interrupt_t_cycles_remaining.saturating_sub(1);
 
         // One instruction per m-cycle
         if self.instruction_t_cycles_remaining % 4 == 0 {
@@ -81,7 +86,7 @@ impl Cpu {
     }
 
     fn step(&mut self) {
-        if self.handle_interrupts() {
+        if self.handle_interrupts() || self.interrupt_t_cycles_remaining != 0 {
             return;
         }
 
@@ -204,7 +209,7 @@ impl Cpu {
         self.ime = false;
 
         self.rst_vec(interrupt_handler_addr);
-        self.instruction_t_cycles_remaining = INTERRUPT_T_CYCLES;
+        self.interrupt_t_cycles_remaining = INTERRUPT_T_CYCLES;
     }
 
     fn execute(&mut self) {
@@ -255,8 +260,8 @@ impl Cpu {
         }
 
         // println!(
-        //     "OP: {:02x}, PC: {:04x}, SP: {:04x} ",
-        //     self.current_instruction, pc, sp
+        //     "OP: {:02x}, PC: {:04x}, SP: {:04x} CYCLE: {}",
+        //     self.current_instruction, pc, sp, self.instruction_m_cycles_remaining
         // );
 
         // Every instruction that contains an n8, a8, or e8 will fetch a byte.
