@@ -29,7 +29,7 @@ impl Cpu {
                 let addr = self.get_word_buf();
                 self.jp_u16(addr);
             }
-            // Extra time for a branch decision or something
+            // Internal
             1 => (),
             _ => unreachable!(),
         }
@@ -48,10 +48,10 @@ impl Cpu {
                 if expect == self.reg.get_flag(flag) {
                     self.jp_u16(addr);
                 } else {
-                    self.instruction_t_cycles_remaining -= JP_CC_EXTRA_T_CYCLES;
+                    self.instruction_t_cycles_remaining = 0;
                 }
             }
-            // Extra time for a branch decision or something
+            // Internal
             1 => (),
             _ => unreachable!(),
         }
@@ -82,7 +82,6 @@ impl Cpu {
     }
 
     // CALL
-
     // The cycle timings and actual function line up perfectly with PUSH, so I'm reusing it.
     pub fn rst_vec(&mut self, addr: u16) {
         match self.instruction_m_cycles_remaining {
@@ -142,7 +141,7 @@ impl Cpu {
                 self.word_buf_high = self.fetch_byte();
                 let word = self.get_word_buf();
                 if expect != self.reg.get_flag(flag) {
-                    self.instruction_t_cycles_remaining -= CALL_CC_EXTRA_T_CYCLES;
+                    self.instruction_t_cycles_remaining = 0;
                 }
             }
             // Internal
@@ -196,10 +195,34 @@ impl Cpu {
     }
 
     pub fn ret_cc(&mut self, flag: Flag, expect: bool) {
-        if expect == self.reg.get_flag(flag) {
-            self.ret_instant();
-        } else {
-            self.instruction_t_cycles_remaining -= RET_CC_EXTRA_T_CYCLES;
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            5 => (),
+            // Internal / Check condition
+            4 => {
+                if expect != self.reg.get_flag(flag) {
+                    self.instruction_t_cycles_remaining = 0;
+                }
+            }
+            // Read the low byte from memory
+            3 => {
+                let sp = self.reg.get16(R16::SP);
+                let low_byte = self.read_byte(sp);
+
+                self.reg.set16_low(R16::PC, low_byte);
+                self.reg.set16(R16::SP, sp.wrapping_add(1));
+            }
+            // Read the high byte from memory
+            2 => {
+                let sp = self.reg.get16(R16::SP);
+                let high_byte = self.read_byte(sp);
+
+                self.reg.set16_high(R16::PC, high_byte);
+                self.reg.set16(R16::SP, sp.wrapping_add(1));
+            }
+            // Internal
+            1 => (),
+            _ => unreachable!(),
         }
     }
 
