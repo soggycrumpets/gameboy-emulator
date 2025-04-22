@@ -1,3 +1,6 @@
+//! For documentation on each of registers, check out the
+//! [Pandocs](https://gbdev.io/pandocs/Hardware_Reg_List.html?highlight=hardware%20registers#hardware-registers)
+
 use super::Mmu;
 
 // ----- Memory Regions -----
@@ -161,26 +164,41 @@ pub enum MemRegion {
     Ie,
 }
 
-// Return the memory region that the address is in, and an address
-//  offset by that region's start address.
-// The offset address can be used to directly indexing the array
-//  that represents that region of memory
-pub fn map_addr(addr: u16) -> (MemRegion, u16) {
-    use MemRegion as M;
-    let (region, start_addr) = match addr {
-        ROM_BANK_0_START..=ROM_BANK_0_END => (M::RomBank0, ROM_BANK_0_START),
-        ROM_BANK_1_START..=ROM_BANK_1_END => (M::RomBank1, ROM_BANK_1_START),
-        VRAM_START..=VRAM_END => (M::Vram, VRAM_START),
-        EXRAM_START..=EXRAM_END => (M::Exram, EXRAM_START),
-        WRAM_0_START..=WRAM_0_END => (M::Wram0, WRAM_0_START),
-        WRAM_1_START..=WRAM_1_END => (M::Wram1, WRAM_1_START),
-        ECHO_RAM_START..=ECHO_RAM_END => (M::EchoRam, ECHO_RAM_START),
-        OAM_START..=OAM_END => (M::Oam, OAM_START),
-        RESTRICTED_MEM_START..=RESTRICTED_MEM_END => (M::Restricted, RESTRICTED_MEM_START),
-        IO_START..=IO_END => (M::Io, IO_START),
-        HRAM_START..=HRAM_END => (M::Hram, HRAM_START),
-        IE_ADDR => (M::Ie, IE_ADDR),
+// Get an offset address relative to the start of that address's memory region
+pub fn map_addr(addr: u16) -> usize {
+    let start_addr = match addr {
+        ROM_BANK_0_START..=ROM_BANK_0_END => ROM_BANK_0_START,
+        ROM_BANK_1_START..=ROM_BANK_1_END => ROM_BANK_1_START,
+        VRAM_START..=VRAM_END => VRAM_START,
+        EXRAM_START..=EXRAM_END => EXRAM_START,
+        WRAM_0_START..=WRAM_0_END => WRAM_0_START,
+        WRAM_1_START..=WRAM_1_END => WRAM_1_START,
+        ECHO_RAM_START..=ECHO_RAM_END => ECHO_RAM_START,
+        OAM_START..=OAM_END => OAM_START,
+        RESTRICTED_MEM_START..=RESTRICTED_MEM_END =>  RESTRICTED_MEM_START,
+        IO_START..=IO_END => IO_START,
+        HRAM_START..=HRAM_END =>  HRAM_START,
+        IE_ADDR => IE_ADDR,
     };
 
-    (region, addr - start_addr)
+    (addr - start_addr) as usize
+}
+
+/// Get the memory region of an address
+pub fn map_region(addr: u16) -> MemRegion {
+    use MemRegion as M;
+    match addr {
+        ROM_BANK_0_START..=ROM_BANK_0_END => M::RomBank0,
+        ROM_BANK_1_START..=ROM_BANK_1_END => M::RomBank1,
+        VRAM_START..=VRAM_END => M::Vram,
+        EXRAM_START..=EXRAM_END => M::Exram,
+        WRAM_0_START..=WRAM_0_END => M::Wram0,
+        WRAM_1_START..=WRAM_1_END => M::Wram1,
+        ECHO_RAM_START..=ECHO_RAM_END => M::EchoRam,
+        OAM_START..=OAM_END => M::Oam,
+        RESTRICTED_MEM_START..=RESTRICTED_MEM_END => M::Restricted,
+        IO_START..=IO_END => M::Io,
+        HRAM_START..=HRAM_END => M::Hram,
+        IE_ADDR => M::Ie,
+    }
 }

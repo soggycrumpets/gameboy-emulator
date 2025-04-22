@@ -137,12 +137,12 @@ impl Registers {
             R16::HL => R8::H,
             R16::SP => {
                 self.sp &= 0x00FF;
-                self.sp |= ((byte as u16) << 8);
+                self.sp |= (byte as u16) << 8;
                 return;
             }
             R16::PC => {
                 self.pc &= 0x00FF;
-                self.pc |= ((byte as u16) << 8);
+                self.pc |= (byte as u16) << 8;
                 return;
             }
         };

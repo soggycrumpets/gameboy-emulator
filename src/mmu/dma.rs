@@ -1,4 +1,4 @@
-use crate::{constants::M_CYCLE_DURATION, mmu::memmap::OAM_START};
+use crate::constants::M_CYCLE_DURATION;
 
 use super::{
     Mmu,
@@ -17,7 +17,6 @@ const DMA_TARGET_START_ADDR: u16 = 0xFE00;
 pub struct Dma {
     timer: u16,
     pub active: bool,
-    pending: bool,
     source_start_addr: u16,
 }
 
@@ -26,7 +25,6 @@ impl Dma {
         Dma {
             timer: 0,
             active: false,
-            pending: false,
             source_start_addr: 0x0000,
         }
     }
@@ -36,9 +34,7 @@ impl Mmu {
     pub fn start_dma_transfer(&mut self, dma_byte: u8) {
         // The DMA register needs to be updated first
 
-        // println!("DMA START");
-        let (_, addr_mapped) = map_addr(DMA_ADDR);
-        let index = addr_mapped as usize;
+        let index = map_addr(DMA_ADDR);
         self.io[index] = dma_byte;
 
         self.dma.timer = DMA_TRANSFER_T_CYCLES + DMA_TRANSFER_T_DELAY;

@@ -1,9 +1,17 @@
-const TRANSFER_REQUESTED_VALUE: u8 = 0x81;
-const GARBAGE_VALUE: u8 = 0xFF;
-
-mod dma;
+//! The MMU stores, controls, and regulates memory.
+//! The Gameboy has 64kB of memory, but it cannot be sufficiently represented
+//! by a single 64kB array. This is primarily due to the fact that the Gameboy supports
+//! ROM bank switching, which changes the part of the game's ROM that is visible in memory.
+//! 
+//! Different regions of memory are treated in different ways by different pieces of hardware on
+//! the Gameboy. For example, the CPU is restricted from accessing VRAM and OAM during certain
+//! timing windows. Certain registers, such as DIV and TIMA, incur side effects when written to.
+ 
 pub mod memmap;
+mod readwrite;
+mod dma;
 mod timers;
+
 use dma::Dma;
 use memmap::*;
 use std::{cell::RefCell, rc::Rc};
@@ -31,6 +39,8 @@ pub struct Mmu {
 }
 
 impl Mmu {
+    //! I chose to use the Rc RefCell for the MMU so that the CPU and PPU could borrow a mutable
+    //! reference to access it whenever they need to. It could just as easily be a global variable.
     pub fn new() -> Rc<RefCell<Mmu>> {
         let mmu = Mmu {
             dma: Dma::new(),
@@ -54,6 +64,7 @@ impl Mmu {
         Rc::new(RefCell::new(mmu))
     }
 
+    // todo! Support bigger ROMs
     pub fn load_rom(&mut self, path: &str) -> bool {
         let rom = match std::fs::read(path) {
             Ok(result) => result,
@@ -66,182 +77,7 @@ impl Mmu {
         true
     }
 
-    // Memory regions are all treated separately, and lots of regions and addresses
-    // have special rules that determine what happens when a read or write is done.
-    pub fn read_byte(&self, addr: u16) -> u8 {
-        let (mem_region, addr_mapped) = map_addr(addr);
-        let index = addr_mapped as usize;
-
-        use MemRegion as M;
-        match mem_region {
-            M::RomBank0 => self.rom_bank_00[index],
-            M::RomBank1 => self.rom_bank_01[index],
-            M::Vram => {
-                if self.vram_lock {
-                    GARBAGE_VALUE
-                } else {
-                    self.vram[index]
-                }
-            }
-            M::Exram => self.exram[index],
-            M::Wram0 => self.wram_0[index],
-            M::Wram1 => self.wram_1[index],
-            M::EchoRam => self.read_byte(addr - ECHO_OFFSET),
-            M::Oam => {
-                if self.oam_lock || self.dma.active {
-                    GARBAGE_VALUE
-                } else {
-                    self.oam[index]
-                }
-            }
-            M::Restricted => self.restricted_memory[index],
-            M::Io => match addr {
-                P1_ADDR => 0x0f,
-                IF_ADDR=> self.io[index] | 0b_1110_0000, // Upper 3 bits always read high
-                _ => self.io[index],
-            }
-            M::Hram => self.hram[index],
-            M::Ie => self.ie,
-        }
-    }
-
-    // Ignore all special rules
-    pub fn read_byte_override(&mut self, addr: u16) -> u8 {
-        let (mem_region, addr_mapped) = map_addr(addr);
-        let index = addr_mapped as usize;
-
-        use MemRegion as M;
-        match mem_region {
-            M::RomBank0 => self.rom_bank_00[index],
-            M::RomBank1 => self.rom_bank_01[index],
-            M::Vram => self.vram[index],
-            M::Exram => self.exram[index],
-            M::Wram0 => self.wram_0[index],
-            M::Wram1 => self.wram_1[index],
-            M::EchoRam => self.read_byte(addr - ECHO_OFFSET),
-            M::Oam => self.oam[index],
-            M::Restricted => self.restricted_memory[index],
-            M::Io => self.io[index],
-            M::Hram => self.hram[index],
-            M::Ie => self.ie,
-        }
-    }
-
-    // The PPU is not affected by the vram lock
-    pub fn bypass_read_byte_vram(&self, addr: u16) -> u8 {
-        let (mem_region, addr_mapped) = map_addr(addr);
-        if mem_region != MemRegion::Vram {
-            self.read_byte(addr)
-        } else {
-            let index = addr_mapped as usize;
-            self.vram[index]
-        }
-    }
-
-    pub fn write_byte(&mut self, addr: u16, byte: u8) {
-        let (mem_region, addr_mapped) = map_addr(addr);
-        let index = addr_mapped as usize;
-
-        if (addr == SC_ADDR) && (byte == TRANSFER_REQUESTED_VALUE) {
-            let c = self.read_byte(SB_ADDR) as char;
-            print!("{}", c);
-        }
-
-        use MemRegion as M;
-        match mem_region {
-            M::RomBank0 => self.rom_bank_00[index] = byte,
-            M::RomBank1 => self.rom_bank_01[index] = byte,
-            M::Vram => {
-                if !self.vram_lock {
-                    self.vram[index] = byte
-                }
-            }
-            M::Exram => self.exram[index] = byte,
-            M::Wram0 => self.wram_0[index] = byte,
-            M::Wram1 => self.wram_1[index] = byte,
-            M::EchoRam => self.write_byte(addr - ECHO_OFFSET, byte),
-            M::Oam => {
-                if !self.oam_lock && !self.dma.active {
-                    self.oam[index] = byte
-                }
-            }
-            M::Restricted => self.restricted_memory[index] = byte,
-            // IO writes have special behaviors
-            M::Io => match addr {
-                DIV_ADDR => self.write_byte_div(),
-                TMA_ADDR => self.write_byte_tma(byte),
-                TAC_ADDR => self.write_byte_tac(byte),
-                TIMA_ADDR => self.write_byte_tima(byte),
-                DMA_ADDR => self.start_dma_transfer(byte),
-                LY_ADDR => (),                                     // Read-only
-                STAT_ADDR => self.io[index] = byte & 0b_1111_1000, // Bottom 3 bits are read-only
-                IF_ADDR => self.io[index] = byte | 0b_1110_0000,   // Top 3 bits are always 1
-                _ => self.io[index] = byte,
-            },
-            M::Hram => self.hram[index] = byte,
-            M::Ie => self.ie = byte,
-        };
-    }
-
-    // During DMA, the CPU only has access to HRAM
-    fn dma_write() {}
-
-    // Ignore all special rules (except echo ram)
-    pub fn write_byte_override(&mut self, addr: u16, byte: u8) {
-        let (mem_region, addr_mapped) = map_addr(addr);
-        let index = addr_mapped as usize;
-
-        use MemRegion as M;
-        match mem_region {
-            M::RomBank0 => self.rom_bank_00[index] = byte,
-            M::RomBank1 => self.rom_bank_01[index] = byte,
-            M::Vram => self.vram[index] = byte,
-            M::Exram => self.exram[index] = byte,
-            M::Wram0 => self.wram_0[index] = byte,
-            M::Wram1 => self.wram_1[index] = byte,
-            M::EchoRam => self.write_byte(addr - ECHO_OFFSET, byte),
-            M::Oam => self.oam[index] = byte,
-            M::Restricted => self.restricted_memory[index] = byte,
-            M::Io => self.io[index] = byte,
-            M::Hram => self.hram[index] = byte,
-            M::Ie => self.ie = byte,
-        };
-    }
-
-    // LY is read-only by the CPU, but the PPU needs to write to them.
-    pub fn bypass_write_byte_ly(&mut self, byte: u8) {
-        let (_mem_region, addr_mapped) = map_addr(LY_ADDR);
-        let index = addr_mapped as usize;
-        self.io[index] = byte;
-    }
-
-    // The same is true for STAT, but only the bottom three bits.
-    pub fn bypass_write_byte_stat(&mut self, byte: u8) {
-        let (_mem_region, addr_mapped) = map_addr(STAT_ADDR);
-        let index = addr_mapped as usize;
-        self.io[index] = byte;
-    }
-
-    // Pay extra special attentian here to account for little-endianness
-    pub fn read_word(&self, addr: u16) -> u16 {
-        let lowbyte = self.read_byte(addr);
-        let highbyte = self.read_byte(addr + 1);
-        lowbyte as u16 | ((highbyte as u16) << 8)
-    }
-
-    pub fn write_word(&mut self, addr: u16, word: u16) {
-        let lowbyte = word as u8;
-        let highbyte = (word >> 8) as u8;
-        self.write_byte(addr, lowbyte);
-        self.write_byte(addr + 1, highbyte);
-    }
-
-    // An interrupt is requested by setting a specific bit in the IF register
-    pub fn request_interrupt(&mut self, interrupt_bit: u8) {
-        let mut byte = self.read_byte(IF_ADDR);
-        set_bit(&mut byte, interrupt_bit, true);
-        self.write_byte(IF_ADDR, byte);
-    }
+   
 }
 
 mod debug {
