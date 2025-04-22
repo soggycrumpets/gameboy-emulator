@@ -1,9 +1,9 @@
 use super::*;
 
-mod instructions;
-mod interrupts;
 mod alu;
 mod bits;
+mod instructions;
+mod interrupts;
 mod jumps;
 mod loads;
 pub mod registers;
@@ -46,8 +46,9 @@ pub struct Cpu {
     current_interrupt_handler_addr: u16,
     interrupt_t_cycles_remaining: u8,
 
-    current_instruction_prefixed: bool,
+    prev_instruction: u8,
     current_instruction: u8,
+    current_instruction_is_prefixed: bool,
     pub instruction_t_cycles_remaining: u8,
     instruction_m_cycles_remaining: u8,
 
@@ -72,8 +73,9 @@ impl Cpu {
             current_interrupt_handler_addr: 0x0000,
             interrupt_t_cycles_remaining: 0,
 
-            current_instruction_prefixed: false,
+            prev_instruction: 0,
             current_instruction: 0,
+            current_instruction_is_prefixed: false,
             instruction_t_cycles_remaining: 0,
             instruction_m_cycles_remaining: 0,
 
@@ -95,21 +97,24 @@ impl Cpu {
     }
 
     fn step(&mut self) {
-        if self.handle_interrupts() {
-            return;
-        }
+      
 
+        self.update_interrupt_status();
         if self.ime_pending {
             self.ime = true;
             self.ime_pending = false;
         }
 
-        if !self.halted {
-            if !self.current_instruction_prefixed {
+        if !self.halted && !self.handling_interrupt {
+            if !self.current_instruction_is_prefixed {
                 self.execute();
             } else {
                 self.execute_prefixed();
             }
+        }
+
+        if self.handling_interrupt {
+            self.step_interrupt();
         }
     }
 
@@ -119,7 +124,7 @@ impl Cpu {
         let byte = self.read_byte(pc);
 
         let next_addr = if !self.halt_bug_active {
-            pc + 1
+            pc.wrapping_add(1)
         } else {
             println!("Halt bug!");
             self.halt_bug_active = false;

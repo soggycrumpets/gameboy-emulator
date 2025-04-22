@@ -5,6 +5,7 @@ pub fn execute(&mut self) {
         // todo! Move this under "Fetch instruction"
         let instruction = if self.instruction_t_cycles_remaining == 0 {
             let opcode = self.fetch_instruction();
+            self.prev_instruction = self.current_instruction;
             self.current_instruction = opcode;
             self.instruction_t_cycles_remaining =
                 UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
@@ -283,7 +284,7 @@ pub fn execute(&mut self) {
             0xC8 => self.ret_cc(Flag::Z, true),       // RET Z
             0xC9 => self.ret(),                       // RET
             0xCA => self.jp_cc_a16(Flag::Z, true),    // JP Z, a16
-            0xCB => self.current_instruction_prefixed = true, // PREFIX
+            0xCB => self.current_instruction_is_prefixed = true, // PREFIX
             0xCC => self.call_cc_a16(Flag::Z, true),  // CALL Z, a16
             0xCD => self.call_a16(),                  // CALL a16
             0xCE => self.alu_a_n8(AluBinary::Adc),    // ADC A, n8
@@ -345,6 +346,7 @@ pub fn execute(&mut self) {
     pub fn execute_prefixed(&mut self) {
         // todo! Move this under "Fetch instruction"
         let instruction = if self.current_instruction == 0xCB {
+            self.prev_instruction = self.current_instruction;
             self.current_instruction = self.fetch_instruction();
             self.instruction_t_cycles_remaining = PREFIXED_INSTRUCTION_T_CYCLE_TABLE
                 [self.current_instruction as usize]
@@ -359,7 +361,7 @@ pub fn execute(&mut self) {
 
         // If this is the last cycle of the instruction, get ready to execute an unprefixed instruction next time
         if self.instruction_m_cycles_remaining == 1 {
-            self.current_instruction_prefixed = false;
+            self.current_instruction_is_prefixed = false;
         }
 
         match instruction {

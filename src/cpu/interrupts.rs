@@ -1,33 +1,30 @@
 use super::*;
+/// the first three bits of the interrupt registers are invalid.
+/// Therefore, they should not be checked when handling interrupts.
+const INTERRUPT_MASK: u8 = 0x1F;
 
 pub enum Interrupt {}
 
 impl Cpu {
-    pub fn handle_interrupts(&mut self) -> bool {
-        if self.handling_interrupt {
-            self.step_interrupt();
-            return true;
-        }
-
-        // Interrupts should not be updated mid-instruction
-        if self.instruction_t_cycles_remaining != 0 {
-            return false;
+    pub fn update_interrupt_status(&mut self) {
+        // Interrupts cannot be triggered in the middle of instructions.
+        if self.instruction_m_cycles_remaining > 1 {
+            return;
         }
 
         let ie_byte = self.read_byte(IE_ADDR);
         let if_byte = self.read_byte(IF_ADDR);
-        let interrupts_are_pending = (ie_byte & if_byte) != 0;
+        let interrupts_are_pending = (ie_byte & if_byte & INTERRUPT_MASK) != 0;
 
         if !interrupts_are_pending {
-            return false;
-        }
-
-        if !self.ime {
-            self.halted = false;
-            return false;
+            return;
         }
 
         self.halted = false;
+
+        if !self.ime {
+            return;
+        }
 
         let vblank_interrupt = get_bit(if_byte, VBLANK_INTERRUPT_BIT);
         let stat_interrupt = get_bit(if_byte, STAT_INTERRUPT_BIT);
@@ -57,27 +54,18 @@ impl Cpu {
         } else if joypad_interrupt && joypad_interrupt_enabled {
             self.start_interrupt(JOYPAD_INTERRUPT_HANDLER_ADDR, JOYPAD_INTERRUPT_BIT);
         }
-
-        true
     }
 
     fn start_interrupt(&mut self, interrupt_handler_addr: u16, interrupt_bit: u8) {
-        // Record that the interrupt has been handled
-        // let mut if_byte = self.read_byte(IF_ADDR);
-        // set_bit(&mut if_byte, interrupt_bit, false);
-        // self.write_byte(IF_ADDR, if_byte);
-        // self.ime = false;
-
         self.instruction_t_cycles_remaining = INTERRUPT_T_CYCLES;
         self.instruction_m_cycles_remaining =
             self.instruction_t_cycles_remaining / M_CYCLE_DURATION as u8;
         self.current_interrupt_handler_addr = interrupt_handler_addr;
         self.current_interrupt_bit = interrupt_bit;
         self.handling_interrupt = true;
-        self.step_interrupt();
     }
 
-    fn step_interrupt(&mut self) {
+    pub fn step_interrupt(&mut self) {
         match (self.instruction_m_cycles_remaining) {
             // NOP
             5 => (),
@@ -91,16 +79,17 @@ impl Cpu {
                 let high_byte = (self.reg.get16(R16::PC) >> 8) as u8;
                 self.write_byte(sp, high_byte);
 
-                //
                 let ie = self.read_byte(IE_ADDR);
                 let enabled = get_bit(ie, self.current_interrupt_bit);
+
+                self.ime = false;
+
                 if !enabled {
                     self.current_interrupt_handler_addr = 0x0000;
                 } else {
                     let mut if_byte = self.read_byte(IF_ADDR);
                     set_bit(&mut if_byte, self.current_interrupt_bit, false);
                     self.write_byte(IF_ADDR, if_byte);
-                    self.ime = false;
                 }
                 println!("3");
             }
@@ -140,12 +129,9 @@ impl Cpu {
     pub fn halt(&mut self) {
         let ie_byte = self.read_byte(IE_ADDR);
         let if_byte = self.read_byte(IF_ADDR);
-        let interrupts_are_pending = (ie_byte & if_byte) != 0;
+        let interrupts_are_pending = (ie_byte & if_byte & INTERRUPT_MASK) != 0;
 
-        if !self.ime && interrupts_are_pending {
-            self.halt_bug_active = true;
-        } else {
-            self.halted = true;
-        }
+        self.halted = !(self.ime && interrupts_are_pending);
+        self.halt_bug_active = !self.ime && interrupts_are_pending;
     }
 }
