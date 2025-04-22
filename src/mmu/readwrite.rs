@@ -5,8 +5,8 @@ const GARBAGE_VALUE: u8 = 0xFF;
 
 use super::*;
 impl Mmu {
-    //! Memory regions are all treated separately, and lots of regions and addresses
-    //! have special rules that determine what happens when a read or write is done.
+    /// Read a byte from memory. There are many side-effects and special cases that determine
+    /// how exactly the read is processed.
     pub fn read_byte(&self, addr: u16) -> u8 {
         let mem_region = map_region(addr);
         let index = map_addr(addr);
@@ -44,6 +44,8 @@ impl Mmu {
         }
     }
 
+    /// Write a byte to memory. There are many side-effects and special cases that determine
+    /// how exactly the read is processed.
     pub fn write_byte(&mut self, addr: u16, byte: u8) {
         let mem_region= map_region(addr);
         let index = map_addr(addr);
@@ -89,8 +91,8 @@ impl Mmu {
         };
     }
 
-    /// This function bypasses all of the special conditions and side-effects of the 
-    /// standard read_byte function. Use this carefully!
+    /// Read one byte from memory, bypassing all of the special cases
+    /// and side-effects of the standard read_byte function. Use this with caution!
     pub fn read_byte_override(&self, addr: u16) -> u8 {
         let mem_region= map_region(addr);
         let index = map_addr(addr);
@@ -114,8 +116,8 @@ impl Mmu {
 
    
 
-    /// This function bypasses all of the special conditions and side-effects of the 
-    /// standard write_byte function. Use this carefully!
+    /// Write one byte from memory, bypassing all of the special cases
+    /// and side-effects of the standard read_byte function. Use this with caution!
     pub fn write_byte_override(&mut self, addr: u16, byte: u8) {
         let index = map_addr(addr);
         let region = map_region(addr);
