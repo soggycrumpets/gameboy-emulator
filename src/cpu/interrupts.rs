@@ -1,9 +1,13 @@
 use super::*;
-/// the first three bits of the interrupt registers are invalid.
-/// Therefore, they should not be checked when handling interrupts.
+/// the leftmost three bits of the IF register do not exist, and therefore always read high.
+/// The leftmost three bits of the IE register DO exist, and can be written to.
+/// When checking for pending interrupts, is it imperative that the upper three bits of the registers
+/// be ignored. Otherwise, if any of IE's 3 upper bits happen to be set, it will wrongfully trigger interrupts.
 const INTERRUPT_MASK: u8 = 0x1F;
 
-pub enum Interrupt {}
+/// In the case that an interrupt is cancelled by writing to IE mid-interrupt, the interrupt
+/// return address is replaced with this.
+const CANCELLED_INTERRUPT_RETURN_ADDR: u16 = 0x0000;
 
 impl Cpu {
     pub fn update_interrupt_status(&mut self) {
@@ -65,8 +69,14 @@ impl Cpu {
         self.handling_interrupt = true;
     }
 
+    /// Interrupts take 5 M-cycles, and are essentially an RST instruction that jumps to a
+    /// special address, depending on which interrupt is being handled.
+    /// Strange things can occur if the IE register is overwritten during the first byte push.
+    /// I'm not managing to pass
+    /// [Mooneye's test](https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/interrupts/ie_push.s)
+    /// for it, but but this behavior is obscure enough that it is unlikely to matter in almost any case.
     pub fn step_interrupt(&mut self) {
-        match (self.instruction_m_cycles_remaining) {
+        match self.instruction_m_cycles_remaining {
             // NOP
             5 => (),
             // NOP
@@ -85,13 +95,12 @@ impl Cpu {
                 self.ime = false;
 
                 if !enabled {
-                    self.current_interrupt_handler_addr = 0x0000;
+                    self.current_interrupt_handler_addr = CANCELLED_INTERRUPT_RETURN_ADDR;
                 } else {
                     let mut if_byte = self.read_byte(IF_ADDR);
                     set_bit(&mut if_byte, self.current_interrupt_bit, false);
                     self.write_byte(IF_ADDR, if_byte);
                 }
-                println!("3");
             }
             // Push PC low byte
             2 => {
@@ -101,15 +110,13 @@ impl Cpu {
 
                 let low_byte = self.reg.get16(R16::PC) as u8;
                 self.write_byte(sp, low_byte);
-                println!("2");
             }
             // Jump to interrupt handler address
             1 => {
                 self.jp_u16(self.current_interrupt_handler_addr);
                 self.handling_interrupt = false;
-                println!("1");
             }
-            _ => unreachable!("{}", self.interrupt_t_cycles_remaining),
+            _ => unreachable!(),
         }
     }
 

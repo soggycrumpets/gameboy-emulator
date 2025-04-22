@@ -21,7 +21,6 @@ use crate::util::{get_bit, set_bit};
 
 use alu::{AluBinary, AluUnary};
 use bits::{BitflagOp, BitshiftOp};
-use interrupts::Interrupt;
 use registers::{Flag, R8, R16, Registers};
 
 pub const INTERRUPT_T_CYCLES: u8 = 5 * 4;
@@ -43,7 +42,6 @@ pub struct Cpu {
     handling_interrupt: bool,
     current_interrupt_bit: u8,
     current_interrupt_handler_addr: u16,
-    interrupt_t_cycles_remaining: u8,
 
     prev_instruction: u8,
     current_instruction: u8,
@@ -70,7 +68,6 @@ impl Cpu {
             handling_interrupt: false,
             current_interrupt_bit: 0,
             current_interrupt_handler_addr: 0x0000,
-            interrupt_t_cycles_remaining: 0,
 
             prev_instruction: 0,
             current_instruction: 0,
