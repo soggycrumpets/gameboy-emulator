@@ -27,11 +27,21 @@ impl Cpu {
     }
 
     pub fn bitshift_at_hl(&mut self, op: BitshiftOp) {
-        let bits = self.read_at_hl();
-        let result = self.bitshift_u8(op, bits);
 
-        self.write_at_hl(result);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            3 => (),
+            // Read
+            2 => self.byte_buf = self.read_at_hl(),
+            // Write
+            1 => {
+                let result = self.bitshift_u8(op, self.byte_buf);
+                self.write_at_hl(result);
+            }
+            _ => unreachable!(),
+        }
     }
+
 
     pub fn bitflag_u3_r8(&mut self, op: BitflagOp, bit: u8, r8: R8) {
         let bits = self.reg.get(r8);
@@ -40,10 +50,58 @@ impl Cpu {
     }
 
     pub fn bitflag_u3_at_hl(&mut self, op: BitflagOp, bit: u8) {
-        let bits = self.read_at_hl();
-        let result = self.bitflag_u3_u8(op, bit, bits);
 
-        self.write_at_hl(result);
+        match op {
+            BitflagOp::Bit  => match self.instruction_m_cycles_remaining {
+            // Fetch
+            2 => (),
+            // Read
+            1 => {
+                let byte = self.read_at_hl();
+                self.bitflag_u3_u8(op, bit, byte);
+            }
+            _ => unreachable!(),
+            }
+            BitflagOp::Res | BitflagOp::Set => match self.instruction_m_cycles_remaining {
+                // Fetch
+                3 => (),
+                // Read
+                2 => self.byte_buf = self.read_at_hl(),
+                // Write
+                1 => {
+                    let result = self.bitflag_u3_u8(op, bit, self.byte_buf);
+                    self.write_at_hl(result);
+                }
+                _ => unreachable!(),
+            }
+        }
+        
+
+        // let bits = self.read_at_hl();
+        // let result = self.bitflag_u3_u8(op, bit, bits);
+
+        // self.write_at_hl(result);
+    }
+
+    // Special unprefixed operations
+    pub fn rlca(&mut self) {
+        self.bitshift_r8(BitshiftOp::Rlc, R8::A);
+        self.reg.set_flag(Flag::Z, false);
+    }
+
+    pub fn rrca(&mut self) {
+        self.bitshift_r8(BitshiftOp::Rrc, R8::A);
+        self.reg.set_flag(Flag::Z, false);
+    }
+
+    pub fn rla(&mut self) {
+        self.bitshift_r8(BitshiftOp::Rl, R8::A);
+        self.reg.set_flag(Flag::Z, false);
+    }
+
+    pub fn rra(&mut self) {
+        self.bitshift_r8(BitshiftOp::Rr, R8::A);
+        self.reg.set_flag(Flag::Z, false);
     }
 
     // This function maps bitshifts to their functions
@@ -178,7 +236,7 @@ impl Cpu {
         result
     }
 
-    // ----- Bit Flag Instructions -----
+    // ----- Bitflag Instructions -----
 
     // BIT
     fn bit_u3_u8(&mut self, bit_position: u8, bits: u8) {

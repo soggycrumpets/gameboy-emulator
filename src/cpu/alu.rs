@@ -22,8 +22,8 @@ pub enum AluUnary {
 }
 
 impl Cpu {
-    // These functions map the most common ALU operations to their functions
-    // This one is for binary operations (all but INC and DEC)
+    // These functions map the most common ALU operations to their functions.
+    // This one is for binary operations:
     fn alu_a_u8(&mut self, op: AluBinary, value: u8) {
         match op {
             AluBinary::Add => self.add_a_u8(value),
@@ -37,7 +37,7 @@ impl Cpu {
         };
     }
 
-    // This one is for unary operations (INC and DEC)
+    // This one is for unary operations:
     fn alu_u8(&mut self, op: AluUnary, value: u8) -> u8 {
         match op {
             AluUnary::Inc => self.inc_u8(value),
@@ -45,15 +45,38 @@ impl Cpu {
         }
     }
 
-    // These are the ALU interface functions for 8-bit operations
+    // These are the ALU interface functions for 8-bit operations:
     pub fn alu_a_r8(&mut self, op: AluBinary, r8: R8) {
         let value = self.reg.get(r8);
         self.alu_a_u8(op, value);
     }
 
     pub fn alu_a_at_hl(&mut self, op: AluBinary) {
-        let value = self.read_at_hl();
-        self.alu_a_u8(op, value);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            2 => (),
+            // Op on A with [HL]
+            1 => {
+                let value = self.read_at_hl();
+                self.alu_a_u8(op, value);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn alu_at_hl(&mut self, op: AluUnary) {
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            3 => (),
+            // Read from [HL]
+            2 => self.byte_buf = self.read_at_hl(),
+            // Write to [HL]
+            1 => {
+                let result = self.alu_u8(op, self.byte_buf);
+                self.write_at_hl(result);
+            }
+            _ => unreachable!(),
+        }
     }
 
     pub fn alu_a_n8(&mut self, op: AluBinary) {
@@ -66,13 +89,6 @@ impl Cpu {
         let result = self.alu_u8(op, value);
 
         self.reg.set(r8, result);
-    }
-
-    pub fn alu_at_hl(&mut self, op: AluUnary) {
-        let value = self.read_at_hl();
-        let result = self.alu_u8(op, value);
-
-        self.write_at_hl(result);
     }
 
     // ----- ADD -----
@@ -108,33 +124,41 @@ impl Cpu {
     }
 
     // This contains the core functionality of add_sp_e8, as well as ld_hl_sp_e8 from load.rs
-    pub fn calc_sp_plus_e8(&mut self) -> u16 {
+    pub fn calc_sp_plus_e8(&mut self, byte: u8) -> u16 {
         let sp = self.reg.get16(R16::SP);
-        let n8 = self.fetch_byte();
 
-        // Casting this way allows e8 to be negative if n8 is big enough
-        let e8 = (n8 as i8) as i16;
+        // Casting this way allows e8 to be negative if n8 is big enough (n8 > i8_MAX results in a negative)
+        // Casting directly to an i16 would not change the sign
+        let e8 = (byte as i8) as i16;
 
         let result = (sp as i16).wrapping_add(e8) as u16;
-
-        // For flag checking, take the low byte of sp
-        let sp_low = sp as u8;
 
         self.reg.set_flag(Flag::Z, false);
         self.reg.set_flag(Flag::N, false);
         self.reg
-            .set_flag(Flag::H, (sp_low & 0x0F) + (n8 & 0x0F) > 0x0F);
-        self.reg.set_flag(
-            Flag::C,
-            ((sp_low as u16) & 0x00FF) + ((n8 as u16) & 0x00FF) > 0xFF,
-        );
+            .set_flag(Flag::H, (sp as u8 & 0x0F) + (byte & 0x0F) > 0x0F);
+        self.reg
+            .set_flag(Flag::C, (sp & 0x00FF) + ((byte as u16) & 0x00FF) > 0xFF);
 
         result
     }
 
     pub fn add_sp_e8(&mut self) {
-        let result = self.calc_sp_plus_e8();
-        self.reg.set16(R16::SP, result);
+        match self.instruction_m_cycles_remaining {
+            // Fetch
+            4 => (),
+            // Read e8, calculate, write to SP
+            3 => {
+                self.byte_buf = self.fetch_byte();
+                let word = self.calc_sp_plus_e8(self.byte_buf);
+                self.reg.set16(R16::SP, word);
+            }
+            // Internal 
+            2 => (),
+            // Internal
+            1 => (),
+            _ => unreachable!(),
+        }
     }
 
     // ----- ADC -----

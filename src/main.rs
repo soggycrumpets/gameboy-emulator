@@ -1,91 +1,154 @@
-use constants::{
-    BOOTROM_START_ADDR, PREFIXED_INSTRUCTION_T_CYCLE_TABLE, PROGRAM_START_ADDR,
-    UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE,
-};
-use cpu::Cpu;
-use cpu::registers::R16;
+#![allow(dead_code)]
+#![allow(unused)]
 
+mod cli;
 mod constants;
 mod cpu;
+mod debugger;
 mod mmu;
+mod ppu;
+mod ui;
+mod util;
 
-// Hardcoded for now
-const TEST_CPU_PATH: &str = "./roms/cpu_instrs.gb";
-const GAME_PATH: &str = "./roms/tetris.gb";
-const BOOTROM_PATH: &str = "./roms/dmg_boot.gb";
+use cli::{Command, parse_cli_inputs};
 
-const ROM_PATH: &str = GAME_PATH;
+use cpu::{debug::print_t_cycle_tables, registers::R8, Cpu};
+use debugger::run_debug;
+use mmu::{Mmu, memmap::*};
+use ppu::Ppu;
+use std::{
+    cell::RefCell,
+    process,
+    rc::Rc,
+    time::{Duration, Instant},
+};
+use ui::UserInterface;
+
+use cpu::registers::R16;
+const SYSTEM_CLOCK_FREQUENCY: f64 = (1 << 22) as f64; // Hz
+const SYSTEM_CLOCK_PERIOD: f64 = 1.0 / SYSTEM_CLOCK_FREQUENCY; // Seconds
 
 fn main() {
+    let input = parse_cli_inputs();
+    match input {
+        Command::Rom(path) => run_rom(&path),
+        Command::Debug(path) => run_debug(&path),
+    }
+}
 
-    let mut cpu = Cpu::new();
+fn run_rom(path: &str) {
+    println!("\nLoading rom at: \"{}\"", path);
 
-    // TODO: Fix the boot sequence (not sure exactly how it should work yet)
-    // boot(&mut cpu);
+    let (mmu, mut cpu, mut ppu) = create_gameboy_components();
 
-    if !cpu.mmu.load_rom(ROM_PATH) {
-        println!("Failed to load \"{}\"", GAME_PATH);
+    if !mmu.borrow_mut().load_rom(path) {
+        println!("Failed to load rom at \"{}\"", path);
         return;
     }
 
-    loop {
-        cpu.execute();
-        let pc = cpu.reg.get16(R16::PC);
-        // println!("{:4x}", pc);
-    }
-}
+    emulate_boot(&mmu, &mut cpu);
 
-fn boot(cpu: &mut Cpu) -> bool {
-    if !cpu.mmu.load_rom(ROM_PATH) {
-        println!("Failed to load \"{}\"", GAME_PATH);
-        return false;
-    }
+    let mut ui = UserInterface::new();
 
-    // Loop until the program counter reaches the end of the bootrom
-    loop {
-        let pc = cpu.reg.get16(R16::PC);
-        if pc == PROGRAM_START_ADDR {
-            break;
-        }
+    let render_timer_period = Duration::from_secs_f64(1.0 / 60.0);
+    let mut last_render_time = Instant::now();
 
-        cpu.execute();
-    }
+//    print_t_cycle_tables(); 
 
-    true
-}
+    // todo! This loop munches up CPU
+    // todo! The only timer this should need is the global clock,
+    // One loop represents one t-cycle
+    while ui.running {
 
-fn print_t_cycle_tables() {
-    println!("\nUnprefixed Instructions:\n");
-    print_table(UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE);
-    print!("\n\n");
-    println!("Prefixed Instructions:\n");
-    print_table(PREFIXED_INSTRUCTION_T_CYCLE_TABLE);
-    print!("\n\n");
+        cpu.tick();
+        mmu.borrow_mut().tick_timers();
+        mmu.borrow_mut().tick_dma();
+        ppu.tick();
+        // todo!
+        // The ppu should eventually draw a little bit at a time.
+        // For now, just draw everything at once at 60fps
+        if last_render_time.elapsed() >= render_timer_period {
+            process_inputs(&mut ui, &mmu);
+            ppu.splat_tiles();
+            ui.render_display(&ppu.display);
 
-    fn print_table(table: &[u8]) {
-        let mut counter = 0;
-        for i in table {
-            print!("{:02} ", i);
-            counter += 1;
-
-            if counter == 16 {
-                counter = 0;
-                println!();
-            }
+            last_render_time = Instant::now();
         }
     }
 }
 
-fn test_rom() {
-    let mut cpu = Cpu::new();
+fn create_gameboy_components() -> (Rc<RefCell<Mmu>>, Cpu, Ppu) {
+    let mmu = Mmu::new();
+    let cpu = Cpu::new(Rc::clone(&mmu));
+    let ppu = Ppu::new(Rc::clone(&mmu));
+    (mmu, cpu, ppu)
+}
 
-    if !cpu.mmu.load_rom(ROM_PATH) {
-        println!("Failed to CPU test rom");
-        return;
-    }
+fn process_inputs(ui: &mut UserInterface, mmu: &Rc<RefCell<Mmu>>) {
+    ui.process_inputs();
+    let b = ui.inputs_down.w;
+    let a_button = ui.inputs_down.a;
+    let s_button = ui.inputs_down.s;
+    let d_button = ui.inputs_down.d;
 
-    loop {
-        cpu.execute();
-        let pc = cpu.reg.get16(R16::PC);
-    }
+    let m_button = ui.inputs_down.m;
+    let n_button = ui.inputs_down.n;
+}
+
+// While you technically can obtain a copy of the original gameboy bootrom online,
+// it's legally dubious. It's safer and easier for the user if the emulator just
+// replicates the post-boot state, rather than requiring them to source the bootrom.
+// The pandocs contain good information about this (Section: 22. Power-Up Sequence)
+fn emulate_boot(mmu: &Rc<RefCell<Mmu>>, cpu: &mut Cpu) {
+    cpu.reg.set(R8::A, 0x01);
+    // The H and C flags in the F register depend on the cartridge header checksum.
+    // They are both true if checksum != 0x00, otherwise they are both false.
+    // BGB initializes F to 0xB0 (checksum != 0x00), so I'll follow that example.
+    cpu.reg.set(R8::F, 0xB0);
+    cpu.reg.set(R8::B, 0x00);
+    cpu.reg.set(R8::C, 0x13);
+    cpu.reg.set(R8::D, 0x00);
+    cpu.reg.set(R8::E, 0xD8);
+    cpu.reg.set(R8::H, 0x01);
+    cpu.reg.set(R8::L, 0x4D);
+    cpu.reg.set16(R16::PC, 0x0100);
+    cpu.reg.set16(R16::SP, 0xFFFE);
+
+    // Hardware registers
+    mmu.borrow_mut().write_byte_override(NR_10_ADDR, 0x80);
+    mmu.borrow_mut().write_byte_override(NR_11_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override(NR_12_ADDR, 0xF3);
+    mmu.borrow_mut().write_byte_override(NR_13_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override(NR_14_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override(NR_21_ADDR, 0x3F);
+    mmu.borrow_mut().write_byte_override(NR_22_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(NR_23_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override(NR_24_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override(NR_30_ADDR, 0x7F);
+    mmu.borrow_mut().write_byte_override(NR_31_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override(NR_32_ADDR, 0x9F);
+    mmu.borrow_mut().write_byte_override(NR_33_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override(NR_34_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override(NR_41_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override(NR_42_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(NR_43_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(NR_44_ADDR, 0xBF);
+    mmu.borrow_mut().write_byte_override(NR_50_ADDR, 0x77);
+    mmu.borrow_mut().write_byte_override(NR_51_ADDR, 0xF3);
+    mmu.borrow_mut().write_byte_override(NR_52_ADDR, 0xF1);
+    mmu.borrow_mut().write_byte_override(LCDC_ADDR, 0x91);
+    mmu.borrow_mut().write_byte_override(STAT_ADDR, 0x85);
+    mmu.borrow_mut().write_byte_override(SCY_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(SCX_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(LY_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(LYC_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(DMA_ADDR, 0xFF);
+    mmu.borrow_mut().write_byte_override(BGP_ADDR, 0xFC);
+    mmu.borrow_mut().write_byte_override(OBP0_ADDR, 0x00); // Uninitialized
+    mmu.borrow_mut().write_byte_override(OBP1_ADDR, 0x00); // Uninitialized
+    mmu.borrow_mut().write_byte_override(WY_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(WX_ADDR, 0x00);
+    mmu.borrow_mut().write_byte_override(IE_ADDR, 0x00);
+
+
 }

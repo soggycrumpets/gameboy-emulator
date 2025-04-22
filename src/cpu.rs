@@ -1,116 +1,338 @@
-use crate::mmu::Mmu;
+use super::*;
+
 mod alu;
 mod bits;
 mod jumps;
 mod loads;
 pub mod registers;
+
+use crate::constants::M_CYCLE_DURATION;
+use crate::mmu::Mmu;
+use crate::mmu::memmap::{
+    IE_ADDR, IF_ADDR, JOYPAD_INTERRUPT_BIT, JOYPAD_INTERRUPT_HANDLER_ADDR, LY_ADDR,
+    SERIAL_INTERRUPT_BIT, SERIAL_INTERRUPT_HANDLER_ADDR, STAT_INTERRUPT_BIT,
+    STAT_INTERRUPT_HANDLER_ADDR, TIMER_INTERRUPT_BIT, TIMER_INTERRUPT_HANDLER_ADDR,
+    VBLANK_INTERRUPT_BIT, VBLANK_INTERRUPT_HANDLER_ADDR,
+};
+
+use crate::util::{get_bit, set_bit};
+
 use alu::{AluBinary, AluUnary};
 use bits::{BitflagOp, BitshiftOp};
-use registers::Flag;
-use registers::Registers;
-use registers::{R8, R16};
+use registers::{Flag, R8, R16, Registers};
+
+pub const INTERRUPT_T_CYCLES: u8 = 5 * 4;
+
+pub const UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =
+    include_bytes!("../data/unprefixed_instruction_t_cycle_table.dat");
+pub const PREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =
+    include_bytes!("../data/prefixed_instruction_t_cycle_table.dat");
 
 pub struct Cpu {
     pub reg: Registers,
-    pub mmu: Mmu,
-    pub instruction_tick_cycles: u8,
+    pub mmu: Rc<RefCell<Mmu>>,
+
     ime: bool,
     ime_pending: bool,
+    halted: bool,
+    just_halted: bool,
+    halt_bug_active: bool,
+
+    handling_interrupt: bool,
+    interrupt_t_cycles_remaining: u8,
+
+    current_instruction_prefixed: bool,
+    current_instruction: u8,
+    pub instruction_t_cycles_remaining: u8,
+    instruction_m_cycles_remaining: u8,
+
+    byte_buf: u8,
+    word_buf_low: u8,
+    word_buf_high: u8,
 }
 
 impl Cpu {
-    pub fn new() -> Cpu {
+    pub fn new(mmu: Rc<RefCell<Mmu>>) -> Cpu {
         Cpu {
             reg: Registers::new(),
-            mmu: Mmu::new(),
-            instruction_tick_cycles: 0,
+            mmu,
+
             ime: true,
             ime_pending: false,
+            halted: false,
+            halt_bug_active: false,
+            just_halted: false,
+
+            handling_interrupt: false,
+            interrupt_t_cycles_remaining: 0,
+
+            current_instruction_prefixed: false,
+            current_instruction: 0,
+            instruction_t_cycles_remaining: 0,
+            instruction_m_cycles_remaining: 0,
+
+            byte_buf: 0x00,
+            word_buf_high: 0x00,
+            word_buf_low: 0x00,
         }
     }
 
-    pub fn fetch_byte(&mut self) -> u8 {
-        let pc = self.reg.get16(R16::PC);
-        let byte = self.mmu.read_byte(pc);
+    pub fn tick(&mut self) {
+        // Update timings
+        self.instruction_t_cycles_remaining = self.instruction_t_cycles_remaining.saturating_sub(1);
+        self.instruction_m_cycles_remaining = self.instruction_t_cycles_remaining / 4;
+        self.interrupt_t_cycles_remaining = self.interrupt_t_cycles_remaining.saturating_sub(1);
 
-        let next_addr = pc + 1;
+        // One instruction per m-cycle
+        if self.instruction_t_cycles_remaining % 4 == 0 {
+            self.step();
+        }
+    }
+
+    fn step(&mut self) {
+        if self.handle_interrupts() || self.interrupt_t_cycles_remaining != 0 {
+            return;
+        }
+
+        if self.ime_pending {
+            self.ime = true;
+            self.ime_pending = false;
+        }
+
+        self.just_halted = false;
+
+        if !self.halted {
+            if !self.current_instruction_prefixed {
+                self.execute();
+            } else {
+                self.execute_prefixed();
+            }
+        }
+    }
+
+    // This is basically fetch_byte, but with the halt bug implemented.
+    pub fn fetch_instruction(&mut self) -> u8 {
+        let pc = self.reg.get16(R16::PC);
+        let byte = self.read_byte(pc);
+
+        let next_addr = if !self.halt_bug_active {
+            pc + 1
+        } else {
+            println!("Halt bug!");
+            self.halt_bug_active = false;
+            pc
+        };
+
         self.reg.set16(R16::PC, next_addr);
         byte
     }
 
-    pub fn fetch_word(&mut self) -> u16 {
+    fn fetch_byte(&mut self) -> u8 {
         let pc = self.reg.get16(R16::PC);
-        let word = self.mmu.read_word(pc);
+        let byte = self.read_byte(pc);
+
+        let next_addr = pc + 1;
+
+        self.reg.set16(R16::PC, next_addr);
+        byte
+    }
+
+    fn get_word_buf(&mut self) -> u16 {
+        (self.word_buf_low as u16) | ((self.word_buf_high as u16) << 8)
+    }
+
+    fn fetch_word(&mut self) -> u16 {
+        let pc = self.reg.get16(R16::PC);
+        let word = self.mmu.borrow_mut().read_word(pc);
 
         let next_addr = pc + 2;
         self.reg.set16(R16::PC, next_addr);
+
         word
     }
 
-    pub fn execute(&mut self) {
-        let opcode = self.fetch_byte();
-        // println!("{:02x}", opcode);
+    fn handle_interrupts(&mut self) -> bool {
+        // Interrupts can only be handled in-between full instructions
+        if self.instruction_t_cycles_remaining != 0 {
+            return false;
+        }
 
-        // Look up the number of clock cycles this instruction will take
-        // Note: In the case of checked condition functions, the minimum
-        // time is assumed. The functions will increment adjust the value
-        // when called if the condition is met.
-        self.instruction_tick_cycles = 0; // TODO: Index clock cycle array
+        let ie_byte = self.read_byte(IE_ADDR);
+        let if_byte = self.read_byte(IF_ADDR);
+        let interrupts_are_pending = (ie_byte & if_byte) != 0;
 
-        // Every instruction that contains an n8, a8, or e8 will fetch a byte.
-        // Every instruction that contains an n16 or a16 will fetch a word.
+        if !interrupts_are_pending {
+            return false;
+        }
 
-        match opcode {
-            0x00 => (),                                       // NOP
-            0x01 => self.ld_r16_n16(R16::BC),                 // LD BC, n16
-            0x02 => self.ld_at_r16_a(R16::BC),                // LD BC, A
-            0x03 => self.inc_r16(R16::BC),                    // INC BC
-            0x04 => self.alu_r8(AluUnary::Inc, R8::B),        // INC B
-            0x05 => self.alu_r8(AluUnary::Dec, R8::B),        // DEC B
-            0x06 => self.ld_r8_n8(R8::B),                     // LD B, n8
-            0x07 => self.bitshift_r8(BitshiftOp::Rrc, R8::A), // RLCA
-            0x08 => self.ld_at_n16_sp(),                      // LD [n16], SP
-            0x09 => self.add_hl_r16(R16::BC),                 // ADD HL, BC
-            0x0A => self.ld_a_at_r16(R16::BC),                // LD A, [BC]
-            0x0B => self.dec_r16(R16::BC),                    // DEC BC
-            0x0C => self.alu_r8(AluUnary::Inc, R8::C),        // INC C
-            0x0D => self.alu_r8(AluUnary::Dec, R8::C),        // DEC C
-            0x0E => self.ld_r8_n8(R8::C),                     // LD C, n8
-            0x0F => self.bitshift_r8(BitshiftOp::Rrc, R8::A), // RRCA
+        if !self.ime {
+            if self.just_halted {
+                self.halt_bug_active = true;
+            }
 
-            0x10 => todo!("STOP n8"),                        // STOP n8
-            0x11 => self.ld_r16_n16(R16::DE),                // LD DE, n16
-            0x12 => self.ld_at_r16_a(R16::DE),               // LD DE, A
-            0x13 => self.inc_r16(R16::DE),                   // INC DE
-            0x14 => self.alu_r8(AluUnary::Inc, R8::D),       // INC D
-            0x15 => self.alu_r8(AluUnary::Dec, R8::D),       // DEC D
-            0x16 => self.ld_r8_n8(R8::D),                    // LD D, n8
-            0x17 => self.bitshift_r8(BitshiftOp::Rl, R8::A), // RLA
-            0x18 => self.jr_e8(),                            // JR e8
-            0x19 => self.add_hl_r16(R16::DE),                // ADD HL, DE
-            0x1A => self.ld_a_at_r16(R16::DE),               // LD A, [DE]
-            0x1B => self.dec_r16(R16::DE),                   // DEC DE
-            0x1C => self.alu_r8(AluUnary::Inc, R8::E),       // INC E
-            0x1D => self.alu_r8(AluUnary::Dec, R8::E),       // DEC E
-            0x1E => self.ld_r8_n8(R8::E),                    // LD E, n8
-            0x1F => self.bitshift_r8(BitshiftOp::Rr, R8::A), // RRA
+            self.halted = false;
+            return false;
+        } 
+
+        self.halted = false;
+        self.interrupt_t_cycles_remaining = INTERRUPT_T_CYCLES;
+
+        let vblank_interrupt = get_bit(if_byte, VBLANK_INTERRUPT_BIT);
+        let stat_interrupt = get_bit(if_byte, STAT_INTERRUPT_BIT);
+        let timer_interrupt = get_bit(if_byte, TIMER_INTERRUPT_BIT);
+        let serial_interrupt = get_bit(if_byte, SERIAL_INTERRUPT_BIT);
+        let joypad_interrupt = get_bit(if_byte, JOYPAD_INTERRUPT_BIT);
+
+        let vblank_interrupt_enabled = get_bit(ie_byte, VBLANK_INTERRUPT_BIT);
+        let stat_interrupt_enabled = get_bit(ie_byte, STAT_INTERRUPT_BIT);
+        let timer_interrupt_enabled = get_bit(ie_byte, TIMER_INTERRUPT_BIT);
+        let serial_interrupt_enabled = get_bit(ie_byte, SERIAL_INTERRUPT_BIT);
+        let joypad_interrupt_enabled = get_bit(ie_byte, JOYPAD_INTERRUPT_BIT);
+
+        // Interrupts are prioritized in order of their bit position (bit 0 first, bit 4 last)
+        if vblank_interrupt && vblank_interrupt_enabled {
+            self.handle_interrupt(VBLANK_INTERRUPT_HANDLER_ADDR, VBLANK_INTERRUPT_BIT);
+            // println!("VBLANK INTERRUPT");
+        } else if stat_interrupt && stat_interrupt_enabled {
+            self.handle_interrupt(STAT_INTERRUPT_HANDLER_ADDR, STAT_INTERRUPT_BIT);
+            // println!("STAT INTERRUPT");
+        } else if timer_interrupt && timer_interrupt_enabled {
+            self.handle_interrupt(TIMER_INTERRUPT_HANDLER_ADDR, TIMER_INTERRUPT_BIT);
+            // println!("TIMER INTERRUPT");
+        } else if serial_interrupt && serial_interrupt_enabled {
+            self.handle_interrupt(SERIAL_INTERRUPT_HANDLER_ADDR, SERIAL_INTERRUPT_BIT);
+            // println!("SERIAL INTERRUPT");
+        } else if joypad_interrupt && joypad_interrupt_enabled {
+            self.handle_interrupt(JOYPAD_INTERRUPT_HANDLER_ADDR, JOYPAD_INTERRUPT_BIT);
+        }
+
+        true
+    }
+
+    fn handle_interrupt(&mut self, interrupt_handler_addr: u16, interrupt_bit: u8) {
+        // Record that the interrupt has been handled
+        let mut if_byte = self.read_byte(IF_ADDR);
+        set_bit(&mut if_byte, interrupt_bit, false);
+        self.write_byte(IF_ADDR, if_byte);
+        self.ime = false;
+
+        self.rst_vec_instant(interrupt_handler_addr);
+    }
+
+    fn execute(&mut self) {
+        // todo! Move this under "Fetch instruction"
+        let instruction = if self.instruction_t_cycles_remaining == 0 {
+            let opcode = self.fetch_instruction();
+            self.current_instruction = opcode;
+            self.instruction_t_cycles_remaining =
+                UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE[opcode as usize];
+            self.instruction_m_cycles_remaining = self.instruction_t_cycles_remaining / 4;
+            opcode
+        } else {
+            match self.current_instruction {
+                // This part will only be reached for multi-step instructions.
+                // By the time all of them are implemented, this match won't be needed.
+                // This is just to keep unimplemented multi-steps from breaking
+                // by executing multiple times.
+                // Also just for keeping track of which ones I've implemented so far.
+                0xC5 | 0xD5 | 0xE5 | 0xF5  // PUSH
+                | 0xC1 | 0xD1 | 0xE1 | 0xF1 // POP
+                | 0xE8 // ADD SP, e8
+                | 0xF8 // LD HL, SP + e8
+                | 0xC3 // JP a16
+                | 0xC2 | 0xD2 | 0xCA | 0xDA // JP CC, a16
+                | 0xC7 | 0xD7 | 0xE7 | 0xF7 | 0xCF | 0xDF | 0xEF | 0xFF // RST VEC
+                | 0xCD // CALL u16
+                | 0xC4 | 0xD4 | 0xCC | 0xDC // CALL CC, u16
+                | 0xC9 // RET
+                | 0xD9 // RETI
+                | 0xC0 | 0xD0 | 0xC8 | 0xD8 // RET CC
+                | 0x70 | 0x71 | 0x72 | 0x73 | 0x74 | 0x75 | 0x77 // LC [HL], r8
+                | 0x46 | 0x56 | 0x66 | 0x4E | 0x5E | 0x6E | 0x7E // LC r8, [HL]
+                | 0x36 // LD [HL], n8
+                | 0x06 | 0x16 | 0x26 | 0x0E | 0x1E | 0x2E | 0x3E // LD r8, n8
+                | 0x86 | 0x96 | 0xA6 | 0xB6 | 0x8E | 0x9E | 0xAE | 0xBE // ALU A, [HL]
+                | 0xF2 // LD A, [C]
+                | 0xE2 // LD [C], A
+                | 0x02 | 0x12 // LD [r16], A
+                | 0x0A | 0x1A // LD A, [r16]
+                | 0xEA // LD [a16], A
+                | 0xFA // LD A, [a16]
+                | 0xE0 // LDH [a8], A
+                | 0xF0 // LDH A, [a8]
+                | 0x22 // LD [HL+], A
+                | 0x32 // LD [HL-], A
+                | 0x2A // LD A, [HL+]
+                | 0x3A // LD A, [HL-]
+                | 0x34 // INC [HL]
+                | 0x35 // DEC [HL]
+                => self.current_instruction, 
+                _ => 0x00, // Default to no-ops for unimplemented multi-step instructions
+            }
+        };
+
+        let pc = self.reg.get16(R16::PC);
+        let sp = self.reg.get16(R16::SP);
+        if pc == 0x0100 {
+            println!("RESET");
+        }
+
+        // println!(
+        //     "OP: {:02x}, PC: {:04x}, SP: {:04x} CYCLE: {}",
+        //     self.current_instruction, pc, sp, self.instruction_m_cycles_remaining
+        // );
+
+        match instruction {
+            0x00 => (),                                // NOP
+            0x01 => self.ld_r16_n16(R16::BC),          // LD BC, n16
+            0x02 => self.ld_at_r16_a(R16::BC),         // LD BC, A
+            0x03 => self.inc_r16(R16::BC),             // INC BC
+            0x04 => self.alu_r8(AluUnary::Inc, R8::B), // INC B
+            0x05 => self.alu_r8(AluUnary::Dec, R8::B), // DEC B
+            0x06 => self.ld_r8_n8(R8::B),              // LD B, n8
+            0x07 => self.rlca(),                       // RLCA
+            0x08 => self.ld_at_n16_sp(),               // LD [n16], SP
+            0x09 => self.add_hl_r16(R16::BC),          // ADD HL, BC
+            0x0A => self.ld_a_at_r16(R16::BC),         // LD A, [BC]
+            0x0B => self.dec_r16(R16::BC),             // DEC BC
+            0x0C => self.alu_r8(AluUnary::Inc, R8::C), // INC C
+            0x0D => self.alu_r8(AluUnary::Dec, R8::C), // DEC C
+            0x0E => self.ld_r8_n8(R8::C),              // LD C, n8
+            0x0F => self.rrca(),                       // RRCA
+
+            0x10 => self.stop(),                       // STOP n8
+            0x11 => self.ld_r16_n16(R16::DE),          // LD DE, n16
+            0x12 => self.ld_at_r16_a(R16::DE),         // LD DE, A
+            0x13 => self.inc_r16(R16::DE),             // INC DE
+            0x14 => self.alu_r8(AluUnary::Inc, R8::D), // INC D
+            0x15 => self.alu_r8(AluUnary::Dec, R8::D), // DEC D
+            0x16 => self.ld_r8_n8(R8::D),              // LD D, n8
+            0x17 => self.rla(),                        // RLA
+            0x18 => self.jr_e8(),                      // JR e8
+            0x19 => self.add_hl_r16(R16::DE),          // ADD HL, DE
+            0x1A => self.ld_a_at_r16(R16::DE),         // LD A, [DE]
+            0x1B => self.dec_r16(R16::DE),             // DEC DE
+            0x1C => self.alu_r8(AluUnary::Inc, R8::E), // INC E
+            0x1D => self.alu_r8(AluUnary::Dec, R8::E), // DEC E
+            0x1E => self.ld_r8_n8(R8::E),              // LD E, n8
+            0x1F => self.rra(),                        // RRA
 
             0x20 => self.jr_cc_e8(Flag::Z, false), // JR NZ, e8
-            0x21 => self.ld_r16_n16(R16::HL),                      // LD HL, n16
-            0x22 => self.ld_at_hli_a(),                            // LD [HL+], A
-            0x23 => self.inc_r16(R16::HL),                         // INC HL
-            0x24 => self.alu_r8(AluUnary::Inc, R8::H),             // INC H
-            0x25 => self.alu_r8(AluUnary::Dec, R8::H),             // DEC H
-            0x26 => self.ld_r8_n8(R8::H),                          // LD H, n8
-            0x27 => self.daa(),                                    // DAA
-            0x28 => self.jr_cc_e8(Flag::Z, true),                  // JR Z e8
-            0x29 => self.add_hl_r16(R16::HL),                      // ADD HL, HL
-            0x2A => self.ld_a_at_hli(),                            // LD A, [HL+]
-            0x2B => self.dec_r16(R16::HL),                         // DEC HL
-            0x2C => self.alu_r8(AluUnary::Inc, R8::L),             // INC L
-            0x2D => self.alu_r8(AluUnary::Dec, R8::L),             // DEC L
-            0x2E => self.ld_r8_n8(R8::L),                          // LD L, n8
-            0x2F => self.cpl(),                                    // CPL
+            0x21 => self.ld_r16_n16(R16::HL),      // LD HL, n16
+            0x22 => self.ld_at_hli_a(),            // LD [HL+], A
+            0x23 => self.inc_r16(R16::HL),         // INC HL
+            0x24 => self.alu_r8(AluUnary::Inc, R8::H), // INC H
+            0x25 => self.alu_r8(AluUnary::Dec, R8::H), // DEC H
+            0x26 => self.ld_r8_n8(R8::H),          // LD H, n8
+            0x27 => self.daa(),                    // DAA
+            0x28 => self.jr_cc_e8(Flag::Z, true),  // JR Z e8
+            0x29 => self.add_hl_r16(R16::HL),      // ADD HL, HL
+            0x2A => self.ld_a_at_hli(),            // LD A, [HL+]
+            0x2B => self.dec_r16(R16::HL),         // DEC HL
+            0x2C => self.alu_r8(AluUnary::Inc, R8::L), // INC L
+            0x2D => self.alu_r8(AluUnary::Dec, R8::L), // DEC L
+            0x2E => self.ld_r8_n8(R8::L),          // LD L, n8
+            0x2F => self.cpl(),                    // CPL
 
             0x30 => self.jr_cc_e8(Flag::C, false), // JR NC, e8
             0x31 => self.ld_r16_n16(R16::SP),      // LD SP, n16
@@ -186,7 +408,7 @@ impl Cpu {
             0x73 => self.ld_at_hl_r8(R8::E),     // LD [HL], E
             0x74 => self.ld_at_hl_r8(R8::H),     // LD [HL], H
             0x75 => self.ld_at_hl_r8(R8::L),     // LD [HL], L
-            0x76 => todo!("HALT"),               // HALT
+            0x76 => self.halt(),                 // HALT
             0x77 => self.ld_at_hl_r8(R8::A),     // LD [HL], A
             0x78 => self.ld_r8_r8(R8::A, R8::B), // LD A, B
             0x79 => self.ld_r8_r8(R8::A, R8::C), // LD A, C
@@ -276,7 +498,7 @@ impl Cpu {
             0xC8 => self.ret_cc(Flag::Z, true),       // RET Z
             0xC9 => self.ret(),                       // RET
             0xCA => self.jp_cc_a16(Flag::Z, true),    // JP Z, a16
-            0xCB => self.execute_prefixed(),          // PREFIX
+            0xCB => self.current_instruction_prefixed = true, // PREFIX
             0xCC => self.call_cc_a16(Flag::Z, true),  // CALL Z, a16
             0xCD => self.call_a16(),                  // CALL a16
             0xCE => self.alu_a_n8(AluBinary::Adc),    // ADC A, n8
@@ -316,7 +538,7 @@ impl Cpu {
             0xEE => self.alu_a_n8(AluBinary::Xor), // XOR A, n8
             0xEF => self.rst_vec(0x28),            // RST $28
 
-            0xF0 => self.ldh_a_a8(),               // LDH A, [a8]
+            0xF0 => self.ldh_a_at_a8(),               // LDH A, [a8]
             0xF1 => self.pop_r16(R16::AF),         // POP AF
             0xF2 => self.ldh_a_at_c(),             // LDH A, [C]
             0xF3 => self.di(),                     // DI
@@ -336,9 +558,26 @@ impl Cpu {
     }
 
     fn execute_prefixed(&mut self) {
-        let opcode = self.fetch_byte();
+        // todo! Move this under "Fetch instruction"
+        let instruction = if self.current_instruction == 0xCB {
+            self.current_instruction = self.fetch_instruction();
+            self.instruction_t_cycles_remaining = PREFIXED_INSTRUCTION_T_CYCLE_TABLE
+                [self.current_instruction as usize]
+                - M_CYCLE_DURATION as u8;
+            self.instruction_m_cycles_remaining =
+                self.instruction_t_cycles_remaining / M_CYCLE_DURATION as u8;
 
-        match opcode {
+            self.current_instruction
+        } else {
+            self.current_instruction
+        };
+
+        // If this is the last cycle of the instruction, get ready to execute an unprefixed instruction next time
+        if self.instruction_m_cycles_remaining == 1 {
+            self.current_instruction_prefixed = false;
+        }
+
+        match instruction {
             0x00 => self.bitshift_r8(BitshiftOp::Rlc, R8::B), // RLC B
             0x01 => self.bitshift_r8(BitshiftOp::Rlc, R8::C), // RLC C
             0x02 => self.bitshift_r8(BitshiftOp::Rlc, R8::D), // RLC D
@@ -616,12 +855,12 @@ impl Cpu {
     // Tons of instructions read or write at hl, so I extracted out the logic here
     fn read_at_hl(&self) -> u8 {
         let hl = self.reg.get16(R16::HL);
-        self.mmu.read_byte(hl)
+        self.read_byte(hl)
     }
 
     fn write_at_hl(&mut self, byte: u8) {
         let hl = self.reg.get16(R16::HL);
-        self.mmu.write_byte(hl, byte);
+        self.write_byte(hl, byte);
     }
 
     // Misc instructions
@@ -633,13 +872,60 @@ impl Cpu {
     fn ei(&mut self) {
         self.ime_pending = true;
     }
+
+    // todo!
+    fn stop(&mut self) {}
+
+    fn halt(&mut self) {
+        self.halted = true;
+        self.just_halted = true;
+    }
+
+    // Wrapper functions arround MMU reads/writes to make them more clear and ergonomic
+    fn read_byte(&self, addr: u16) -> u8 {
+        self.mmu.borrow().read_byte(addr)
+    }
+
+    fn read_word(&self, addr: u16) -> u16 {
+        self.mmu.borrow().read_word(addr)
+    }
+
+    fn write_byte(&self, addr: u16, byte: u8) {
+        self.mmu.borrow_mut().write_byte(addr, byte);
+    }
+
+    fn write_word(&self, addr: u16, word: u16) {
+        self.mmu.borrow_mut().write_word(addr, word);
+    }
+}
+
+pub mod debug {
+    use super::*;
+    pub fn print_t_cycle_tables() {
+        println!("\nUnprefixed Instructions:\n");
+        print_table(UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE);
+        print!("\n\n");
+        println!("Prefixed Instructions:\n");
+        print_table(PREFIXED_INSTRUCTION_T_CYCLE_TABLE);
+        print!("\n\n");
+
+        fn print_table(table: &[u8]) {
+            let mut counter = 0;
+            for i in table {
+                print!("{:02} ", i);
+                counter += 1;
+
+                if counter == 16 {
+                    counter = 0;
+                    println!();
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     #[test]
-    fn test() {
-        todo!("Write CPU test cases");
-    }
+    fn test() {}
 }
