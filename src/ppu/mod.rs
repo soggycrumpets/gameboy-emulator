@@ -86,7 +86,9 @@ impl Ppu {
         self.scanline_t_cycle_count += 1;
         self.mode_t_cycle_count += 1;
 
-        self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.scanline_counter);
+        self.mmu
+            .borrow_mut()
+            .write_byte_override(LY_ADDR, self.scanline_counter);
 
         match ppu_mode {
             PpuMode::OamScan => {
@@ -143,8 +145,6 @@ impl Ppu {
         self.update_ppu_status_registers();
     }
 
-   
-
     fn update_ppu_status_registers(&mut self) {
         let ly = self.read_byte(LY_ADDR);
 
@@ -153,7 +153,9 @@ impl Ppu {
         let mut stat_byte = self.read_byte(STAT_ADDR);
         let lyc = self.read_byte(LYC_ADDR);
         set_bit(&mut stat_byte, LY_EQUALS_LYC_BIT, ly == lyc);
-        self.mmu.borrow_mut().write_byte_override(STAT_ADDR, stat_byte); // This byte is normally read-only
+        self.mmu
+            .borrow_mut()
+            .write_byte_override(STAT_ADDR, stat_byte); // This byte is normally read-only
 
         // Statis interrupt selects
         let enable_ly_equals_lyc = get_bit(stat_byte, LYC_INT_SELECT_BIT);
@@ -206,14 +208,20 @@ impl Ppu {
         self.scanline_t_cycle_count = 0;
         self.scanline_counter = 0;
         self.set_mode(PpuMode::OamScan);
-        self.mmu.borrow_mut().write_byte_override(LY_ADDR, 0x00);
-        self.mmu.borrow_mut().vram_lock = false;
-        self.mmu.borrow_mut().oam_lock = false;
+
+        let mut mmu = self.mmu.borrow_mut();
+        mmu.write_byte_override(LY_ADDR, 0x00);
+        mmu.vram_lock = false;
+        mmu.oam_lock = false;
     }
-    
-    // The PPU is not affected by the write lock on VRAM - it always bypasses it
+
+    /// The PPU is not write-locked from VRAM or OAM
     fn read_byte(&self, addr: u16) -> u8 {
-        self.mmu.borrow().read_byte_override(addr)
+        let region = map_region(addr);
+        match region {
+            MemRegion::Vram | MemRegion::Oam => self.mmu.borrow().read_byte_override(addr),
+            _ => self.mmu.borrow().read_byte(addr),
+        }
     }
 }
 
@@ -257,10 +265,7 @@ mod debug {
 mod tests {
     use super::*;
 
-    use crate::{
-        create_gameboy_components, emulate_boot,
-        util::get_bit,
-    };
+    use crate::{create_gameboy_components, emulate_boot, util::get_bit};
 
     // todo! This test is unfinished
     // Test PPU registers cycle-by-cycle

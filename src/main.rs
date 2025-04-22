@@ -12,19 +12,18 @@ mod util;
 
 use cli::{Command, parse_cli_inputs};
 
-use cpu::{debug::print_t_cycle_tables, registers::R8, Cpu};
+use cpu::{registers::R8, Cpu};
 use debugger::run_debug;
 use mmu::{Mmu, memmap::*};
 use ppu::Ppu;
 use std::{
     cell::RefCell,
-    process,
     rc::Rc,
     time::{Duration, Instant},
 };
 use ui::UserInterface;
-
 use cpu::registers::R16;
+
 const SYSTEM_CLOCK_FREQUENCY: f64 = (1 << 22) as f64; // Hz
 const SYSTEM_CLOCK_PERIOD: f64 = 1.0 / SYSTEM_CLOCK_FREQUENCY; // Seconds
 
@@ -95,10 +94,11 @@ fn process_inputs(ui: &mut UserInterface, mmu: &Rc<RefCell<Mmu>>) {
     let n_button = ui.inputs_down.n;
 }
 
-// While you technically can obtain a copy of the original gameboy bootrom online,
-// it's legally dubious. It's safer and easier for the user if the emulator just
-// replicates the post-boot state, rather than requiring them to source the bootrom.
-// The pandocs contain good information about this (Section: 22. Power-Up Sequence)
+/// While you technically can obtain a copy of the original gameboy bootrom online,
+/// it's legally dubious. It's safer and easier for the user if the emulator just
+/// replicates the post-boot state, rather than requiring them to source the bootrom.
+/// [Pan Docs](https://gbdev.io/pandocs/Power_Up_Sequence.html?highlight=power%20up#power-up-sequence)
+/// contains all of the necessary information to do this.
 fn emulate_boot(mmu: &Rc<RefCell<Mmu>>, cpu: &mut Cpu) {
     cpu.reg.set(R8::A, 0x01);
     // The H and C flags in the F register depend on the cartridge header checksum.
@@ -115,40 +115,41 @@ fn emulate_boot(mmu: &Rc<RefCell<Mmu>>, cpu: &mut Cpu) {
     cpu.reg.set16(R16::SP, 0xFFFE);
 
     // Hardware registers
-    mmu.borrow_mut().write_byte_override(NR_10_ADDR, 0x80);
-    mmu.borrow_mut().write_byte_override(NR_11_ADDR, 0xBF);
-    mmu.borrow_mut().write_byte_override(NR_12_ADDR, 0xF3);
-    mmu.borrow_mut().write_byte_override(NR_13_ADDR, 0xFF);
-    mmu.borrow_mut().write_byte_override(NR_14_ADDR, 0xBF);
-    mmu.borrow_mut().write_byte_override(NR_21_ADDR, 0x3F);
-    mmu.borrow_mut().write_byte_override(NR_22_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override(NR_23_ADDR, 0xFF);
-    mmu.borrow_mut().write_byte_override(NR_24_ADDR, 0xBF);
-    mmu.borrow_mut().write_byte_override(NR_30_ADDR, 0x7F);
-    mmu.borrow_mut().write_byte_override(NR_31_ADDR, 0xFF);
-    mmu.borrow_mut().write_byte_override(NR_32_ADDR, 0x9F);
-    mmu.borrow_mut().write_byte_override(NR_33_ADDR, 0xFF);
-    mmu.borrow_mut().write_byte_override(NR_34_ADDR, 0xBF);
-    mmu.borrow_mut().write_byte_override(NR_41_ADDR, 0xFF);
-    mmu.borrow_mut().write_byte_override(NR_42_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override(NR_43_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override(NR_44_ADDR, 0xBF);
-    mmu.borrow_mut().write_byte_override(NR_50_ADDR, 0x77);
-    mmu.borrow_mut().write_byte_override(NR_51_ADDR, 0xF3);
-    mmu.borrow_mut().write_byte_override(NR_52_ADDR, 0xF1);
-    mmu.borrow_mut().write_byte_override(LCDC_ADDR, 0x91);
-    mmu.borrow_mut().write_byte_override(STAT_ADDR, 0x85);
-    mmu.borrow_mut().write_byte_override(SCY_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override(SCX_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override(LY_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override(LYC_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override(DMA_ADDR, 0xFF);
-    mmu.borrow_mut().write_byte_override(BGP_ADDR, 0xFC);
-    mmu.borrow_mut().write_byte_override(OBP0_ADDR, 0x00); // Uninitialized
-    mmu.borrow_mut().write_byte_override(OBP1_ADDR, 0x00); // Uninitialized
-    mmu.borrow_mut().write_byte_override(WY_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override(WX_ADDR, 0x00);
-    mmu.borrow_mut().write_byte_override(IE_ADDR, 0x00);
+    let mut mmu = mmu.borrow_mut();
+    mmu.write_byte_override(NR_10_ADDR, 0x80);
+    mmu.write_byte_override(NR_11_ADDR, 0xBF);
+    mmu.write_byte_override(NR_12_ADDR, 0xF3);
+    mmu.write_byte_override(NR_13_ADDR, 0xFF);
+    mmu.write_byte_override(NR_14_ADDR, 0xBF);
+    mmu.write_byte_override(NR_21_ADDR, 0x3F);
+    mmu.write_byte_override(NR_22_ADDR, 0x00);
+    mmu.write_byte_override(NR_23_ADDR, 0xFF);
+    mmu.write_byte_override(NR_24_ADDR, 0xBF);
+    mmu.write_byte_override(NR_30_ADDR, 0x7F);
+    mmu.write_byte_override(NR_31_ADDR, 0xFF);
+    mmu.write_byte_override(NR_32_ADDR, 0x9F);
+    mmu.write_byte_override(NR_33_ADDR, 0xFF);
+    mmu.write_byte_override(NR_34_ADDR, 0xBF);
+    mmu.write_byte_override(NR_41_ADDR, 0xFF);
+    mmu.write_byte_override(NR_42_ADDR, 0x00);
+    mmu.write_byte_override(NR_43_ADDR, 0x00);
+    mmu.write_byte_override(NR_44_ADDR, 0xBF);
+    mmu.write_byte_override(NR_50_ADDR, 0x77);
+    mmu.write_byte_override(NR_51_ADDR, 0xF3);
+    mmu.write_byte_override(NR_52_ADDR, 0xF1);
+    mmu.write_byte_override(LCDC_ADDR, 0x91);
+    mmu.write_byte_override(STAT_ADDR, 0x85);
+    mmu.write_byte_override(SCY_ADDR, 0x00);
+    mmu.write_byte_override(SCX_ADDR, 0x00);
+    mmu.write_byte_override(LY_ADDR, 0x00);
+    mmu.write_byte_override(LYC_ADDR, 0x00);
+    mmu.write_byte_override(DMA_ADDR, 0xFF);
+    mmu.write_byte_override(BGP_ADDR, 0xFC);
+    mmu.write_byte_override(OBP0_ADDR, 0x00); // Uninitialized
+    mmu.write_byte_override(OBP1_ADDR, 0x00); // Uninitialized
+    mmu.write_byte_override(WY_ADDR, 0x00);
+    mmu.write_byte_override(WX_ADDR, 0x00);
+    mmu.write_byte_override(IE_ADDR, 0x00);
 
 
 }

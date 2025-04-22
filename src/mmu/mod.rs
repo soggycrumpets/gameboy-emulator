@@ -1,3 +1,12 @@
+//! The MMU stores, controls, and regulates memory.
+//! The Gameboy has 64kB of memory, but it cannot be sufficiently represented
+//! by a single 64kB array. This is primarily due to the fact that the Gameboy supports
+//! ROM bank switching, which changes the part of the game's ROM that is visible in memory.
+//! 
+//! Different regions of memory are treated in different ways by different pieces of hardware on
+//! the Gameboy. For example, the CPU is restricted from accessing VRAM and OAM during certain
+//! timing windows. Certain registers, such as DIV and TIMA, incur side effects when written to.
+ 
 pub mod memmap;
 mod readwrite;
 mod dma;
@@ -30,7 +39,7 @@ pub struct Mmu {
 }
 
 impl Mmu {
-    //! I chose to use an Rc<RefCell<T>> for the MMU so that the CPU and PPU could borrow a mutable
+    //! I chose to use the Rc RefCell for the MMU so that the CPU and PPU could borrow a mutable
     //! reference to access it whenever they need to. It could just as easily be a global variable.
     pub fn new() -> Rc<RefCell<Mmu>> {
         let mmu = Mmu {
@@ -55,6 +64,7 @@ impl Mmu {
         Rc::new(RefCell::new(mmu))
     }
 
+    // todo! Support bigger ROMs
     pub fn load_rom(&mut self, path: &str) -> bool {
         let rom = match std::fs::read(path) {
             Ok(result) => result,

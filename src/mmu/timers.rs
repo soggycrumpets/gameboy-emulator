@@ -3,7 +3,7 @@
 
 //! TIMA increments when its corresponding bit in the system clock flips from 1 to 0.
 //! The corresponding bit is dictated by the lower two bits of TAC, which are mapped as follows.
-//! More information can be found at https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html
+//! More information available on [Pan Docs](https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html)
 
 use super::*;
 use crate::{
