@@ -24,9 +24,9 @@ use registers::{Flag, R8, R16, Registers};
 pub const INTERRUPT_T_CYCLES: u8 = 5 * 4;
 
 pub const UNPREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =
-    include_bytes!("../data/unprefixed_instruction_t_cycle_table.dat");
+    include_bytes!("../../data/unprefixed_instruction_t_cycle_table.dat");
 pub const PREFIXED_INSTRUCTION_T_CYCLE_TABLE: &[u8; 256] =
-    include_bytes!("../data/prefixed_instruction_t_cycle_table.dat");
+    include_bytes!("../../data/prefixed_instruction_t_cycle_table.dat");
 
 pub struct Cpu {
     pub reg: Registers,

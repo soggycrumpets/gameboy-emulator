@@ -2,9 +2,9 @@
 #![allow(unused)]
 
 mod cli;
+mod debugger;
 mod constants;
 mod cpu;
-mod debugger;
 mod mmu;
 mod ppu;
 mod ui;

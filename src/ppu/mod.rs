@@ -66,12 +66,13 @@ impl Ppu {
         }
     }
 
+    /// This function progresses the state of the PPU by one t-cycle
     pub fn tick(&mut self) {
         let ppu_mode = self.get_mode();
         let ppu_enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT);
 
         // You're not supposed to turn off the PPU outside of vblank mode, but from
-        // what I can tell, the hardware won't prevent it.
+        // what I can tell, the hardware won't prevent it
         if self.was_enabled && !ppu_enabled {
             self.turn_off();
         }
@@ -86,7 +87,6 @@ impl Ppu {
         self.mode_t_cycle_count += 1;
 
         self.mmu.borrow_mut().bypass_write_byte_ly(self.scanline_counter);
-
 
         match ppu_mode {
             PpuMode::OamScan => {
