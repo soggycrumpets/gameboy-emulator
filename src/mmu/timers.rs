@@ -5,18 +5,18 @@
 //! The corresponding bit is dictated by the lower two bits of TAC, which are mapped as follows.
 //! More information can be found at https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html
 
+use super::*;
 use crate::{
     mmu::memmap::{DIV_ADDR, TAC_ADDR, TIMA_ADDR, TIMER_INTERRUPT_BIT, TMA_ADDR},
     util::get_bit,
 };
-
-use super::*;
 
 const TAC_FREQ_1_SYSTEM_CLOCK_BIT: u8 = 3;
 const TAC_FREQ_2_SYSTEM_CLOCK_BIT: u8 = 5;
 const TAC_FREQ_3_SYSTEM_CLOCK_BIT: u8 = 7;
 const TAC_FREQ_0_SYSTEM_CLOCK_BIT: u8 = 9;
 
+/// The enable bit of the TAC register controls whether or not TIMA is incremented.
 const TAC_ENABLE_BIT: u8 = 2;
 const T_CYCLES_PER_M_CYCLE: u16 = 4;
 const TIMA_WRITE_LOCK_T_CYCLES: u16 = 4;
@@ -56,11 +56,11 @@ impl Mmu {
             self.timers.system_clock = self.timers.system_clock.wrapping_add(T_CYCLES_PER_M_CYCLE);
         }
 
-        // DIV is the upper 8 bits of the system t cycle counter
+        // ----- Updating DIV
         let div_value = (self.timers.system_clock >> 8) as u8;
-        self.write_byte(DIV_ADDR, div_value);
+        self.write_byte_override(DIV_ADDR, div_value);
 
-        // TIMA
+        // ----- Updating TIMA
         let tac_enable = self.get_tac_enable();
         let tima_bit_is_active = self.get_tima_bit_state(false);
         let tima_bit_was_active = self.get_tima_bit_state(true);
@@ -109,7 +109,6 @@ impl Mmu {
         self.write_byte_override(TIMA_ADDR, tma_value);
     }
 
-    /// The enable bit of the TAC register controls whether or not TIMA is incremented.
     fn get_tac_enable(&self) -> bool {
         let byte = self.read_byte(TAC_ADDR);
         get_bit(byte, TAC_ENABLE_BIT)
@@ -158,9 +157,8 @@ impl Mmu {
     /// Writing to TIMA immediately after it has overflowed will cancel the overflow behavior.
     /// Additionally, for the next machine cycle after TIMA overflows, it ignores writes!
     pub fn write_byte_tima(&mut self, byte: u8) {
-        let (_region, index) = map_addr(TIMA_ADDR);
         if self.timers.tima_write_lock_counter == 0 {
-            self.io[index] = byte;
+            self.write_byte_override(TIMA_ADDR, byte);
         }
         self.timers.tima_overflowed = false;
     }
@@ -180,8 +178,7 @@ impl Mmu {
     pub fn write_byte_tac(&mut self, byte: u8) {
         let tima_bit_was_active = self.get_tima_bit_state(false);
 
-        let (_region, index) = map_addr(TAC_ADDR);
-        self.io[index] = byte;
+        self.write_byte_override(TAC_ADDR, byte);
 
         let tima_bit_is_active = self.get_tima_bit_state(false);
         let tima_is_enabled = self.get_tac_enable();

@@ -86,7 +86,7 @@ impl Ppu {
         self.scanline_t_cycle_count += 1;
         self.mode_t_cycle_count += 1;
 
-        self.mmu.borrow_mut().bypass_write_byte_ly(self.scanline_counter);
+        self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.scanline_counter);
 
         match ppu_mode {
             PpuMode::OamScan => {
@@ -153,7 +153,7 @@ impl Ppu {
         let mut stat_byte = self.read_byte(STAT_ADDR);
         let lyc = self.read_byte(LYC_ADDR);
         set_bit(&mut stat_byte, LY_EQUALS_LYC_BIT, ly == lyc);
-        self.mmu.borrow_mut().bypass_write_byte_stat(stat_byte); // This byte is normally read-only
+        self.mmu.borrow_mut().write_byte_override(STAT_ADDR, stat_byte); // This byte is normally read-only
 
         // Statis interrupt selects
         let enable_ly_equals_lyc = get_bit(stat_byte, LYC_INT_SELECT_BIT);
@@ -198,7 +198,7 @@ impl Ppu {
         byte &= 0b_1111_1100;
         byte |= mode_number;
 
-        self.mmu.borrow_mut().bypass_write_byte_stat(byte);
+        self.mmu.borrow_mut().write_byte_override(STAT_ADDR, byte);
     }
 
     fn turn_off(&mut self) {
@@ -206,14 +206,14 @@ impl Ppu {
         self.scanline_t_cycle_count = 0;
         self.scanline_counter = 0;
         self.set_mode(PpuMode::OamScan);
-        self.mmu.borrow_mut().bypass_write_byte_ly(0x00);
+        self.mmu.borrow_mut().write_byte_override(LY_ADDR, 0x00);
         self.mmu.borrow_mut().vram_lock = false;
         self.mmu.borrow_mut().oam_lock = false;
     }
     
     // The PPU is not affected by the write lock on VRAM - it always bypasses it
     fn read_byte(&self, addr: u16) -> u8 {
-        self.mmu.borrow().bypass_read_byte_vram(addr)
+        self.mmu.borrow().read_byte_override(addr)
     }
 }
 
@@ -234,7 +234,7 @@ mod debug {
             // Tilemap is 32x32 tiles
             for tile_row in 0..32_usize {
                 for tile_col in 0..32_usize {
-                    let tile_index = self.mmu.borrow().bypass_read_byte_vram(addr);
+                    let tile_index = self.mmu.borrow().read_byte_override(addr);
                     // println!("{:04x}: {:02x}", addr, tile_index);
                     let tile = self.get_tile(tile_index);
                     // let tile = self.get_tile_direct_index(0x8000 + tile_index as u16 * 16);

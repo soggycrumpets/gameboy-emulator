@@ -8,7 +8,8 @@ impl Mmu {
     //! Memory regions are all treated separately, and lots of regions and addresses
     //! have special rules that determine what happens when a read or write is done.
     pub fn read_byte(&self, addr: u16) -> u8 {
-        let (mem_region, index) = map_addr(addr);
+        let mem_region = map_region(addr);
+        let index = map_addr(addr);
 
         use MemRegion as M;
         match mem_region {
@@ -44,8 +45,8 @@ impl Mmu {
     }
 
     pub fn write_byte(&mut self, addr: u16, byte: u8) {
-        let (mem_region, addr_mapped) = map_addr(addr);
-        let index = addr_mapped as usize;
+        let mem_region= map_region(addr);
+        let index = map_addr(addr);
 
         if (addr == SC_ADDR) && (byte == TRANSFER_REQUESTED_VALUE) {
             let c = self.read_byte(SB_ADDR) as char;
@@ -88,11 +89,11 @@ impl Mmu {
         };
     }
 
-    // ! This function bypasses all of the special conditions and side-effects of the 
-    // ! standard read_byte function. Use this carefully!
-    pub fn read_byte_override(&mut self, addr: u16) -> u8 {
-        let (mem_region, addr_mapped) = map_addr(addr);
-        let index = addr_mapped as usize;
+    /// This function bypasses all of the special conditions and side-effects of the 
+    /// standard read_byte function. Use this carefully!
+    pub fn read_byte_override(&self, addr: u16) -> u8 {
+        let mem_region= map_region(addr);
+        let index = map_addr(addr);
 
         use MemRegion as M;
         match mem_region {
@@ -111,25 +112,16 @@ impl Mmu {
         }
     }
 
-    // The PPU is not affected by the vram lock
-    pub fn bypass_read_byte_vram(&self, addr: u16) -> u8 {
-        let (mem_region, addr_mapped) = map_addr(addr);
-        if mem_region != MemRegion::Vram {
-            self.read_byte(addr)
-        } else {
-            let index = addr_mapped as usize;
-            self.vram[index]
-        }
-    }
+   
 
     /// This function bypasses all of the special conditions and side-effects of the 
     /// standard write_byte function. Use this carefully!
     pub fn write_byte_override(&mut self, addr: u16, byte: u8) {
-        let (mem_region, addr_mapped) = map_addr(addr);
-        let index = addr_mapped as usize;
+        let index = map_addr(addr);
+        let region = map_region(addr);
 
         use MemRegion as M;
-        match mem_region {
+        match region {
             M::RomBank0 => self.rom_bank_00[index] = byte,
             M::RomBank1 => self.rom_bank_01[index] = byte,
             M::Vram => self.vram[index] = byte,
@@ -143,20 +135,6 @@ impl Mmu {
             M::Hram => self.hram[index] = byte,
             M::Ie => self.ie = byte,
         };
-    }
-
-    // LY is read-only by the CPU, but the PPU needs to write to them.
-    pub fn bypass_write_byte_ly(&mut self, byte: u8) {
-        let (_mem_region, addr_mapped) = map_addr(LY_ADDR);
-        let index = addr_mapped as usize;
-        self.io[index] = byte;
-    }
-
-    // The same is true for STAT, but only the bottom three bits
-    pub fn bypass_write_byte_stat(&mut self, byte: u8) {
-        let (_mem_region, addr_mapped) = map_addr(STAT_ADDR);
-        let index = addr_mapped as usize;
-        self.io[index] = byte;
     }
 
     /// Read a two-byte value to memory, in little-endian order
