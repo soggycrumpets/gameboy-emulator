@@ -1,16 +1,17 @@
+//! Timer frequencies are all derived by the 16-bit system clock, which increments once every
+// m-cycle (every 4 t-cycles).
+
+//! TIMA increments when its corresponding bit in the system clock flips from 1 to 0.
+//! The corresponding bit is dictated by the lower two bits of TAC, which are mapped as follows.
+//! More information can be found at https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html
+
 use crate::{
     mmu::memmap::{DIV_ADDR, TAC_ADDR, TIMA_ADDR, TIMER_INTERRUPT_BIT, TMA_ADDR},
-    util::{get_bit, set_bit},
+    util::get_bit,
 };
 
 use super::*;
 
-// Timer frequencies are all derived by the 16-bit system clock, which increments once every
-// m-cycle (every 4 t-cycles).
-
-// TIMA increments when its corresponding bit in the system clock flips from 1 to 0.
-// The corresponding bit is dictated by the lower two bits of TAC, which are mapped as follows.
-// More information can be found at https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html
 const TAC_FREQ_1_SYSTEM_CLOCK_BIT: u8 = 3;
 const TAC_FREQ_2_SYSTEM_CLOCK_BIT: u8 = 5;
 const TAC_FREQ_3_SYSTEM_CLOCK_BIT: u8 = 7;
@@ -57,7 +58,7 @@ impl Mmu {
 
         // DIV is the upper 8 bits of the system t cycle counter
         let div_value = (self.timers.system_clock >> 8) as u8;
-        self.bypass_write_byte_div(div_value);
+        self.write_byte(DIV_ADDR, div_value);
 
         // TIMA
         let tac_enable = self.get_tac_enable();
@@ -90,31 +91,32 @@ impl Mmu {
 
         (tima_byte, overflowed) = tima_byte.overflowing_add(1);
 
-        self.bypass_write_byte_tima(tima_byte);
+        self.write_byte_override(TIMA_ADDR, tima_byte);
 
         if overflowed {
             self.timers.tima_overflowed = true;
         }
     }
 
-    // Overflows send a timer interrupt
-    // Instead of resetting to 0 on overflow, this timer is set to the value stored in TMA
+    /// Overflows of TIMA send a timer interrupt. When TIMA overflows, its value is set
+    /// to the value stored in TMA.
     fn process_tima_overflow(&mut self) {
         self.timers.tima_overflowed = false;
         self.timers.tima_write_lock_counter = TIMA_WRITE_LOCK_T_CYCLES;
 
         self.request_interrupt(TIMER_INTERRUPT_BIT);
         let tma_value = self.read_byte(TMA_ADDR);
-        self.bypass_write_byte_tima(tma_value);
+        self.write_byte_override(TIMA_ADDR, tma_value);
     }
 
-    // TAC enabled is the third bit from the right
+    /// The enable bit of the TAC register controls whether or not TIMA is incremented.
     fn get_tac_enable(&self) -> bool {
         let byte = self.read_byte(TAC_ADDR);
         get_bit(byte, TAC_ENABLE_BIT)
     }
 
-    // Clock select is the first two bits from the right
+    /// The clock select bits of the TAC register control which bit of the global timer
+    /// that TIMA tracks. This effectively selects the frequency at which TIMA will increment.
     fn get_system_clock_bit_for_tima(&self) -> u8 {
         let byte = self.read_byte(TAC_ADDR);
         let value = byte & 0b_0000_0011;
@@ -137,26 +139,11 @@ impl Mmu {
         (system_clock & (1 << initial_tima_system_clock_bit)) != 0
     }
 
-    fn set_tac_enable(&mut self, set: bool) {
-        let mut byte = self.read_byte(TAC_ADDR);
-        set_bit(&mut byte, TAC_ENABLE_BIT, set);
-        self.write_byte(TAC_ADDR, byte);
-    }
-
-    fn set_tac_clock_select(&mut self, value: u8) {
-        let mut byte = self.read_byte(TAC_ADDR);
-        let bit0 = get_bit(value, 0);
-        let bit1 = get_bit(value, 1);
-        set_bit(&mut byte, 0, bit0);
-        set_bit(&mut byte, 1, bit1);
-        self.write_byte(TAC_ADDR, byte);
-    }
-
     // ----- Special-Case Memory Reads/Writes -----
 
-    // DIV writes do not actually affect memory. Instead, they reset the system clock.
-    // However, resetting the system clock can also increment TIMA if it unsets TIMA's
-    // active bit!
+    /// Writes to the DIV register do not directly change its value. Instead, they reset
+    /// whe system clock. However, resetting the system clock can also increment TIMA
+    /// if it unsets TIMA's active bit!
     pub fn write_byte_div(&mut self) {
         let tima_bit_was_active = self.get_tima_bit_state(false);
 
@@ -168,52 +155,32 @@ impl Mmu {
         }
     }
 
-    // So we can't use the "write byte" function. We have to reach in directly.
-    fn bypass_write_byte_div(&mut self, byte: u8) {
-        let (_region, addr_mapped) = map_addr(DIV_ADDR);
-        let index = addr_mapped as usize;
-        self.io[index] = byte;
-    }
-
-    // Writing to TIMA immediately after it has overflowed will cancel the overflow behavior.
-    // Additionally, for the next machine cycle after TIMA overflows, it ignores writes!
+    /// Writing to TIMA immediately after it has overflowed will cancel the overflow behavior.
+    /// Additionally, for the next machine cycle after TIMA overflows, it ignores writes!
     pub fn write_byte_tima(&mut self, byte: u8) {
-        let (_region, addr_mapped) = map_addr(TIMA_ADDR);
-        let index = addr_mapped as usize;
+        let (_region, index) = map_addr(TIMA_ADDR);
         if self.timers.tima_write_lock_counter == 0 {
             self.io[index] = byte;
         }
         self.timers.tima_overflowed = false;
     }
 
-    // While TIMA is write locked, some other timer functionality can still access it.
-    // Namely, TIMA is still incremented, and TMA's value is still copied into TIMA while it is write protected.
-    fn bypass_write_byte_tima(&mut self, byte: u8) {
-        let (_region, addr_mapped) = map_addr(TIMA_ADDR);
-        let index = addr_mapped as usize;
-        self.io[index] = byte;
-    }
-
-    // While TIMA is write locked, writing to TMA will also write to TIMA (bypassing the lock).
-    // Additionally, writing to TMA can cause timer ticks in TIMA.
+    /// While TIMA is write locked, writing to TMA will also write to TIMA (bypassing the lock).
+    /// Additionally, writing to TMA can cause timer ticks in TIMA.
     pub fn write_byte_tma(&mut self, byte: u8) {
-        let (_region, addr_mapped) = map_addr(TMA_ADDR);
-        let index = addr_mapped as usize;
-        self.io[index] = byte;
         if self.timers.tima_write_lock_counter != 0 {
-            self.bypass_write_byte_tima(byte);
+            self.write_byte_override(TMA_ADDR, byte);
         }
     }
 
-    // If TIMA was tracking a set bit, but a change to TAC changes its tracked bit to an unset bit,
-    // TIMA will see that is a falling edge and increment.
-    // Additionally, disabling the timer while TIMA's selected bit was set will
-    // also trigger an increment
+    /// If TIMA was tracking a set bit, but a change to TAC changes its tracked bit to an unset bit,
+    /// TIMA will see that is a falling edge and increment.
+    /// Additionally, disabling the timer while TIMA's selected bit was set will
+    /// also trigger an increment
     pub fn write_byte_tac(&mut self, byte: u8) {
         let tima_bit_was_active = self.get_tima_bit_state(false);
 
-        let (_region, addr_mapped) = map_addr(TAC_ADDR);
-        let index = addr_mapped as usize;
+        let (_region, index) = map_addr(TAC_ADDR);
         self.io[index] = byte;
 
         let tima_bit_is_active = self.get_tima_bit_state(false);
@@ -228,7 +195,6 @@ impl Mmu {
 mod debug {
     use super::*;
     use crate::mmu::memmap::{DIV_ADDR, TIMA_ADDR};
-
     impl Mmu {
         pub fn print_timers(&mut self) {
             let div = self.read_byte(DIV_ADDR);
@@ -252,6 +218,23 @@ mod tests {
     const TAC_CLOCK_2_T_CYCLE_PERIOD: u16 = 16 * 4;
     const TAC_CLOCK_3_T_CYCLE_PERIOD: u16 = 64 * 4;
     const TAC_CLOCK_0_T_CYCLE_PERIOD: u16 = 256 * 4;
+
+    impl Mmu {
+        fn set_tac_enable(&mut self, set: bool) {
+            let mut byte = self.read_byte(TAC_ADDR);
+            set_bit(&mut byte, TAC_ENABLE_BIT, set);
+            self.write_byte(TAC_ADDR, byte);
+        }
+
+        fn set_tac_clock_select(&mut self, value: u8) {
+            let mut byte = self.read_byte(TAC_ADDR);
+            let bit0 = get_bit(value, 0);
+            let bit1 = get_bit(value, 1);
+            set_bit(&mut byte, 0, bit0);
+            set_bit(&mut byte, 1, bit1);
+            self.write_byte(TAC_ADDR, byte);
+        }
+    }
 
     #[test]
     fn test_tima_clock_modes_() {

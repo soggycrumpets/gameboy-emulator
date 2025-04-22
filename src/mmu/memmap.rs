@@ -1,3 +1,6 @@
+//! For documentation on each of registers, check out the 
+//! [Pandocs](https://gbdev.io/pandocs/Hardware_Reg_List.html?highlight=hardware%20registers#hardware-registers)
+
 use super::Mmu;
 
 // ----- Memory Regions -----
@@ -165,7 +168,7 @@ pub enum MemRegion {
 //  offset by that region's start address.
 // The offset address can be used to directly indexing the array
 //  that represents that region of memory
-pub fn map_addr(addr: u16) -> (MemRegion, u16) {
+pub fn map_addr(addr: u16) -> (MemRegion, usize) {
     use MemRegion as M;
     let (region, start_addr) = match addr {
         ROM_BANK_0_START..=ROM_BANK_0_END => (M::RomBank0, ROM_BANK_0_START),
@@ -182,5 +185,5 @@ pub fn map_addr(addr: u16) -> (MemRegion, u16) {
         IE_ADDR => (M::Ie, IE_ADDR),
     };
 
-    (region, addr - start_addr)
+    (region, (addr - start_addr) as usize)
 }

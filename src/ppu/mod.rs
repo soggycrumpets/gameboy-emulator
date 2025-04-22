@@ -66,7 +66,7 @@ impl Ppu {
         }
     }
 
-    /// This function progresses the state of the PPU by one t-cycle
+    /// This function progresses the state of the PPU by one t-cycle.
     pub fn tick(&mut self) {
         let ppu_mode = self.get_mode();
         let ppu_enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT);
