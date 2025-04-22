@@ -1,6 +1,6 @@
-// ! This value is written to 
+/// This value is written to the serial control address to signal an output
 const TRANSFER_REQUESTED_VALUE: u8 = 0x81;
-// ! Attempts to access an unavailable region of memory typically retusn all high bits
+/// Attempts to access an unavailable region of memory typically retusn all high bits
 const GARBAGE_VALUE: u8 = 0xFF;
 
 use super::*;

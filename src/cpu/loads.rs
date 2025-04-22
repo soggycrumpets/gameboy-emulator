@@ -63,18 +63,6 @@ impl Cpu {
         }
     }
 
-    // todo!
-    // This function will go away once all opcodes are m-cycle accurate
-    pub fn pop_r16_instant(&mut self, r16: R16) {
-        let sp = self.reg.get16(R16::SP);
-
-        // Pop the stack first
-        let word = self.read_word(sp);
-        self.reg.set16(r16, word);
-
-        self.reg.set16(R16::SP, sp.wrapping_add(2));
-    }
-
     pub fn ld_r8_r8(&mut self, r1: R8, r2: R8) {
         let byte = self.reg.get(r2);
         self.reg.set(r1, byte);

@@ -61,6 +61,7 @@ impl Ppu {
             frame_t_cycle_count: 0,
             scanline_t_cycle_count: 0,
             mode_t_cycle_count: 0,
+
             scanline_counter: 0,
             stat_interrupt_line: false,
         }
@@ -142,7 +143,8 @@ impl Ppu {
 
         // LY and the LY=LYC bit of the STAT register are updated each cycle,
         // and interrupts are requested based on the current PPU mode and stat register.
-        self.update_ppu_status_registers();
+        // todo! The register update timings in the PPU are all off.
+        // self.update_ppu_status_registers();
     }
 
     fn update_ppu_status_registers(&mut self) {

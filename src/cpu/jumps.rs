@@ -8,7 +8,7 @@ const RET_CC_EXTRA_T_CYCLES: u8 = CALL_CC_EXTRA_T_CYCLES;
 
 impl Cpu {
     // JP
-    fn jp_u16(&mut self, addr: u16) {
+    pub fn jp_u16(&mut self, addr: u16) {
         self.reg.set16(R16::PC, addr);
     }
 

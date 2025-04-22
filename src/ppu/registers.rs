@@ -1,13 +1,7 @@
 use super::Ppu;
-use crate::{mmu::memmap::{LCDC_ADDR, STAT_ADDR}, util::{get_bit, set_bit}};
-
-// Ppu mode bit positions
-// This is technically bits 0 and 1 of LcdStatus, but I separated 
-// it out because it has its own "flags".
-
+use crate::{mmu::memmap::LCDC_ADDR, util::{get_bit, set_bit}};
 
 impl Ppu {
-
     pub fn get_lcdc_flag(&self, bit: u8) -> bool {
         let byte = self.read_byte(LCDC_ADDR);
         get_bit(byte, bit)
