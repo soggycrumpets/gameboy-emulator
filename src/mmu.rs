@@ -95,12 +95,10 @@ impl Mmu {
                 }
             }
             M::Restricted => self.restricted_memory[index],
-            M::Io => {
-                if addr == P1_ADDR {
-                    0x0F
-                } else {
-                    self.io[index]
-                }
+            M::Io => match addr {
+                P1_ADDR => 0x0f,
+                IF_ADDR=> self.io[index] | 0b_1110_0000, // Upper 3 bits always read high
+                _ => self.io[index],
             }
             M::Hram => self.hram[index],
             M::Ie => self.ie,
@@ -139,16 +137,6 @@ impl Mmu {
             self.vram[index]
         }
     }
-
-    // pub fn bypass_read_byte_oam(&self, addr: u16) -> u8 {
-    //     let (mem_region, addr_mapped) = map_addr(addr);
-    //     if mem_region != MemRegion::Oam {
-    //         self.read_byte(addr)
-    //     } else {
-    //         let index = addr_mapped as usize;
-    //         self.vram[index]
-    //     }
-    // }
 
     pub fn write_byte(&mut self, addr: u16, byte: u8) {
         let (mem_region, addr_mapped) = map_addr(addr);

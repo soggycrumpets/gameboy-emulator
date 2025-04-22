@@ -172,7 +172,6 @@ impl UserInterface {
             Scancode::D,
             Scancode::M,
             Scancode::N,
-
             Scancode::G,
             Scancode::R,
             Scancode::P,

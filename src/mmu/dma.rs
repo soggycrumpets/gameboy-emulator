@@ -5,13 +5,14 @@ use super::{
     memmap::{DMA_ADDR, map_addr},
 };
 
+// todo! This should really be 4. It seems like my timing logic starts DMA a cycle early by default.
+// Although, the timing is lining up exactly as it should right now.
+// This may ba a "if it ain't broke, don't fix it" type of situation.
+const DMA_TRANSFER_T_DELAY: u16 = 8;
+
 const DMA_BYTE_TRANSFER_AMOUNT: u16 = 160;
-const DMA_TRANSFER_T_DELAY: u16 = 4;
 const DMA_TRANSFER_T_CYCLES: u16 = DMA_BYTE_TRANSFER_AMOUNT * M_CYCLE_DURATION as u16;
 const DMA_TARGET_START_ADDR: u16 = 0xFE00;
-
-// todo! This is bad!
-const FUDGE_FACTOR: u16 = 4;
 
 pub struct Dma {
     timer: u16,
@@ -35,12 +36,12 @@ impl Mmu {
     pub fn start_dma_transfer(&mut self, dma_byte: u8) {
         // The DMA register needs to be updated first
 
-        println!("DMA START");
+        // println!("DMA START");
         let (_, addr_mapped) = map_addr(DMA_ADDR);
         let index = addr_mapped as usize;
         self.io[index] = dma_byte;
 
-        self.dma.timer = DMA_TRANSFER_T_CYCLES + DMA_TRANSFER_T_DELAY + FUDGE_FACTOR;
+        self.dma.timer = DMA_TRANSFER_T_CYCLES + DMA_TRANSFER_T_DELAY;
         self.dma.source_start_addr = (dma_byte as u16) << 8;
     }
 
@@ -53,8 +54,7 @@ impl Mmu {
 
         // This is to account for the delay in starting DMA transfer
         // And to limit its byte transfer rate to one per m-cycle
-        if self.dma.timer > DMA_TRANSFER_T_CYCLES
-            || self.dma.timer % (M_CYCLE_DURATION as u16) != 0
+        if self.dma.timer > DMA_TRANSFER_T_CYCLES || self.dma.timer % (M_CYCLE_DURATION as u16) != 0
         {
             return;
         }
@@ -62,8 +62,7 @@ impl Mmu {
         self.oam_lock = true;
 
         // Copy data one byte at a time
-        let current_index =
-            DMA_BYTE_TRANSFER_AMOUNT - (self.dma.timer / M_CYCLE_DURATION as u16);
+        let current_index = DMA_BYTE_TRANSFER_AMOUNT - (self.dma.timer / M_CYCLE_DURATION as u16);
 
         let source_addr = self.dma.source_start_addr + current_index;
         let target_addr = DMA_TARGET_START_ADDR + current_index;

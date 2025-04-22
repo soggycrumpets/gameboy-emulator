@@ -137,7 +137,6 @@ impl Mmu {
         (system_clock & (1 << initial_tima_system_clock_bit)) != 0
     }
 
-    // TODO: Writing to TAC may increase TIMA once! Perhaps this should be handled in the MMU.
     fn set_tac_enable(&mut self, set: bool) {
         let mut byte = self.read_byte(TAC_ADDR);
         set_bit(&mut byte, TAC_ENABLE_BIT, set);

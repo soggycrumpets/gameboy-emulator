@@ -35,7 +35,9 @@ pub struct Cpu {
     ime: bool,
     ime_pending: bool,
     halted: bool,
+    just_halted: bool,
     halt_bug_active: bool,
+
     handling_interrupt: bool,
     interrupt_t_cycles_remaining: u8,
 
@@ -59,6 +61,8 @@ impl Cpu {
             ime_pending: false,
             halted: false,
             halt_bug_active: false,
+            just_halted: false,
+
             handling_interrupt: false,
             interrupt_t_cycles_remaining: 0,
 
@@ -94,6 +98,8 @@ impl Cpu {
             self.ime = true;
             self.ime_pending = false;
         }
+
+        self.just_halted = false;
 
         if !self.halted {
             if !self.current_instruction_prefixed {
@@ -160,14 +166,16 @@ impl Cpu {
         }
 
         if !self.ime {
-            if self.halted {
+            if self.just_halted {
                 self.halt_bug_active = true;
-                self.halted = false;
             }
+
+            self.halted = false;
             return false;
-        }
+        } 
 
         self.halted = false;
+        self.interrupt_t_cycles_remaining = INTERRUPT_T_CYCLES;
 
         let vblank_interrupt = get_bit(if_byte, VBLANK_INTERRUPT_BIT);
         let stat_interrupt = get_bit(if_byte, STAT_INTERRUPT_BIT);
@@ -184,16 +192,16 @@ impl Cpu {
         // Interrupts are prioritized in order of their bit position (bit 0 first, bit 4 last)
         if vblank_interrupt && vblank_interrupt_enabled {
             self.handle_interrupt(VBLANK_INTERRUPT_HANDLER_ADDR, VBLANK_INTERRUPT_BIT);
-            println!("VBLANK INTERRUPT");
+            // println!("VBLANK INTERRUPT");
         } else if stat_interrupt && stat_interrupt_enabled {
             self.handle_interrupt(STAT_INTERRUPT_HANDLER_ADDR, STAT_INTERRUPT_BIT);
-            println!("STAT INTERRUPT");
+            // println!("STAT INTERRUPT");
         } else if timer_interrupt && timer_interrupt_enabled {
             self.handle_interrupt(TIMER_INTERRUPT_HANDLER_ADDR, TIMER_INTERRUPT_BIT);
-            println!("TIMER INTERRUPT");
+            // println!("TIMER INTERRUPT");
         } else if serial_interrupt && serial_interrupt_enabled {
             self.handle_interrupt(SERIAL_INTERRUPT_HANDLER_ADDR, SERIAL_INTERRUPT_BIT);
-            println!("SERIAL INTERRUPT");
+            // println!("SERIAL INTERRUPT");
         } else if joypad_interrupt && joypad_interrupt_enabled {
             self.handle_interrupt(JOYPAD_INTERRUPT_HANDLER_ADDR, JOYPAD_INTERRUPT_BIT);
         }
@@ -209,7 +217,6 @@ impl Cpu {
         self.ime = false;
 
         self.rst_vec_instant(interrupt_handler_addr);
-        self.interrupt_t_cycles_remaining = INTERRUPT_T_CYCLES;
     }
 
     fn execute(&mut self) {
@@ -871,6 +878,7 @@ impl Cpu {
 
     fn halt(&mut self) {
         self.halted = true;
+        self.just_halted = true;
     }
 
     // Wrapper functions arround MMU reads/writes to make them more clear and ergonomic
