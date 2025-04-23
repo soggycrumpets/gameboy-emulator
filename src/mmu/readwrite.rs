@@ -35,8 +35,9 @@ impl Mmu {
             }
             M::Restricted => self.restricted_memory[index],
             M::Io => match addr {
+                STAT_ADDR => self.io[index] | 0b_1000_0000, // Upper bit is unused
                 P1_ADDR => 0x0f,
-                IF_ADDR => self.io[index] | 0b_1110_0000, // Upper 3 bits always read high
+                IF_ADDR => self.io[index] | 0b_1110_0000, // Upper 3 bits are unused
                 _ => self.io[index],
             },
             M::Hram => self.hram[index],

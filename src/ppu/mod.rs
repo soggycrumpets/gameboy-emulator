@@ -1,8 +1,8 @@
+mod fetcher;
 mod registers;
 mod tile_maps;
 mod tiles;
 
-// Timings are an integral part of the PPU
 // https://gbdev.io/pandocs/Rendering.html
 const T_CYCLES_PER_FRAME: u32 = 70224;
 const SCANLINES_PER_FRAME: u32 = 154;
@@ -20,10 +20,14 @@ const VBLANK_MODE_NUMBER: u8 = 1;
 const OAM_SCAN_MODE_NUMBER: u8 = 2;
 const PIXEL_DRAW_MODE_NUMBER: u8 = 3;
 
+const WINDOW_WIDTH: u8 = 160;
+const WINDOW_HEIGHT: u8 = 144;
+
 use crate::{
     mmu::{self, memmap::*},
     util::{get_bit, set_bit},
 };
+use fetcher::{Fetcher, FetcherState};
 use mmu::Mmu;
 use std::{cell::RefCell, rc::Rc};
 
@@ -43,12 +47,23 @@ pub struct Ppu {
     was_enabled: bool,
     pub display: GbDisplay,
 
+    fetcher_state: FetcherState,
+    fetcher: Fetcher,
+
+    lx: u8,
+    ly: u8,
+
+    drawing_window: bool,
+    wy_triggered: bool,
+    wy_counter: u8,
+    wx_triggered: bool,
+
     frame_t_cycle_count: u32,
     scanline_t_cycle_count: u32,
     mode_t_cycle_count: u32,
 
     scanline_counter: u8,
-    stat_interrupt_line: bool,
+    stat_interrupt_signal: bool,
 }
 
 impl Ppu {
@@ -58,12 +73,22 @@ impl Ppu {
             was_enabled: false,
             display: [[0; 256]; 256],
 
+            fetcher_state: FetcherState::GetTile,
+            fetcher: Fetcher::new(),
+
+            lx: 0,
+            ly: 0,
+
+            wy_triggered: false,
+            wy_counter: 0,
+            wx_triggered: false,
+
             frame_t_cycle_count: 0,
             scanline_t_cycle_count: 0,
             mode_t_cycle_count: 0,
 
             scanline_counter: 0,
-            stat_interrupt_line: false,
+            stat_interrupt_signal: false,
         }
     }
 
@@ -105,6 +130,7 @@ impl Ppu {
                     self.set_mode(PpuMode::HBlank);
                     self.mmu.borrow_mut().vram_lock = false;
                     self.mmu.borrow_mut().oam_lock = false;
+                    self.drawing_window = false;
                 }
             }
             PpuMode::HBlank => {
@@ -120,6 +146,7 @@ impl Ppu {
                 {
                     self.set_mode(PpuMode::OamScan);
                     self.mmu.borrow_mut().oam_lock = true;
+                    self.update_wy();
                 }
             }
             PpuMode::VBlank => {
@@ -127,6 +154,9 @@ impl Ppu {
                     // println!("VBLANK -> OAM");
                     self.set_mode(PpuMode::OamScan);
                     self.mmu.borrow_mut().oam_lock = true;
+                    self.wy_counter = 0;
+                    self.update_wy();
+
                 }
             }
         }
@@ -144,7 +174,14 @@ impl Ppu {
         // LY and the LY=LYC bit of the STAT register are updated each cycle,
         // and interrupts are requested based on the current PPU mode and stat register.
         // todo! The register update timings in the PPU are all off.
-        // self.update_ppu_status_registers();
+        self.update_ppu_status_registers();
+    }
+
+    fn update_wy(&mut self) {
+        // Check if the new scanline is in a window
+        let wy = self.read_byte(WY_ADDR);
+        self.wy_triggered = self.ly == wy;
+        self.wy_counter += self.wy_triggered as u8;
     }
 
     fn update_ppu_status_registers(&mut self) {
@@ -175,10 +212,10 @@ impl Ppu {
             || ((mode == PpuMode::OamScan) && (enable_oam))
             || ((mode == PpuMode::VBlank) && (enable_vblank || enable_oam));
 
-        if stat_interrupt_line && !self.stat_interrupt_line {
+        if stat_interrupt_line && !self.stat_interrupt_signal {
             self.mmu.borrow_mut().request_interrupt(STAT_INTERRUPT_BIT);
         }
-        self.stat_interrupt_line = stat_interrupt_line;
+        self.stat_interrupt_signal = stat_interrupt_line;
     }
 
     pub fn get_mode(&mut self) -> PpuMode {
@@ -209,6 +246,7 @@ impl Ppu {
         self.frame_t_cycle_count = 0;
         self.scanline_t_cycle_count = 0;
         self.scanline_counter = 0;
+        self.stat_interrupt_signal = false;
         self.set_mode(PpuMode::OamScan);
 
         let mut mmu = self.mmu.borrow_mut();
