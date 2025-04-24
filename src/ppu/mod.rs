@@ -275,7 +275,9 @@ impl Ppu {
     }
 
     fn inc_ly(&mut self) {
-        self.ly += 1; 
+        if self.ly < 143 {
+            self.ly += 1; 
+        }
         self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
     }
 

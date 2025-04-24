@@ -22,8 +22,7 @@ pub struct Fetcher {
     state: FetcherState,
     tile_x: u8,
     tile_y: u8,
-
-    tile_row: u8,
+    y: u8,
 
     tile_addr: u16,
     tile_data_low: u8,
@@ -38,8 +37,7 @@ impl Fetcher {
             state: FetcherState::GetTile,
             tile_x: 0,
             tile_y: 0,
-
-            tile_row: 0,
+            y: 0,
 
             tile_addr: 0x0000,
             tile_data_low: 0,
@@ -95,35 +93,37 @@ impl Ppu {
                 TILEMAP_1_ADDR
             };
 
-        let (tile_x, tile_y) = if window_tile_map {
-            (self.lx, self.ly)
+        (self.fetcher.tile_x, self.fetcher.y) = if window_tile_map {
+            (self.lx / 8, self.ly)
         } else {
             let scx = self.read_byte(SCX_ADDR);
             let scy = self.read_byte(SCY_ADDR);
-            ((self.lx + (scx / 8)) & 0x1F, (self.ly + scy) & 0xFF)
+            ((self.lx / 8 + (scx / 8)) & 0x1F, (self.ly as u16 + scy as u16) as u8)
         };
 
-        let tilemap_addr =
-            tilemap_base_addr + (tile_y as u16 * TILEMAP_WIDTH as u16) + tile_x as u16;
-        let tile_index = self.read_byte(tilemap_addr);
+        self.fetcher.tile_y = self.fetcher.y / 8;
 
-        println!("{:02x}", tile_index);
+
+        let tilemap_addr =
+            tilemap_base_addr + (self.fetcher.tile_y as u16 * 32) + (self.fetcher.tile_x) as u16;
+
+        let tile_index = self.read_byte(tilemap_addr);
 
         self.fetcher.tile_addr = self.get_tile_start_addr(tile_index);
     }
 
     fn fetcher_get_tile_data(&mut self, high: bool) {
         let tile_start_addr = self.fetcher.tile_addr;
-        let row = self.ly;
+        let row_index = self.fetcher.y % TILE_HEIGHT_IN_PIXELS as u8;
 
         if high {
-            self.fetcher.tile_data_high = self.read_byte(tile_start_addr + (row as u16 * 2) + 1);
-            print!("{:04x} : ", tile_start_addr + (row as u16 * 2) + 1);
-            println!("{:02x}", self.fetcher.tile_data_high);
+            self.fetcher.tile_data_high = self.read_byte(tile_start_addr + (row_index as u16 * 2) + 1);
+            // print!("{:04x} : ", tile_start_addr + (row as u16 * 2) + 1);
+            // println!("{:02x}", self.fetcher.tile_data_high);
         } else {
-            self.fetcher.tile_data_low = self.read_byte(tile_start_addr + (row as u16 * 2));
-            print!("{:04x} : ", tile_start_addr + (row as u16 * 2));
-            println!("{:02x}", self.fetcher.tile_data_low);
+            self.fetcher.tile_data_low = self.read_byte(tile_start_addr + (row_index as u16 * 2));
+            // print!("{:04x} : ", tile_start_addr + (row as u16 * 2));
+            // println!("{:02x}", self.fetcher.tile_data_low);
         }
     }
 
