@@ -69,7 +69,7 @@ fn run_rom(path: &str) {
         if last_render_time.elapsed() >= render_timer_period {
             process_inputs(&mut ui, &mmu);
             ppu.splat_tiles();
-            ui.render_display(&ppu.display);
+            ui.render_display(&ppu.background);
 
             last_render_time = Instant::now();
         }

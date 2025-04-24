@@ -1,4 +1,4 @@
-use crate::ppu::GbDisplay;
+use crate::ppu::GbBackground;
 
 use sdl2::{
     EventPump, event::Event, keyboard::Scancode, pixels::Color, rect::Rect, render::Canvas,
@@ -115,7 +115,7 @@ impl UserInterface {
         (canvas, event_pump)
     }
 
-    pub fn render_display(&mut self, display: &GbDisplay) {
+    pub fn render_display(&mut self, display: &GbBackground) {
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
         self.canvas.clear();
         for (y, row) in display.iter().enumerate() {

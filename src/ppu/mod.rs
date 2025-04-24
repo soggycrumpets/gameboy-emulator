@@ -31,7 +31,8 @@ use fetcher::{Fetcher, FetcherState};
 use mmu::Mmu;
 use std::{cell::RefCell, rc::Rc};
 
-pub type GbDisplay = [[u8; 256]; 256];
+pub type GbBackground = [[u8; 256]; 256];
+pub type GbDisplay = [[u8; 160]; 144];
 
 #[repr(u8)]
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -45,15 +46,15 @@ pub enum PpuMode {
 pub struct Ppu {
     mmu: Rc<RefCell<Mmu>>,
     was_enabled: bool,
+
+    pub background: GbBackground,
     pub display: GbDisplay,
 
-    fetcher_state: FetcherState,
     fetcher: Fetcher,
 
     lx: u8,
     ly: u8,
 
-    drawing_window: bool,
     wy_triggered: bool,
     wy_counter: u8,
     wx_triggered: bool,
@@ -71,9 +72,10 @@ impl Ppu {
         Ppu {
             mmu,
             was_enabled: false,
-            display: [[0; 256]; 256],
 
-            fetcher_state: FetcherState::GetTile,
+            background: [[0; 256]; 256],
+            display: [[0; 160]; 144],
+
             fetcher: Fetcher::new(),
 
             lx: 0,
@@ -120,23 +122,30 @@ impl Ppu {
             PpuMode::OamScan => {
                 // OAMSCAN -> PIXELDRAW
                 if self.scanline_t_cycle_count == OAM_SCAN_T_CYCLES {
+                    self.lx = 0;
+
                     self.set_mode(PpuMode::PixelDraw);
                     self.mmu.borrow_mut().vram_lock = true;
                 }
             }
             PpuMode::PixelDraw => {
                 // PIXELDRAW -> HBLANK
+                self.tick_fetcher();
                 if self.scanline_t_cycle_count == OAM_SCAN_T_CYCLES + PIXEL_DRAW_MIN_T_CYCLES {
                     self.set_mode(PpuMode::HBlank);
+                    self.lx = 0;
+                    self.fetcher.dots = 0;
                     self.mmu.borrow_mut().vram_lock = false;
                     self.mmu.borrow_mut().oam_lock = false;
-                    self.drawing_window = false;
+                    self.wx_triggered = false;
+                    self.wy_triggered = false;
                 }
             }
             PpuMode::HBlank => {
                 // HBLANK -> VBLANK
                 if self.frame_t_cycle_count == T_CYCLES_PER_FRAME - VBLANK_T_CYCLES {
                     self.set_mode(PpuMode::VBlank);
+                    self.inc_ly();
                     self.mmu
                         .borrow_mut()
                         .request_interrupt(VBLANK_INTERRUPT_BIT);
@@ -145,6 +154,7 @@ impl Ppu {
                     == OAM_SCAN_T_CYCLES + PIXEL_DRAW_MIN_T_CYCLES + HBLANK_MAX_T_CYCLES
                 {
                     self.set_mode(PpuMode::OamScan);
+                    self.inc_ly();
                     self.mmu.borrow_mut().oam_lock = true;
                     self.update_wy();
                 }
@@ -154,9 +164,9 @@ impl Ppu {
                     // println!("VBLANK -> OAM");
                     self.set_mode(PpuMode::OamScan);
                     self.mmu.borrow_mut().oam_lock = true;
+                    self.reset_ly();
                     self.wy_counter = 0;
                     self.update_wy();
-
                 }
             }
         }
@@ -263,6 +273,16 @@ impl Ppu {
             _ => self.mmu.borrow().read_byte(addr),
         }
     }
+
+    fn inc_ly(&mut self) {
+        self.ly += 1; 
+        self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
+    }
+
+    fn reset_ly(&mut self) {
+        self.ly = 0; 
+        self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
+    }
 }
 
 mod debug {
@@ -283,15 +303,12 @@ mod debug {
             for tile_row in 0..32_usize {
                 for tile_col in 0..32_usize {
                     let tile_index = self.mmu.borrow().read_byte_override(addr);
-                    // println!("{:04x}: {:02x}", addr, tile_index);
                     let tile = self.get_tile(tile_index);
-                    // let tile = self.get_tile_direct_index(0x8000 + tile_index as u16 * 16);
-                    // let tile = self.get_test_tile(TEST_TILE_RAW);
                     addr += 1;
                     // tile is 8x8 pixels
                     for pixel_row in 0..8_usize {
                         for pixel_col in 0..8_usize {
-                            self.display[pixel_row + tile_row * 8][pixel_col + tile_col * 8] =
+                            self.background[pixel_row + tile_row * 8][pixel_col + tile_col * 8] =
                                 tile[pixel_row][pixel_col];
                         }
                     }

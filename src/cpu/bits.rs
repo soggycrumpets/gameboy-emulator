@@ -75,12 +75,6 @@ impl Cpu {
                 _ => unreachable!(),
             }
         }
-        
-
-        // let bits = self.read_at_hl();
-        // let result = self.bitflag_u3_u8(op, bit, bits);
-
-        // self.write_at_hl(result);
     }
 
     // Special unprefixed operations

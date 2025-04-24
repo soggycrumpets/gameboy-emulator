@@ -28,7 +28,7 @@ fn get_pixel(byte1: u8, byte2: u8, col: usize) -> u8 {
     bit1 | (bit2 << 1)
 }
 
-fn get_tile_row(byte1: u8, byte2: u8) -> TileRow {
+pub fn get_tile_row(byte1: u8, byte2: u8) -> TileRow {
     let mut row_pixels: TileRow = [0; TILE_WIDTH_IN_PIXELS];
     for (pixel_index, pixel) in row_pixels.iter_mut().enumerate() {
         *pixel = get_pixel(byte1, byte2, pixel_index);
@@ -38,7 +38,7 @@ fn get_tile_row(byte1: u8, byte2: u8) -> TileRow {
 
 impl Ppu {
     // The way that they are indexed depends on a register flag.
-    fn get_tile_start_addr(&self, index: u8) -> u16 {
+    pub fn get_tile_start_addr(&self, index: u8) -> u16 {
         let signed_addressing_mode = !self.get_lcdc_flag(BG_AND_WINDOW_ENABLE_BIT);
         // The base pointer is different between the two addressing modes
         let bp: u16 = if signed_addressing_mode {

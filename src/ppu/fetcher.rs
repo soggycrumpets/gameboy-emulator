@@ -1,5 +1,13 @@
-use super::*;
+use super::{
+    tiles::{TILE_HEIGHT_IN_PIXELS, TILE_WIDTH_IN_PIXELS, get_tile_row},
+    *,
+};
 
+const TILEMAP_1_ADDR: u16 = 0x9800;
+const TILEMAP_2_ADDR: u16 = 0x9C00;
+const TILEMAP_WIDTH: u8 = 32;
+
+#[derive(Debug)]
 pub enum FetcherState {
     GetTile,
     GetTileDataHigh,
@@ -9,29 +17,74 @@ pub enum FetcherState {
 }
 
 pub struct Fetcher {
+    pub dots: u32,
+
     state: FetcherState,
     tile_x: u8,
     tile_y: u8,
+
+    tile_row: u8,
+    tile_index: u8,
+
+    tile_addr: u16,
+    tile_data_low: u8,
+    tile_data_high: u8,
 }
 
 impl Fetcher {
     pub fn new() -> Self {
         Fetcher {
+            dots: 0,
+
             state: FetcherState::GetTile,
             tile_x: 0,
             tile_y: 0,
+
+            tile_row: 0,
+            tile_index: 0,
+
+            tile_addr: 0x0000,
+            tile_data_low: 0,
+            tile_data_high: 0,
         }
     }
 }
 
 impl Ppu {
-    fn tick_fetcher(&mut self) {
-        match self.fetcher_state {
-            FetcherState::GetTile => self.fetcher_get_tile(),
-            FetcherState::GetTileDataHigh => self.fetcher_get_tile_data_high(),
-            FetcherState::GetTileDataLow => self.fetcher_get_tile_data_low(),
+    pub fn tick_fetcher(&mut self) {
+        self.fetcher.dots += 1;
+        if self.fetcher.dots % 2 != 0 {
+            return;
+        }
+
+        if self.fetcher.dots >= 160 {
+            return;
+        }
+
+        println!(
+            "{}, {}, {}, {:?}",
+            self.ly, self.lx, self.fetcher.dots, self.fetcher.state
+        );
+
+        match self.fetcher.state {
+            FetcherState::GetTile => {
+                self.fetcher_get_tile();
+                self.fetcher.state = FetcherState::GetTileDataLow;
+                self.lx += 8;
+            }
+            FetcherState::GetTileDataLow => {
+                self.fetcher_get_tile_data(false);
+                self.fetcher.state = FetcherState::GetTileDataHigh;
+            }
+            FetcherState::GetTileDataHigh => {
+                self.fetcher_get_tile_data(true);
+                self.fetcher.state = FetcherState::Push;
+            }
             FetcherState::Sleep => self.fetcher_sleep(),
-            FetcherState::Push => self.fetcher_push(),
+            FetcherState::Push => {
+                self.fetcher_push();
+                self.fetcher.state = FetcherState::GetTile;
+            }
         }
     }
 
@@ -42,32 +95,53 @@ impl Ppu {
         self.update_wx();
         let drawing_window = self.wx_triggered && self.wy_triggered;
 
-        let tilemap_addr: u16 =
+        let tilemap_base_addr =
             if (bg_tile_map && drawing_window) || (window_tile_map && !drawing_window) {
-                0x9C00
+                TILEMAP_2_ADDR
             } else {
-                0x9800
+                TILEMAP_1_ADDR
             };
 
-        let (x, y) = if window_tile_map {
+        let (tile_x, tile_y) = if window_tile_map {
             (self.lx, self.ly)
         } else {
-            self.fetcher.tile_y = self.ly;
             let scx = self.read_byte(SCX_ADDR);
             let scy = self.read_byte(SCY_ADDR);
-            ((self.lx + (scx / 8)) & 0x1F, (self.ly + scy) & 255)
+            ((self.lx + (scx / 8)) & 0x1F, (self.ly + scy) & 0xFF)
         };
-    }
-    fn fetcher_get_tile_data_high(&self) {}
 
-    fn fetcher_get_tile_data_low(&self) {}
+        self.fetcher.tile_row = tile_y % TILE_WIDTH_IN_PIXELS as u8;
+
+        let tilemap_addr =
+            tilemap_base_addr + (tile_y as u16 * TILEMAP_WIDTH as u16) + tile_x as u16;
+        let tile_index = self.read_byte(tilemap_addr);
+        self.fetcher.tile_addr = self.get_tile_start_addr(tile_index);
+    }
+
+    fn fetcher_get_tile_data(&mut self, high: bool) {
+        let tile_start_addr = self.get_tile_start_addr(self.fetcher.tile_index);
+        let row = self.fetcher.tile_row;
+
+        if high {
+            self.fetcher.tile_data_high = self.read_byte(tile_start_addr + (row as u16 * 2) + 1);
+        } else {
+            self.fetcher.tile_data_low = self.read_byte(tile_start_addr + (row as u16 * 2));
+        }
+    }
 
     fn fetcher_sleep(&self) {}
 
-    fn fetcher_push(&self) {}
+    fn fetcher_push(&mut self) {
+        let tile_row = get_tile_row(self.fetcher.tile_data_low, self.fetcher.tile_data_high);
+        let row = self.ly as usize;
+        let col = self.lx as usize;
+        for (i, pixel) in tile_row.iter().enumerate() {
+            self.display[row][col + i] = *pixel;
+        }
+    }
 
     fn update_wx(&mut self) {
         let wx = self.read_byte(WX_ADDR);
-        self.wx_triggered = (self.lx + 7);
+        self.wx_triggered = (self.lx + 7) == wx;
     }
 }

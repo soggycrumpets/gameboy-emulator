@@ -139,7 +139,6 @@ impl Cpu {
             // Read the high byte of a16 and check condition
             4 => {
                 self.word_buf_high = self.fetch_byte();
-                let word = self.get_word_buf();
                 if expect != self.reg.get_flag(flag) {
                     self.instruction_t_cycles_remaining -= CALL_CC_EXTRA_T_CYCLES;
                 }
