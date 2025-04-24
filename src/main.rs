@@ -68,8 +68,8 @@ fn run_rom(path: &str) {
         // For now, just draw everything at once at 60fps
         if last_render_time.elapsed() >= render_timer_period {
             process_inputs(&mut ui, &mmu);
-            ppu.splat_tiles();
-            ui.render_display(&ppu.background);
+            // ppu.splat_tiles();
+            ui.render_display(&ppu.display);
 
             last_render_time = Instant::now();
         }

@@ -31,7 +31,7 @@ pub fn run_debug(path: &str) {
 
     while running {
         ui.process_inputs();
-        ui.render_display(&ppu.background);
+        ui.render_display(&ppu.display);
 
         let input = get_user_input();
         let command = parse_user_input(input);

@@ -24,7 +24,6 @@ pub struct Fetcher {
     tile_y: u8,
 
     tile_row: u8,
-    tile_index: u8,
 
     tile_addr: u16,
     tile_data_low: u8,
@@ -41,7 +40,6 @@ impl Fetcher {
             tile_y: 0,
 
             tile_row: 0,
-            tile_index: 0,
 
             tile_addr: 0x0000,
             tile_data_low: 0,
@@ -60,11 +58,6 @@ impl Ppu {
         if self.fetcher.dots >= 160 {
             return;
         }
-
-        println!(
-            "{}, {}, {}, {:?}",
-            self.ly, self.lx, self.fetcher.dots, self.fetcher.state
-        );
 
         match self.fetcher.state {
             FetcherState::GetTile => {
@@ -110,22 +103,27 @@ impl Ppu {
             ((self.lx + (scx / 8)) & 0x1F, (self.ly + scy) & 0xFF)
         };
 
-        self.fetcher.tile_row = tile_y % TILE_WIDTH_IN_PIXELS as u8;
-
         let tilemap_addr =
             tilemap_base_addr + (tile_y as u16 * TILEMAP_WIDTH as u16) + tile_x as u16;
         let tile_index = self.read_byte(tilemap_addr);
+
+        println!("{:02x}", tile_index);
+
         self.fetcher.tile_addr = self.get_tile_start_addr(tile_index);
     }
 
     fn fetcher_get_tile_data(&mut self, high: bool) {
-        let tile_start_addr = self.get_tile_start_addr(self.fetcher.tile_index);
-        let row = self.fetcher.tile_row;
+        let tile_start_addr = self.fetcher.tile_addr;
+        let row = self.ly;
 
         if high {
             self.fetcher.tile_data_high = self.read_byte(tile_start_addr + (row as u16 * 2) + 1);
+            print!("{:04x} : ", tile_start_addr + (row as u16 * 2) + 1);
+            println!("{:02x}", self.fetcher.tile_data_high);
         } else {
             self.fetcher.tile_data_low = self.read_byte(tile_start_addr + (row as u16 * 2));
+            print!("{:04x} : ", tile_start_addr + (row as u16 * 2));
+            println!("{:02x}", self.fetcher.tile_data_low);
         }
     }
 

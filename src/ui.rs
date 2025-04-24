@@ -1,12 +1,12 @@
-use crate::ppu::GbBackground;
+use crate::ppu::{GbBackground, GbDisplay};
 
 use sdl2::{
     EventPump, event::Event, keyboard::Scancode, pixels::Color, rect::Rect, render::Canvas,
     video::Window,
 };
 
-pub const WINDOW_WIDTH: usize = 256;
-pub const WINDOW_HEIGHT: usize = 256;
+pub const WINDOW_WIDTH: usize = 160;
+pub const WINDOW_HEIGHT: usize = 144;
 pub const WINDOW_SCALE_FACTOR: usize = 2;
 
 #[derive(Copy, Clone, Debug)]
@@ -115,7 +115,7 @@ impl UserInterface {
         (canvas, event_pump)
     }
 
-    pub fn render_display(&mut self, display: &GbBackground) {
+    pub fn render_display(&mut self, display: &GbDisplay) {
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
         self.canvas.clear();
         for (y, row) in display.iter().enumerate() {
