@@ -1,5 +1,6 @@
 mod fetcher;
 mod registers;
+mod state_machine;
 mod tile_maps;
 mod tiles;
 
@@ -119,56 +120,10 @@ impl Ppu {
             .write_byte_override(LY_ADDR, self.scanline_counter);
 
         match ppu_mode {
-            PpuMode::OamScan => {
-                // OAMSCAN -> PIXELDRAW
-                if self.scanline_t_cycle_count == OAM_SCAN_T_CYCLES {
-                    self.lx = 0;
-
-                    self.set_mode(PpuMode::PixelDraw);
-                    self.mmu.borrow_mut().vram_lock = true;
-                }
-            }
-            PpuMode::PixelDraw => {
-                // PIXELDRAW -> HBLANK
-                self.tick_fetcher();
-                if self.scanline_t_cycle_count == OAM_SCAN_T_CYCLES + PIXEL_DRAW_MIN_T_CYCLES {
-                    self.set_mode(PpuMode::HBlank);
-                    self.lx = 0;
-                    self.fetcher.dots = 0;
-                    self.mmu.borrow_mut().vram_lock = false;
-                    self.mmu.borrow_mut().oam_lock = false;
-                    self.wx_triggered = false;
-                    self.wy_triggered = false;
-                }
-            }
-            PpuMode::HBlank => {
-                // HBLANK -> VBLANK
-                if self.frame_t_cycle_count == T_CYCLES_PER_FRAME - VBLANK_T_CYCLES {
-                    self.set_mode(PpuMode::VBlank);
-                    self.inc_ly();
-                    self.mmu
-                        .borrow_mut()
-                        .request_interrupt(VBLANK_INTERRUPT_BIT);
-                // HBLANK -> OAMSCAN
-                } else if self.scanline_t_cycle_count
-                    == OAM_SCAN_T_CYCLES + PIXEL_DRAW_MIN_T_CYCLES + HBLANK_MAX_T_CYCLES
-                {
-                    self.set_mode(PpuMode::OamScan);
-                    self.inc_ly();
-                    self.mmu.borrow_mut().oam_lock = true;
-                    self.update_wy();
-                }
-            }
-            PpuMode::VBlank => {
-                if self.frame_t_cycle_count == T_CYCLES_PER_FRAME {
-                    // println!("VBLANK -> OAM");
-                    self.set_mode(PpuMode::OamScan);
-                    self.mmu.borrow_mut().oam_lock = true;
-                    self.reset_ly();
-                    self.wy_counter = 0;
-                    self.update_wy();
-                }
-            }
+            PpuMode::OamScan => self.oam_scan(),
+            PpuMode::PixelDraw => self.pixel_draw(),
+            PpuMode::HBlank => self.hblank(),
+            PpuMode::VBlank => self.vblank(),
         }
 
         if self.scanline_t_cycle_count == T_CYCLES_PER_SCANLINE {
@@ -184,13 +139,15 @@ impl Ppu {
         // LY and the LY=LYC bit of the STAT register are updated each cycle,
         // and interrupts are requested based on the current PPU mode and stat register.
         // todo! The register update timings in the PPU are all off.
-        self.update_ppu_status_registers();
+        // self.update_ppu_status_registers();
     }
 
     fn update_wy(&mut self) {
         // Check if the new scanline is in a window
         let wy = self.read_byte(WY_ADDR);
-        self.wy_triggered = self.ly == wy;
+        if self.ly == wy {
+            self.wy_triggered = self.ly == wy;
+        }
         self.wy_counter += self.wy_triggered as u8;
     }
 
@@ -276,13 +233,13 @@ impl Ppu {
 
     fn inc_ly(&mut self) {
         if self.ly < 143 {
-            self.ly += 1; 
+            self.ly += 1;
         }
         self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
     }
 
     fn reset_ly(&mut self) {
-        self.ly = 0; 
+        self.ly = 0;
         self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
     }
 }

@@ -5,7 +5,7 @@ use super::{
 
 const TILEMAP_1_ADDR: u16 = 0x9800;
 const TILEMAP_2_ADDR: u16 = 0x9C00;
-const TILEMAP_WIDTH: u8 = 32;
+const TILEMAP_WIDTH: u16 = 32;
 
 #[derive(Debug)]
 pub enum FetcherState {
@@ -83,17 +83,18 @@ impl Ppu {
         let bg_tile_map = self.get_lcdc_flag(BG_TILE_MAP_BIT);
         let window_tile_map = self.get_lcdc_flag(WINDOW_TILE_MAP_BIT);
 
+
         self.update_wx();
-        let drawing_window = self.wx_triggered && self.wy_triggered;
+        let window_enabled = self.get_lcdc_flag(WINDOW_ENABLE_BIT);
+        let drawing_window = self.wx_triggered && self.wy_triggered && window_enabled;
 
-        let tilemap_base_addr =
-            if (bg_tile_map && drawing_window) || (window_tile_map && !drawing_window) {
-                TILEMAP_2_ADDR
-            } else {
-                TILEMAP_1_ADDR
-            };
+        let tilemap_base_addr = if drawing_window {
+            TILEMAP_2_ADDR
+        } else {
+            TILEMAP_1_ADDR
+        };
 
-        (self.fetcher.tile_x, self.fetcher.y) = if window_tile_map {
+        (self.fetcher.tile_x, self.fetcher.y) = if drawing_window {
             (self.lx / 8, self.ly)
         } else {
             let scx = self.read_byte(SCX_ADDR);
@@ -103,9 +104,9 @@ impl Ppu {
 
         self.fetcher.tile_y = self.fetcher.y / 8;
 
-
-        let tilemap_addr =
-            tilemap_base_addr + (self.fetcher.tile_y as u16 * 32) + (self.fetcher.tile_x) as u16;
+        let tilemap_addr = tilemap_base_addr
+            + (self.fetcher.tile_y as u16 * TILEMAP_WIDTH)
+            + (self.fetcher.tile_x) as u16;
 
         let tile_index = self.read_byte(tilemap_addr);
 
@@ -117,13 +118,10 @@ impl Ppu {
         let row_index = self.fetcher.y % TILE_HEIGHT_IN_PIXELS as u8;
 
         if high {
-            self.fetcher.tile_data_high = self.read_byte(tile_start_addr + (row_index as u16 * 2) + 1);
-            // print!("{:04x} : ", tile_start_addr + (row as u16 * 2) + 1);
-            // println!("{:02x}", self.fetcher.tile_data_high);
+            self.fetcher.tile_data_high =
+                self.read_byte(tile_start_addr + (row_index as u16 * 2) + 1);
         } else {
             self.fetcher.tile_data_low = self.read_byte(tile_start_addr + (row_index as u16 * 2));
-            // print!("{:04x} : ", tile_start_addr + (row as u16 * 2));
-            // println!("{:02x}", self.fetcher.tile_data_low);
         }
     }
 
@@ -140,6 +138,8 @@ impl Ppu {
 
     fn update_wx(&mut self) {
         let wx = self.read_byte(WX_ADDR);
-        self.wx_triggered = (self.lx + 7) == wx;
+        if (self.lx) == wx.wrapping_sub(7) {
+            self.wx_triggered = true;
+        }
     }
 }
