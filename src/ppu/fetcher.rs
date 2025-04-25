@@ -17,8 +17,6 @@ pub enum FetcherState {
 }
 
 pub struct Fetcher {
-    pub dots: u32,
-
     state: FetcherState,
     tile_x: u8,
     tile_y: u8,
@@ -34,8 +32,6 @@ pub struct Fetcher {
 impl Fetcher {
     pub fn new() -> Self {
         Fetcher {
-            dots: 0,
-
             state: FetcherState::GetTile,
             tile_x: 0,
             tile_y: 0,
@@ -52,12 +48,11 @@ impl Fetcher {
 
 impl Ppu {
     pub fn tick_fetcher(&mut self) {
-        self.fetcher.dots += 1;
-        if self.fetcher.dots % 2 != 0 {
+        if self.mode_dots % 2 != 0 {
             return;
         }
 
-        if self.fetcher.dots >= 160 {
+        if self.mode_dots >= 160 {
             return;
         }
 
@@ -87,15 +82,14 @@ impl Ppu {
         let bg_tile_map = self.get_lcdc_flag(BG_TILE_MAP_BIT);
         let window_tile_map = self.get_lcdc_flag(WINDOW_TILE_MAP_BIT);
 
+        self.set_lcdc_flag(WINDOW_ENABLE_BIT, true);
 
         self.update_wx();
         let window_enabled = self.get_lcdc_flag(WINDOW_ENABLE_BIT);
         self.fetcher.drawing_window = self.wx_triggered && self.wy_triggered && window_enabled;
 
-        println!("{}", window_enabled);
-
-        let tilemap_base_addr = if self.fetcher.drawing_window && bg_tile_map
-        || !self.fetcher.drawing_window && window_tile_map {
+        let tilemap_base_addr = if !self.fetcher.drawing_window && bg_tile_map
+        || self.fetcher.drawing_window && window_tile_map {
             TILEMAP_2_ADDR
         } else {
             TILEMAP_1_ADDR
@@ -104,7 +98,7 @@ impl Ppu {
         (self.fetcher.tile_x, self.fetcher.y) = if self.fetcher.drawing_window {
             let wx = self.read_byte(WX_ADDR).wrapping_sub(7);
             let wy = self.wy_counter;
-            (wx / 8, wy)
+            (self.lx.wrapping_sub(wx) / 8, wy)
         } else {
             let scx = self.read_byte(SCX_ADDR);
             let scy = self.read_byte(SCY_ADDR);
@@ -150,7 +144,7 @@ impl Ppu {
 
     fn update_wx(&mut self) {
         let wx = self.read_byte(WX_ADDR);
-        if (self.lx) >= wx.wrapping_sub(7) {
+        if (self.lx) == wx.wrapping_sub(7) {
             self.wx_triggered = true;
         }
     }

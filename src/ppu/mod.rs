@@ -5,16 +5,16 @@ mod tile_maps;
 mod tiles;
 
 // https://gbdev.io/pandocs/Rendering.html
-const T_CYCLES_PER_FRAME: u32 = 70224;
+const FRAME_DOTS: u32 = 70224;
 const SCANLINES_PER_FRAME: u32 = 154;
-const T_CYCLES_PER_SCANLINE: u32 = T_CYCLES_PER_FRAME / SCANLINES_PER_FRAME;
+const T_CYCLES_PER_SCANLINE: u32 = FRAME_DOTS / SCANLINES_PER_FRAME;
 
-const OAM_SCAN_T_CYCLES: u32 = 80;
-const PIXEL_DRAW_MIN_T_CYCLES: u32 = 172;
+const OAM_SCAN_DOTS: u32 = 80;
+const PIXEL_DRAW_MIN_DOTS: u32 = 172;
 const PIXEL_DRAW_MAX_T_CYCLES: u32 = 289;
 const HBLANK_MIN_T_CYCLES: u32 = 87;
-const HBLANK_MAX_T_CYCLES: u32 = 204;
-const VBLANK_T_CYCLES: u32 = T_CYCLES_PER_SCANLINE * 10;
+const HBLANK_MAX_DOTS: u32 = 204;
+const VBLANK_DOTS: u32 = T_CYCLES_PER_SCANLINE * 10;
 
 const HBLANK_MODE_NUMBER: u8 = 0;
 const VBLANK_MODE_NUMBER: u8 = 1;
@@ -54,17 +54,16 @@ pub struct Ppu {
     fetcher: Fetcher,
 
     lx: u8,
-    ly: u8,
 
     wy_triggered: bool,
     wy_counter: u8,
     wx_triggered: bool,
 
-    frame_t_cycle_count: u32,
-    scanline_t_cycle_count: u32,
-    mode_t_cycle_count: u32,
+    frame_dots: u32,
+    scanline_dots: u32,
+    mode_dots: u32,
 
-    scanline_counter: u8,
+    ly: u8,
     stat_interrupt_signal: bool,
 }
 
@@ -80,17 +79,16 @@ impl Ppu {
             fetcher: Fetcher::new(),
 
             lx: 0,
-            ly: 0,
 
             wy_triggered: false,
             wy_counter: 0,
             wx_triggered: false,
 
-            frame_t_cycle_count: 0,
-            scanline_t_cycle_count: 0,
-            mode_t_cycle_count: 0,
+            frame_dots: 0,
+            scanline_dots: 0,
+            mode_dots: 0,
 
-            scanline_counter: 0,
+            ly: 0,
             stat_interrupt_signal: false,
         }
     }
@@ -111,13 +109,11 @@ impl Ppu {
             return;
         }
 
-        self.frame_t_cycle_count += 1;
-        self.scanline_t_cycle_count += 1;
-        self.mode_t_cycle_count += 1;
+        self.frame_dots += 1;
+        self.scanline_dots += 1;
+        self.mode_dots += 1;
 
-        self.mmu
-            .borrow_mut()
-            .write_byte_override(LY_ADDR, self.scanline_counter);
+        self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
 
         match ppu_mode {
             PpuMode::OamScan => self.oam_scan(),
@@ -126,20 +122,20 @@ impl Ppu {
             PpuMode::VBlank => self.vblank(),
         }
 
-        if self.scanline_t_cycle_count == T_CYCLES_PER_SCANLINE {
-            self.scanline_t_cycle_count = 0;
-            self.scanline_counter += 1;
+        if self.scanline_dots == T_CYCLES_PER_SCANLINE {
+            self.scanline_dots = 0;
+            self.inc_ly();
         }
 
-        if self.frame_t_cycle_count == T_CYCLES_PER_FRAME {
-            self.frame_t_cycle_count = 0;
-            self.scanline_counter = 0;
+        if self.frame_dots == FRAME_DOTS {
+            self.frame_dots = 0;
+            self.reset_ly();
         }
 
         // LY and the LY=LYC bit of the STAT register are updated each cycle,
         // and interrupts are requested based on the current PPU mode and stat register.
         // todo! The register update timings in the PPU are all off.
-        self.update_ppu_status_registers();
+        // self.update_ppu_status_registers();
     }
 
     fn update_wy(&mut self) {
@@ -210,9 +206,9 @@ impl Ppu {
     }
 
     fn turn_off(&mut self) {
-        self.frame_t_cycle_count = 0;
-        self.scanline_t_cycle_count = 0;
-        self.scanline_counter = 0;
+        self.frame_dots = 0;
+        self.scanline_dots = 0;
+        self.ly = 0;
         self.stat_interrupt_signal = false;
         self.set_mode(PpuMode::OamScan);
 
@@ -232,9 +228,7 @@ impl Ppu {
     }
 
     fn inc_ly(&mut self) {
-        if self.ly < 143 {
-            self.ly += 1;
-        }
+        self.ly += 1;
         self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
     }
 
