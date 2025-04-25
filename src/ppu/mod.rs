@@ -64,7 +64,7 @@ pub struct Ppu {
     mode_dots: u32,
 
     ly: u8,
-    stat_interrupt_signal: bool,
+    prev_stat_interrupt_signal: bool,
 }
 
 impl Ppu {
@@ -89,12 +89,14 @@ impl Ppu {
             mode_dots: 0,
 
             ly: 0,
-            stat_interrupt_signal: false,
+            prev_stat_interrupt_signal: false,
         }
     }
 
     /// This function progresses the state of the PPU by one t-cycle.
-    pub fn tick(&mut self) {
+    pub fn tick(&mut self) -> bool {
+        let mut frame_complete = false;
+
         let ppu_mode = self.get_mode();
         let ppu_enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT);
 
@@ -106,7 +108,7 @@ impl Ppu {
         self.was_enabled = ppu_enabled;
 
         if !ppu_enabled {
-            return;
+            return frame_complete;
         }
 
         self.frame_dots += 1;
@@ -130,12 +132,10 @@ impl Ppu {
         if self.frame_dots == FRAME_DOTS {
             self.frame_dots = 0;
             self.reset_ly();
+            frame_complete = true;
         }
 
-        // LY and the LY=LYC bit of the STAT register are updated each cycle,
-        // and interrupts are requested based on the current PPU mode and stat register.
-        // todo! The register update timings in the PPU are all off.
-        self.update_ppu_status_registers();
+        frame_complete
     }
 
     fn update_wy(&mut self) {
@@ -170,15 +170,15 @@ impl Ppu {
         // https://raw.githubusercontent.com/geaz/emu-gameboy/master/docs/The%20Cycle-Accurate%20Game%20Boy%20Docs.pdf
         // On page 29 section 8.7, STAT Interrupt
         let mode = self.get_mode();
-        let stat_interrupt_line = ((ly == lyc) && enable_ly_equals_lyc)
+        let stat_interrupt_signal = ((ly == lyc) && enable_ly_equals_lyc)
             || ((mode == PpuMode::HBlank) && enable_hblank)
             || ((mode == PpuMode::OamScan) && (enable_oam))
             || ((mode == PpuMode::VBlank) && (enable_vblank || enable_oam));
 
-        if stat_interrupt_line && !self.stat_interrupt_signal {
+        if stat_interrupt_signal && !self.prev_stat_interrupt_signal {
             self.mmu.borrow_mut().request_interrupt(STAT_INTERRUPT_BIT);
         }
-        self.stat_interrupt_signal = stat_interrupt_line;
+        self.prev_stat_interrupt_signal = stat_interrupt_signal;
     }
 
     pub fn get_mode(&mut self) -> PpuMode {
@@ -198,18 +198,20 @@ impl Ppu {
     pub fn set_mode(&mut self, mode: PpuMode) {
         // Only the rightmost two bits should be touched
         let mode_number = mode as u8;
-        let mut byte = self.read_byte(LCDC_ADDR);
+        let mut byte = self.read_byte(STAT_ADDR);
         byte &= 0b_1111_1100;
         byte |= mode_number;
 
         self.mmu.borrow_mut().write_byte_override(STAT_ADDR, byte);
+
+        self.update_ppu_status_registers();
     }
 
     fn turn_off(&mut self) {
         self.frame_dots = 0;
         self.scanline_dots = 0;
         self.ly = 0;
-        self.stat_interrupt_signal = false;
+        self.prev_stat_interrupt_signal = false;
         self.set_mode(PpuMode::OamScan);
 
         let mut mmu = self.mmu.borrow_mut();
@@ -230,11 +232,15 @@ impl Ppu {
     fn inc_ly(&mut self) {
         self.ly += 1;
         self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
+
+        self.update_ppu_status_registers();
     }
 
     fn reset_ly(&mut self) {
         self.ly = 0;
         self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
+
+        self.update_ppu_status_registers();
     }
 }
 
@@ -273,61 +279,5 @@ mod debug {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use crate::{create_gameboy_components, emulate_boot, util::get_bit};
-
-    // todo! This test is unfinished
-    // Test PPU registers cycle-by-cycle
-    // Comparing to timing table in the cycle-accurate gameboy docs, 8.9.1 - Timings in DMG
-    // #[test]
-    // fn test_ly_equals_lyc_interrupt_timing() {
-    //     let (mmu, mut cpu, mut ppu) = create_gameboy_components();
-
-    //     // The LCDC has to be on for anything to happen
-    //     ppu.set_lcdc_flag(LCD_AND_PPU_ENABLE_BIT, true);
-
-    //     let mut t_cycles: u32 = 0;
-
-    //     loop {
-    //         let stat = ppu.read_byte(STAT_ADDR);
-    //         let stat_mode = ppu.get_mode() as u8;
-    //         let lyc = ppu.read_byte(LYC_ADDR);
-
-    //         let ly = ppu.read_byte(LY_ADDR);
-    //         // let ly_to_compare_lyc = ly == lyc;
-    //         let if_flag = get_bit(stat, LY_EQUALS_LYC_BIT) as u8;
-
-    //         ppu.tick();
-
-    //         match t_cycles {
-    //             0..4 => {
-    //                 test_t_cycle(t_cycles, ly, 0, stat_mode, 0, if_flag, 0);
-    //             }
-    //             4..448 => {
-    //                 test_t_cycle(t_cycles, ly, 0, stat_mode, 2, if_flag, 0);
-    //             }
-    //             _ => break,
-    //         }
-
-    //         ppu.tick();
-    //         t_cycles += 1;
-    //     }
-    // }
-
-    // fn test_t_cycle(
-    //     t_cycles: u32,
-    //     ly: u8,
-    //     ly_expect: u8,
-    //     stat_mode: u8,
-    //     stat_mode_expect: u8,
-    //     if_flag: u8,
-    //     if_flag_expect: u8,
-    // ) {
-    //     eprintln!("Cycle count: {}", t_cycles);
-    //     assert_eq!(ly, ly_expect, "LY");
-    //     assert_eq!(stat_mode, stat_mode_expect, "STAT Mode");
-    //     // assert_eq!(ly_to_compare_lyc, false, "LY to compare LYC");
-    //     assert_eq!(if_flag, if_flag_expect, "IF Flag (LY=LYC)");
-    // }
+   
 }

@@ -52,7 +52,7 @@ impl Ppu {
             return;
         }
 
-        if self.mode_dots >= 160 {
+        if self.mode_dots > 160 {
             return;
         }
 
@@ -85,9 +85,7 @@ impl Ppu {
         self.set_lcdc_flag(WINDOW_ENABLE_BIT, true);
 
         self.update_wx();
-        println!("{}", self.read_byte(WX_ADDR));
-        let window_enabled = self.get_lcdc_flag(WINDOW_ENABLE_BIT);
-        self.fetcher.drawing_window = self.wx_triggered && self.wy_triggered && window_enabled;
+        self.fetcher.drawing_window = self.wx_triggered && self.wy_triggered;
 
         let tilemap_base_addr = if !self.fetcher.drawing_window && bg_tile_map
         || self.fetcher.drawing_window && window_tile_map {

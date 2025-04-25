@@ -56,10 +56,6 @@ impl Mmu {
             print!("{}", c);
         }
 
-        if (addr == WX_ADDR) {
-            println!("WX Written: {}", byte);
-        }
-
         use MemRegion as M;
         match mem_region {
             M::RomBank0 => self.rom_bank_00[index] = byte,

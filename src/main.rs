@@ -62,14 +62,16 @@ fn run_rom(path: &str) {
         cpu.tick();
         mmu.borrow_mut().tick_timers();
         mmu.borrow_mut().tick_dma();
-        ppu.tick();
+        if ppu.tick() {
+            ui.render_display(&ppu.display);
+        }
         // todo!
         // The ppu should eventually draw a little bit at a time.
         // For now, just draw everything at once at 60fps
         if last_render_time.elapsed() >= render_timer_period {
             process_inputs(&mut ui, &mmu);
             // ppu.splat_tiles();
-            ui.render_display(&ppu.display);
+            // ui.render_display(&ppu.display);
 
             last_render_time = Instant::now();
         }
