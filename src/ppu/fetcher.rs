@@ -24,6 +24,8 @@ pub struct Fetcher {
     tile_y: u8,
     y: u8,
 
+    drawing_window: bool,
+
     tile_addr: u16,
     tile_data_low: u8,
     tile_data_high: u8,
@@ -38,6 +40,8 @@ impl Fetcher {
             tile_x: 0,
             tile_y: 0,
             y: 0,
+
+            drawing_window: false,
 
             tile_addr: 0x0000,
             tile_data_low: 0,
@@ -61,7 +65,6 @@ impl Ppu {
             FetcherState::GetTile => {
                 self.fetcher_get_tile();
                 self.fetcher.state = FetcherState::GetTileDataLow;
-                self.lx += 8;
             }
             FetcherState::GetTileDataLow => {
                 self.fetcher_get_tile_data(false);
@@ -75,6 +78,7 @@ impl Ppu {
             FetcherState::Push => {
                 self.fetcher_push();
                 self.fetcher.state = FetcherState::GetTile;
+                self.lx += 8;
             }
         }
     }
@@ -86,20 +90,28 @@ impl Ppu {
 
         self.update_wx();
         let window_enabled = self.get_lcdc_flag(WINDOW_ENABLE_BIT);
-        let drawing_window = self.wx_triggered && self.wy_triggered && window_enabled;
+        self.fetcher.drawing_window = self.wx_triggered && self.wy_triggered && window_enabled;
 
-        let tilemap_base_addr = if drawing_window {
+        println!("{}", window_enabled);
+
+        let tilemap_base_addr = if self.fetcher.drawing_window && bg_tile_map
+        || !self.fetcher.drawing_window && window_tile_map {
             TILEMAP_2_ADDR
         } else {
             TILEMAP_1_ADDR
         };
 
-        (self.fetcher.tile_x, self.fetcher.y) = if drawing_window {
-            (self.lx / 8, self.ly)
+        (self.fetcher.tile_x, self.fetcher.y) = if self.fetcher.drawing_window {
+            let wx = self.read_byte(WX_ADDR).wrapping_sub(7);
+            let wy = self.wy_counter;
+            (wx / 8, wy)
         } else {
             let scx = self.read_byte(SCX_ADDR);
             let scy = self.read_byte(SCY_ADDR);
-            ((self.lx / 8 + (scx / 8)) & 0x1F, (self.ly as u16 + scy as u16) as u8)
+            (
+                (self.lx / 8 + (scx / 8)) & 0x1F,
+                (self.ly as u16 + scy as u16) as u8,
+            )
         };
 
         self.fetcher.tile_y = self.fetcher.y / 8;
@@ -138,7 +150,7 @@ impl Ppu {
 
     fn update_wx(&mut self) {
         let wx = self.read_byte(WX_ADDR);
-        if (self.lx) == wx.wrapping_sub(7) {
+        if (self.lx) >= wx.wrapping_sub(7) {
             self.wx_triggered = true;
         }
     }

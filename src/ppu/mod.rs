@@ -139,7 +139,7 @@ impl Ppu {
         // LY and the LY=LYC bit of the STAT register are updated each cycle,
         // and interrupts are requested based on the current PPU mode and stat register.
         // todo! The register update timings in the PPU are all off.
-        // self.update_ppu_status_registers();
+        self.update_ppu_status_registers();
     }
 
     fn update_wy(&mut self) {
