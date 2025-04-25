@@ -22,7 +22,7 @@ pub struct Fetcher {
     tile_y: u8,
     y: u8,
 
-    drawing_window: bool,
+    pub drawing_window: bool,
 
     tile_addr: u16,
     tile_data_low: u8,
@@ -85,6 +85,7 @@ impl Ppu {
         self.set_lcdc_flag(WINDOW_ENABLE_BIT, true);
 
         self.update_wx();
+        println!("{}", self.read_byte(WX_ADDR));
         let window_enabled = self.get_lcdc_flag(WINDOW_ENABLE_BIT);
         self.fetcher.drawing_window = self.wx_triggered && self.wy_triggered && window_enabled;
 

@@ -135,7 +135,7 @@ impl Ppu {
         // LY and the LY=LYC bit of the STAT register are updated each cycle,
         // and interrupts are requested based on the current PPU mode and stat register.
         // todo! The register update timings in the PPU are all off.
-        // self.update_ppu_status_registers();
+        self.update_ppu_status_registers();
     }
 
     fn update_wy(&mut self) {
@@ -159,7 +159,7 @@ impl Ppu {
             .borrow_mut()
             .write_byte_override(STAT_ADDR, stat_byte); // This byte is normally read-only
 
-        // Statis interrupt selects
+        // Status interrupt selects
         let enable_ly_equals_lyc = get_bit(stat_byte, LYC_INT_SELECT_BIT);
         let enable_hblank = get_bit(stat_byte, MODE_0_INT_SELECT_BIT);
         let enable_vblank = get_bit(stat_byte, MODE_1_INT_SELECT_BIT);

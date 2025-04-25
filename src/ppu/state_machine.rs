@@ -26,6 +26,7 @@ impl Ppu {
             self.mmu.borrow_mut().vram_lock = false;
             self.mmu.borrow_mut().oam_lock = false;
             self.wx_triggered = false;
+            self.fetcher.drawing_window = false;
         }
     }
 
