@@ -58,6 +58,7 @@ pub struct Ppu {
     wy_triggered: bool,
     wy_counter: u8,
     wx_triggered: bool,
+    window_drawn_this_scanline: bool,
 
     frame_dots: u32,
     scanline_dots: u32,
@@ -83,6 +84,7 @@ impl Ppu {
             wy_triggered: false,
             wy_counter: 0,
             wx_triggered: false,
+            window_drawn_this_scanline: false,
 
             frame_dots: 0,
             scanline_dots: 0,
@@ -136,11 +138,31 @@ impl Ppu {
         frame_complete
     }
 
+    fn inc_ly(&mut self) {
+        self.ly += 1;
+        self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
+
+        self.update_wy();
+        self.window_drawn_this_scanline = false;
+
+        self.update_ppu_status_registers();
+    }
+
+    fn reset_ly(&mut self) {
+        self.ly = 0;
+        self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
+
+        self.wy_counter = 0;
+        self.wy_triggered = false;
+
+        self.update_ppu_status_registers();
+    }
+
     // Check if the new scanline is in a window
     fn update_wy(&mut self) {
         let wy = self.read_byte(WY_ADDR);
 
-        if self.wy_triggered {
+        if self.window_drawn_this_scanline {
             self.wy_counter += 1;
         }
 
@@ -234,25 +256,6 @@ impl Ppu {
             MemRegion::Vram | MemRegion::Oam => self.mmu.borrow().read_byte_override(addr),
             _ => self.mmu.borrow().read_byte(addr),
         }
-    }
-
-    fn inc_ly(&mut self) {
-        self.ly += 1;
-        self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
-
-        self.update_wy();
-
-        self.update_ppu_status_registers();
-    }
-
-    fn reset_ly(&mut self) {
-        self.ly = 0;
-        self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
-
-        self.wy_counter = 0;
-        self.wy_triggered = false;
-
-        self.update_ppu_status_registers();
     }
 }
 

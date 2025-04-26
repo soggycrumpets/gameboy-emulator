@@ -77,7 +77,7 @@ impl Ppu {
             FetcherState::Push => {
                 self.fetcher_push();
                 self.fetcher.state = FetcherState::GetTile;
-                self.lx += 8;
+                self.lx += TILE_WIDTH_IN_PIXELS as u8;
             }
         }
     }
@@ -90,6 +90,9 @@ impl Ppu {
 
         self.update_wx();
         self.fetcher.drawing_window = self.wx_triggered && self.wy_triggered;
+        if self.fetcher.drawing_window {
+            self.window_drawn_this_scanline = true;
+        }
 
         let tilemap_base_addr = if !self.fetcher.drawing_window && bg_tile_map
             || self.fetcher.drawing_window && window_tile_map
@@ -140,7 +143,7 @@ impl Ppu {
         let row = self.ly as usize;
         let col = self.lx as usize;
         if row > 143 {
-            println!("Warning: ly == {} during pixel draw mode", row);
+            // println!("Warning: ly == {} during pixel draw mode", row);
             return;
         }
         for (i, pixel) in tile_row.iter().enumerate() {
