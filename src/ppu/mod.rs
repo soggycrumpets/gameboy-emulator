@@ -98,24 +98,22 @@ impl Ppu {
         let mut frame_complete = false;
 
         let ppu_mode = self.get_mode();
-        let ppu_enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT);
+        let enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT);
 
         // You're not supposed to turn off the PPU outside of vblank mode, but from
         // what I can tell, the hardware won't prevent it
-        if self.was_enabled && !ppu_enabled {
+        if self.was_enabled && !enabled {
             self.turn_off();
         }
-        self.was_enabled = ppu_enabled;
+        self.was_enabled = enabled;
 
-        if !ppu_enabled {
+        if !enabled {
             return frame_complete;
         }
 
         self.frame_dots += 1;
         self.scanline_dots += 1;
         self.mode_dots += 1;
-
-        self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
 
         match ppu_mode {
             PpuMode::OamScan => self.oam_scan(),
@@ -138,13 +136,17 @@ impl Ppu {
         frame_complete
     }
 
+    // Check if the new scanline is in a window
     fn update_wy(&mut self) {
-        // Check if the new scanline is in a window
         let wy = self.read_byte(WY_ADDR);
+
+        if self.wy_triggered {
+            self.wy_counter += 1;
+        }
+
         if self.ly == wy {
             self.wy_triggered = self.ly == wy;
         }
-        self.wy_counter += self.wy_triggered as u8;
     }
 
     fn update_ppu_status_registers(&mut self) {
@@ -204,14 +206,19 @@ impl Ppu {
 
         self.mmu.borrow_mut().write_byte_override(STAT_ADDR, byte);
 
+        self.mode_dots = 0;
         self.update_ppu_status_registers();
     }
 
     fn turn_off(&mut self) {
         self.frame_dots = 0;
         self.scanline_dots = 0;
+        self.mode_dots = 0;
         self.ly = 0;
         self.prev_stat_interrupt_signal = false;
+        self.wy_counter = 0;
+        self.wy_triggered = false;
+        self.wx_triggered = false;
         self.set_mode(PpuMode::OamScan);
 
         let mut mmu = self.mmu.borrow_mut();
@@ -233,12 +240,17 @@ impl Ppu {
         self.ly += 1;
         self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
 
+        self.update_wy();
+
         self.update_ppu_status_registers();
     }
 
     fn reset_ly(&mut self) {
         self.ly = 0;
         self.mmu.borrow_mut().write_byte_override(LY_ADDR, self.ly);
+
+        self.wy_counter = 0;
+        self.wy_triggered = false;
 
         self.update_ppu_status_registers();
     }
@@ -256,7 +268,6 @@ mod debug {
             // let mut addr = 0x9C00_u16; <-- This is where the other tilemap starts
 
             let addressing_mode = self.get_lcdc_flag(BG_AND_WINDOW_ENABLE_BIT);
-            // println!("Addressing Mode: {}", addressing_mode);
 
             // Tilemap is 32x32 tiles
             for tile_row in 0..32_usize {
@@ -278,6 +289,4 @@ mod debug {
 }
 
 #[cfg(test)]
-mod tests {
-   
-}
+mod tests {}

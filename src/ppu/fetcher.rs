@@ -18,9 +18,11 @@ pub enum FetcherState {
 
 pub struct Fetcher {
     state: FetcherState,
+
+    x: u8,
+    y: u8,
     tile_x: u8,
     tile_y: u8,
-    y: u8,
 
     pub drawing_window: bool,
 
@@ -33,9 +35,11 @@ impl Fetcher {
     pub fn new() -> Self {
         Fetcher {
             state: FetcherState::GetTile,
+
+            x: 0,
+            y: 0,
             tile_x: 0,
             tile_y: 0,
-            y: 0,
 
             drawing_window: false,
 
@@ -88,25 +92,24 @@ impl Ppu {
         self.fetcher.drawing_window = self.wx_triggered && self.wy_triggered;
 
         let tilemap_base_addr = if !self.fetcher.drawing_window && bg_tile_map
-        || self.fetcher.drawing_window && window_tile_map {
+            || self.fetcher.drawing_window && window_tile_map
+        {
             TILEMAP_2_ADDR
         } else {
             TILEMAP_1_ADDR
         };
 
-        (self.fetcher.tile_x, self.fetcher.y) = if self.fetcher.drawing_window {
+        (self.fetcher.x, self.fetcher.y) = if self.fetcher.drawing_window {
             let wx = self.read_byte(WX_ADDR).wrapping_sub(7);
             let wy = self.wy_counter;
-            (self.lx.wrapping_sub(wx) / 8, wy)
+            (self.lx.wrapping_sub(wx), wy)
         } else {
             let scx = self.read_byte(SCX_ADDR);
             let scy = self.read_byte(SCY_ADDR);
-            (
-                (self.lx / 8 + (scx / 8)) & 0x1F,
-                (self.ly as u16 + scy as u16) as u8,
-            )
+            (self.lx.wrapping_add(scx), self.ly.wrapping_add(scy))
         };
 
+        self.fetcher.tile_x = self.fetcher.x / 8;
         self.fetcher.tile_y = self.fetcher.y / 8;
 
         let tilemap_addr = tilemap_base_addr
@@ -136,6 +139,10 @@ impl Ppu {
         let tile_row = get_tile_row(self.fetcher.tile_data_low, self.fetcher.tile_data_high);
         let row = self.ly as usize;
         let col = self.lx as usize;
+        if row > 143 {
+            println!("Warning: ly == {} during pixel draw mode", row);
+            return;
+        }
         for (i, pixel) in tile_row.iter().enumerate() {
             self.display[row][col + i] = *pixel;
         }

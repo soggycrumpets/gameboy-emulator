@@ -10,7 +10,6 @@ impl Ppu {
         // OAMSCAN -> PIXELDRAW
         if self.mode_dots == OAM_SCAN_DOTS {
             self.set_mode(PpuMode::PixelDraw);
-            self.mode_dots = 0;
             self.lx = 0;
 
             self.mmu.borrow_mut().vram_lock = true;
@@ -22,7 +21,6 @@ impl Ppu {
         self.tick_fetcher();
         if self.mode_dots == PIXEL_DRAW_MIN_DOTS {
             self.set_mode(PpuMode::HBlank);
-            self.mode_dots = 0;
             self.mmu.borrow_mut().vram_lock = false;
             self.mmu.borrow_mut().oam_lock = false;
             self.wx_triggered = false;
@@ -34,18 +32,14 @@ impl Ppu {
         // HBLANK -> VBLANK
         if self.frame_dots == FRAME_DOTS - VBLANK_DOTS {
             self.set_mode(PpuMode::VBlank);
-            self.mode_dots = 0;
             self.mmu
                 .borrow_mut()
                 .request_interrupt(VBLANK_INTERRUPT_BIT);
-            self.update_wy();
         // HBLANK -> OAMSCAN
         } else if self.mode_dots == HBLANK_MAX_DOTS
         {
             self.set_mode(PpuMode::OamScan);
-            self.mode_dots = 0;
             self.mmu.borrow_mut().oam_lock = true;
-            self.update_wy();
         }
     }
 
@@ -54,10 +48,6 @@ impl Ppu {
             // println!("VBLANK -> OAM");
             self.set_mode(PpuMode::OamScan);
             self.mmu.borrow_mut().oam_lock = true;
-            self.wy_counter = 0;
-            self.wy_triggered = false;
-            self.update_wy();
-            self.mode_dots = 0;
         }
     }
 }
