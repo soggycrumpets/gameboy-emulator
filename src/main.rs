@@ -52,10 +52,7 @@ fn run_rom(path: &str) {
     let render_timer_period = Duration::from_secs_f64(1.0 / 60.0);
     let mut last_render_time = Instant::now();
 
-//    print_t_cycle_tables(); 
-
     // todo! This loop munches up CPU
-    // todo! The only timer this should need is the global clock,
     // One loop represents one t-cycle
     while ui.running {
 
@@ -65,14 +62,9 @@ fn run_rom(path: &str) {
         if ppu.tick() {
             ui.render_display(&ppu.display);
         }
-        // todo!
-        // The ppu should eventually draw a little bit at a time.
-        // For now, just draw everything at once at 60fps
+
         if last_render_time.elapsed() >= render_timer_period {
             process_inputs(&mut ui, &mmu);
-            // ppu.splat_tiles();
-            // ui.render_display(&ppu.display);
-
             last_render_time = Instant::now();
         }
     }

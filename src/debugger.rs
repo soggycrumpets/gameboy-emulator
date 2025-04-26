@@ -99,7 +99,6 @@ fn step_gameboy(count: u32, cpu: &mut Cpu, ppu: &mut Ppu) {
     for _i in 0..count {
         cpu.tick();
     }
-    ppu.splat_tiles();
     if count != 1 {
         println!("Stepped {} cycles", count);
     }

@@ -1,7 +1,5 @@
 mod fetcher;
-mod registers;
 mod state_machine;
-mod tile_maps;
 mod tiles;
 
 // https://gbdev.io/pandocs/Rendering.html
@@ -48,7 +46,6 @@ pub struct Ppu {
     mmu: Rc<RefCell<Mmu>>,
     was_enabled: bool,
 
-    pub background: GbBackground,
     pub display: GbDisplay,
 
     fetcher: Fetcher,
@@ -74,7 +71,6 @@ impl Ppu {
             mmu,
             was_enabled: false,
 
-            background: [[0; 256]; 256],
             display: [[0; 160]; 144],
 
             fetcher: Fetcher::new(),
@@ -159,6 +155,7 @@ impl Ppu {
     }
 
     // Check if the new scanline is in a window
+    /// WY is the y position at which a window beings.
     fn update_wy(&mut self) {
         let wy = self.read_byte(WY_ADDR);
 
@@ -171,6 +168,7 @@ impl Ppu {
         }
     }
 
+    /// STAT interrupts may occur either on line switches or mode changes.
     fn update_ppu_status_registers(&mut self) {
         let ly = self.read_byte(LY_ADDR);
 
@@ -257,39 +255,15 @@ impl Ppu {
             _ => self.mmu.borrow().read_byte(addr),
         }
     }
-}
 
-mod debug {
-    use crate::mmu::memmap::BG_AND_WINDOW_ENABLE_BIT;
+    pub fn get_lcdc_flag(&self, bit: u8) -> bool {
+        let byte = self.read_byte(LCDC_ADDR);
+        get_bit(byte, bit)
+    }
 
-    use super::*;
-    impl Ppu {
-        // This is so I can just draw a tilemap to the screen without worrying about tick cycles.
-        pub fn splat_tiles(&mut self) {
-            let mut addr = 0x9800_u16; // <-- This is where one tilemap starts
-
-            // let mut addr = 0x9C00_u16; <-- This is where the other tilemap starts
-
-            let addressing_mode = self.get_lcdc_flag(BG_AND_WINDOW_ENABLE_BIT);
-
-            // Tilemap is 32x32 tiles
-            for tile_row in 0..32_usize {
-                for tile_col in 0..32_usize {
-                    let tile_index = self.mmu.borrow().read_byte_override(addr);
-                    let tile = self.get_tile(tile_index);
-                    addr += 1;
-                    // tile is 8x8 pixels
-                    for pixel_row in 0..8_usize {
-                        for pixel_col in 0..8_usize {
-                            self.background[pixel_row + tile_row * 8][pixel_col + tile_col * 8] =
-                                tile[pixel_row][pixel_col];
-                        }
-                    }
-                }
-            }
-        }
+    pub fn set_lcdc_flag(&mut self, bit: u8, set: bool) {
+        let mut byte = self.read_byte(LCDC_ADDR);
+        set_bit(&mut byte, bit, set);
+        self.mmu.borrow_mut().write_byte(LCDC_ADDR, byte);
     }
 }
-
-#[cfg(test)]
-mod tests {}

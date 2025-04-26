@@ -139,9 +139,18 @@ impl Ppu {
     fn fetcher_sleep(&self) {}
 
     fn fetcher_push(&mut self) {
-        let tile_row = get_tile_row(self.fetcher.tile_data_low, self.fetcher.tile_data_high);
+        let mut tile_row = get_tile_row(self.fetcher.tile_data_low, self.fetcher.tile_data_high);
         let row = self.ly as usize;
         let col = self.lx as usize;
+
+        // If bg and window isn't enabled, the pixels are replaced with all 0
+        let bg_and_window_enable = self.get_lcdc_flag(BG_AND_WINDOW_ENABLE_BIT);
+        tile_row = if bg_and_window_enable {
+            tile_row
+        } else {
+            [0; 8]
+        };
+
         if row > 143 {
             // println!("Warning: ly == {} during pixel draw mode", row);
             return;
