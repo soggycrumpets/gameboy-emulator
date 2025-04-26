@@ -86,10 +86,10 @@ impl Ppu {
         let bg_tile_map = self.get_lcdc_flag(BG_TILE_MAP_BIT);
         let window_tile_map = self.get_lcdc_flag(WINDOW_TILE_MAP_BIT);
 
-        self.set_lcdc_flag(WINDOW_ENABLE_BIT, true);
+        let window_enable = self.get_lcdc_flag(WINDOW_ENABLE_BIT);
 
         self.update_wx();
-        self.fetcher.drawing_window = self.wx_triggered && self.wy_triggered;
+        self.fetcher.drawing_window = self.wx_triggered && self.wy_triggered && window_enable;
         if self.fetcher.drawing_window {
             self.window_drawn_this_scanline = true;
         }

@@ -1,4 +1,4 @@
-use crate::{mmu::memmap::BG_AND_WINDOW_ENABLE_BIT, util::get_bit};
+use crate::{mmu::memmap::{BG_AND_WINDOW_ENABLE_BIT, BG_AND_WINDOW_TILES_BIT}, util::get_bit};
 
 use super::Ppu;
 
@@ -39,7 +39,7 @@ pub fn get_tile_row(byte1: u8, byte2: u8) -> TileRow {
 impl Ppu {
     // The way that they are indexed depends on a register flag.
     pub fn get_tile_start_addr(&self, index: u8) -> u16 {
-        let signed_addressing_mode = !self.get_lcdc_flag(BG_AND_WINDOW_ENABLE_BIT);
+        let signed_addressing_mode = !self.get_lcdc_flag(BG_AND_WINDOW_TILES_BIT);
         // The base pointer is different between the two addressing modes
         let bp: u16 = if signed_addressing_mode {
             SIGNED_ADDRESSING_MODE_BASE_POINTER
