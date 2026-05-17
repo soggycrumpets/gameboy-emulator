@@ -1,4 +1,5 @@
 use crate::Mmu;
+use crate::mmu::memmap::OBJ_ENABLE_BIT;
 use crate::ppu::tiles::{TILE_HEIGHT_IN_PIXELS, TILE_WIDTH_IN_PIXELS, get_tile_row};
 use crate::ppu::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use crate::util::get_bit;
@@ -42,9 +43,9 @@ impl Ppu {
 
         let object_number = (self.mode_dots / 2) - 1;
         let object_addr = OAM_START + (object_number * OBJECT_SIZE_BYTES) as u16;
+        let object_enable = self.get_lcdc_flag(OBJ_ENABLE_BIT, mmu);
         let (y_position, x_position, tile_index, flags) = self.get_oam_bytes(&object_addr, mmu);
 
-        // 
         let screen_x = x_position as i32 - SCREEN_BUFFER_X as i32;
         let screen_y = y_position as i32 - SCREEN_BUFFER_Y as i32;
 
@@ -55,6 +56,10 @@ impl Ppu {
 
         // Display the object only if it is on the current scanline
         if !((ly >= screen_y) && (ly < screen_y + object_height)) {
+            return;
+        }
+        // The object enable bit lets the program decide whether or not to render an object
+        if !object_enable {
             return;
         }
 
