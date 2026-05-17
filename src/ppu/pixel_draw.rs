@@ -62,7 +62,7 @@ impl Ppu {
     /// The way it works now: 8 t-cycles to draw 8 pixels, 160 t-cycles to draw a scanline.
     /// The fetcher progresses one state every other t-cycle.
     pub fn tick_fetcher(&mut self, mmu: &mut Mmu) {
-        if self.mode_dots % 2 != 0 {
+        if !self.mode_dots.is_multiple_of(2) {
             return;
         }
 
@@ -157,7 +157,7 @@ impl Ppu {
     fn fetcher_sleep(&self) {}
 
     fn fetcher_push(&mut self, mmu: &mut Mmu) {
-        let mut tile_row = get_tile_row(self.fetcher.tile_data_low, self.fetcher.tile_data_high);
+        let mut tile_row = get_tile_row(self.fetcher.tile_data_low, self.fetcher.tile_data_high, mmu);
         let row = self.ly as usize;
         let col = self.lx as usize;
 
@@ -174,7 +174,7 @@ impl Ppu {
         }
     }
 
-    /// WX = 7 starts rendering the window at the-left of the screen, so WX = 0 is one tile
+    /// WX = 7 starts rendering the window at the left of the screen, so WX = 0 is one tile
     /// offscreen to the left. LX = 0, on the other hand, starts at the left of the screen as you
     /// would expect. This means that any time you compare the two, you need to either add 7 to LX
     /// or subtract 7 from WX to ensure that they are both measured from the same point.

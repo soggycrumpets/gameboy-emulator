@@ -1,4 +1,4 @@
-use crate::{mmu::memmap::BG_AND_WINDOW_TILES_BIT, util::get_bit};
+use crate::{mmu::memmap::{BG_AND_WINDOW_TILES_BIT, BGP_ADDR}, util::get_bit};
 
 use super::Ppu;
 use crate::mmu::Mmu;
@@ -17,7 +17,7 @@ const SIGNED_ADDRESSING_BASE_POINTER: u16 = 0x9000;
 const UNSIGNED_ADDRESSING_BASE_POINTER: u16 = 0x8000;
 
 // The Each pixel's color is encoded as a 2-bit number
-fn get_pixel(byte1: u8, byte2: u8, col: usize) -> u8 {
+fn get_pixel_bits(byte1: u8, byte2: u8, col: usize) -> u8 {
     // Col 0 is the leftmost bit
     // Col 7 is the rightmost bit
     let bit_index = (7 - col) as u8;
@@ -28,10 +28,23 @@ fn get_pixel(byte1: u8, byte2: u8, col: usize) -> u8 {
     bit1 | (bit2 << 1)
 }
 
-pub fn get_tile_row(byte1: u8, byte2: u8) -> TileRow {
+// The color pallete is determined by the BGP register
+fn apply_palette_to_pixel(pixel_bits: &u8, bgp: u8) -> u8 {
+    match pixel_bits {
+        0 => bgp & 0b11,
+        1 => (bgp >> 2) & 0b11,
+        2 => (bgp >> 4) & 0b11,
+        3 => (bgp >> 6) & 0b11,
+        _ => panic!("Invalid value for pixel bits: {}", pixel_bits),
+    }
+}
+
+pub fn get_tile_row(byte1: u8, byte2: u8, mmu: &mut Mmu) -> TileRow {
     let mut row_pixels: TileRow = [0; TILE_WIDTH_IN_PIXELS];
+    let bgp = mmu.read_byte(BGP_ADDR);
     for (pixel_index, pixel) in row_pixels.iter_mut().enumerate() {
-        *pixel = get_pixel(byte1, byte2, pixel_index);
+        let pixel_bits = get_pixel_bits(byte1, byte2, pixel_index);
+        *pixel = apply_palette_to_pixel(&pixel_bits, bgp)
     }
     row_pixels
 }

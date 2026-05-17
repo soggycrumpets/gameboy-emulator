@@ -77,7 +77,7 @@ impl Ppu {
             self.get_tile_row_high_byte(tile_start_addr, tile_row_index as u8, mmu);
         let tile_row_low_byte =
             self.get_tile_row_low_byte(tile_start_addr, tile_row_index as u8, mmu);
-        let mut object_row = get_tile_row(tile_row_low_byte, tile_row_high_byte);
+        let mut object_row = get_tile_row(tile_row_low_byte, tile_row_high_byte, mmu);
 
         if flags.xflip {
             object_row.reverse();
