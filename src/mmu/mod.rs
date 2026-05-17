@@ -14,7 +14,6 @@ mod timers;
 
 use dma::Dma;
 use memmap::*;
-use std::{cell::RefCell, rc::Rc};
 use timers::Timers;
 
 use crate::util::{get_bit, set_bit};
@@ -41,8 +40,6 @@ pub struct Mmu {
 }
 
 impl Mmu {
-    //! I chose to use the Rc RefCell for the MMU so that the CPU and PPU could borrow a mutable
-    //! reference to access it whenever they need to. It could just as easily be a global variable.
     pub fn new() -> Mmu {
         Mmu {
             dma: Dma::new(),

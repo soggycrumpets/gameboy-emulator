@@ -1,7 +1,7 @@
+use crate::Mmu;
 use crate::ppu::tiles::{TILE_HEIGHT_IN_PIXELS, TILE_WIDTH_IN_PIXELS, get_tile_row};
 use crate::ppu::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use crate::util::get_bit;
-use crate::Mmu;
 use crate::{Ppu, mmu::memmap::OAM_START};
 
 // OAM scan takes two dots/t-cycles per object, scanning 40 objects in total.
@@ -36,36 +36,51 @@ struct ObjectFlags {
 
 impl Ppu {
     pub fn tick_oam_scan(&mut self, mmu: &mut Mmu) {
-        if (self.mode_dots % 2) != 0 {
+        if !self.mode_dots.is_multiple_of(2) {
             return;
         }
 
         let object_number = (self.mode_dots / 2) - 1;
-        let object_addr = OAM_START + ((object_number) * OBJECT_SIZE_BYTES) as u16;
+        let object_addr = OAM_START + (object_number * OBJECT_SIZE_BYTES) as u16;
         let (y_position, x_position, tile_index, flags) = self.get_oam_bytes(&object_addr, mmu);
+
+        // 
+        let screen_x = x_position as i32 - SCREEN_BUFFER_X as i32;
+        let screen_y = y_position as i32 - SCREEN_BUFFER_Y as i32;
+
         let tile_start_addr = self.get_tile_start_addr(tile_index, true, mmu);
 
         let object_height = 8;
+        let ly: i32 = self.ly as i32;
 
-        // Display the object if it is on the current scanline
-        if (self.ly as i32) >= (y_position as i32 - SCREEN_BUFFER_Y as i32)
-            && (self.ly as i32) < (y_position as i32 - SCREEN_BUFFER_Y as i32 + object_height)
-        {
-            let mut tile_row_index = self.ly - (y_position - SCREEN_BUFFER_Y as u8);
-            if flags.yflip {
-                tile_row_index = (TILE_HEIGHT_IN_PIXELS - 1) as u8 - tile_row_index;
-            }
-
-            let tile_row_high_byte = self.get_tile_row_high_byte(tile_start_addr, tile_row_index, mmu);
-            let tile_row_low_byte = self.get_tile_row_low_byte(tile_start_addr, tile_row_index, mmu);
-            let mut object_row = get_tile_row(tile_row_low_byte, tile_row_high_byte);
-
-            if flags.xflip {
-                object_row.reverse();
-            }
-
-            self.write_row_to_display(&object_row, x_position);
+        // Display the object only if it is on the current scanline
+        if !((ly >= screen_y) && (ly < screen_y + object_height)) {
+            return;
         }
+
+        let mut tile_row_index: i32 = ly - screen_y;
+
+        // TODO: Add proper logging here
+        if tile_row_index < 0 {
+            println!("Row index < 0 detected: {}", tile_row_index);
+            return;
+        }
+
+        if flags.yflip {
+            tile_row_index = (TILE_HEIGHT_IN_PIXELS as i32 - 1) - tile_row_index;
+        }
+
+        let tile_row_high_byte =
+            self.get_tile_row_high_byte(tile_start_addr, tile_row_index as u8, mmu);
+        let tile_row_low_byte =
+            self.get_tile_row_low_byte(tile_start_addr, tile_row_index as u8, mmu);
+        let mut object_row = get_tile_row(tile_row_low_byte, tile_row_high_byte);
+
+        if flags.xflip {
+            object_row.reverse();
+        }
+
+        self.write_row_to_display(&object_row, screen_x);
 
         // println!(
         //     "{}: {:0x}-{:0x} | x: {}, y: {}, idx: {}, tile addr: 0x{:0x} priority: {}, xflip: {}, yflip: {}",
@@ -96,14 +111,14 @@ impl Ppu {
         (y_position, x_position, tile_index, flags)
     }
 
-    fn write_row_to_display(&mut self, row: &[u8; TILE_WIDTH_IN_PIXELS], x_position: u8) {
-        let mut pixel_x = x_position as i32 - SCREEN_BUFFER_X as i32;
-        let pixel_y = self.ly;
+    fn write_row_to_display(&mut self, row: &[u8; TILE_WIDTH_IN_PIXELS], mut screen_x: i32) {
+        let screen_y = self.ly;
         for pixel in row {
-            if pixel_x >= 0 && pixel_x < (DISPLAY_HEIGHT as i32) {
-                self.oam_data.object_display[pixel_y as usize][pixel_x as usize] = Some(*pixel);
+
+            if screen_x >= 0 && screen_x < (DISPLAY_WIDTH as i32) {
+                self.oam_data.object_display[screen_y as usize][screen_x as usize] = Some(*pixel);
             }
-            pixel_x += 1;
+            screen_x += 1;
         }
     }
 }

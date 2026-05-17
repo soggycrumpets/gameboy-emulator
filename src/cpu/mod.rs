@@ -84,7 +84,7 @@ impl Cpu {
         self.instruction_m_cycles_remaining = self.instruction_t_cycles_remaining / 4;
 
         // One instruction per m-cycle
-        if self.instruction_t_cycles_remaining % M_CYCLE_DURATION as u8 == 0 {
+        if self.instruction_t_cycles_remaining.is_multiple_of(M_CYCLE_DURATION as u8) {
             self.step(mmu);
         }
     }
