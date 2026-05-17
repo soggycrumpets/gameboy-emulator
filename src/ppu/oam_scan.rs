@@ -1,5 +1,5 @@
 use crate::Mmu;
-use crate::mmu::memmap::OBJ_ENABLE_BIT;
+use crate::mmu::memmap::{OBJ_ENABLE_BIT, OBJ_SIZE_BIT};
 use crate::ppu::tiles::{TILE_HEIGHT_IN_PIXELS, TILE_WIDTH_IN_PIXELS, get_tile_row};
 use crate::ppu::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use crate::util::get_bit;
@@ -37,32 +37,30 @@ struct ObjectFlags {
 
 impl Ppu {
     pub fn tick_oam_scan(&mut self, mmu: &mut Mmu) {
+        // An object is scanned only every other PPU tick (40 objects over 80 cycles)
         if !self.mode_dots.is_multiple_of(2) {
             return;
         }
 
+        // The object enable bit lets the game decide whether or not to render an object
+        if !self.get_lcdc_flag(OBJ_ENABLE_BIT, mmu) {
+            return;
+        }
+
+        // An object will only be displayed if a part of it is present at the current scanline
         let object_number = (self.mode_dots / 2) - 1;
         let object_addr = OAM_START + (object_number * OBJECT_SIZE_BYTES) as u16;
-        let object_enable = self.get_lcdc_flag(OBJ_ENABLE_BIT, mmu);
         let (y_position, x_position, tile_index, flags) = self.get_oam_bytes(&object_addr, mmu);
-
         let screen_x = x_position as i32 - SCREEN_BUFFER_X as i32;
         let screen_y = y_position as i32 - SCREEN_BUFFER_Y as i32;
-
-        let tile_start_addr = self.get_tile_start_addr(tile_index, true, mmu);
-
-        let object_height = 8;
+        let tall_object = self.get_lcdc_flag(OBJ_SIZE_BIT, mmu);
+        let object_height = if tall_object { 16 } else { 8 };
         let ly: i32 = self.ly as i32;
-
-        // Display the object only if it is on the current scanline
         if !((ly >= screen_y) && (ly < screen_y + object_height)) {
             return;
         }
-        // The object enable bit lets the program decide whether or not to render an object
-        if !object_enable {
-            return;
-        }
 
+        let tile_start_addr = self.get_tile_start_addr(tile_index, true, mmu);
         let mut tile_row_index: i32 = ly - screen_y;
 
         // TODO: Add proper logging here
@@ -72,7 +70,7 @@ impl Ppu {
         }
 
         if flags.yflip {
-            tile_row_index = (TILE_HEIGHT_IN_PIXELS as i32 - 1) - tile_row_index;
+            tile_row_index = (object_height - 1) - tile_row_index
         }
 
         let tile_row_high_byte =
@@ -119,7 +117,6 @@ impl Ppu {
     fn write_row_to_display(&mut self, row: &[u8; TILE_WIDTH_IN_PIXELS], mut screen_x: i32) {
         let screen_y = self.ly;
         for pixel in row {
-
             if screen_x >= 0 && screen_x < (DISPLAY_WIDTH as i32) {
                 self.oam_data.object_display[screen_y as usize][screen_x as usize] = Some(*pixel);
             }
