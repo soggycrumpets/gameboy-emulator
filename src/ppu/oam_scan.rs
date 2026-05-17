@@ -1,9 +1,10 @@
 use crate::Mmu;
-use crate::mmu::memmap::{OBJ_ENABLE_BIT, OBJ_SIZE_BIT};
+use crate::mmu::memmap::{OBJ_ENABLE_BIT, OBJ_SIZE_BIT, OBP0_ADDR, OBP1_ADDR};
 use crate::ppu::tiles::{TILE_HEIGHT_IN_PIXELS, TILE_WIDTH_IN_PIXELS, get_tile_row};
 use crate::ppu::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use crate::util::get_bit;
 use crate::{Ppu, mmu::memmap::OAM_START};
+use crate::ppu::tiles::apply_palette_to_pixel;
 
 // OAM scan takes two dots/t-cycles per object, scanning 40 objects in total.
 
@@ -33,6 +34,8 @@ struct ObjectFlags {
     priority: bool,
     xflip: bool,
     yflip: bool,
+    palette: bool,
+    bank: bool,
 }
 
 impl Ppu {
@@ -83,7 +86,14 @@ impl Ppu {
             object_row.reverse();
         }
 
-        self.write_row_to_display(&object_row, screen_x);
+        // the palette bit of the object determines which address to get the palette from
+        let palette: u8 = if flags.palette {
+            mmu.read_byte(OBP1_ADDR)
+        } else {
+            mmu.read_byte(OBP0_ADDR)
+        };
+
+        self.write_row_to_display(&object_row, screen_x, palette);
 
         // println!(
         //     "{}: {:0x}-{:0x} | x: {}, y: {}, idx: {}, tile addr: 0x{:0x} priority: {}, xflip: {}, yflip: {}",
@@ -109,16 +119,24 @@ impl Ppu {
             priority: get_bit(flags_byte, 7),
             yflip: get_bit(flags_byte, 6),
             xflip: get_bit(flags_byte, 5),
+            palette: get_bit(flags_byte, 4),
+            bank: get_bit(flags_byte, 3),
         };
 
         (y_position, x_position, tile_index, flags)
     }
 
-    fn write_row_to_display(&mut self, row: &[u8; TILE_WIDTH_IN_PIXELS], mut screen_x: i32) {
+    fn write_row_to_display(
+        &mut self,
+        row: &[u8; TILE_WIDTH_IN_PIXELS],
+        mut screen_x: i32,
+        palette: u8,
+    ) {
         let screen_y = self.ly;
         for pixel in row {
+            let pixel_colored = apply_palette_to_pixel(pixel, palette, false);
             if screen_x >= 0 && screen_x < (DISPLAY_WIDTH as i32) {
-                self.oam_data.object_display[screen_y as usize][screen_x as usize] = Some(*pixel);
+                self.oam_data.object_display[screen_y as usize][screen_x as usize] = Some(pixel_colored);
             }
             screen_x += 1;
         }

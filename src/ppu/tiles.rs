@@ -28,13 +28,15 @@ fn get_pixel_bits(byte1: u8, byte2: u8, col: usize) -> u8 {
     bit1 | (bit2 << 1)
 }
 
-// The color pallete is determined by the BGP register
-fn apply_palette_to_pixel(pixel_bits: &u8, bgp: u8) -> u8 {
+// Color palettes are determined by the BGP register for background/window
+// Color palettes are determined by OBP1 and OBP2 for objects
+// Objects ignore the bottom nibble because their color 0 is transparent.
+pub fn apply_palette_to_pixel(pixel_bits: &u8, palette: u8, is_obj: bool) -> u8 {
     match pixel_bits {
-        0 => bgp & 0b11,
-        1 => (bgp >> 2) & 0b11,
-        2 => (bgp >> 4) & 0b11,
-        3 => (bgp >> 6) & 0b11,
+        0 => (palette & 0b11) * is_obj as u8,
+        1 => (palette >> 2) & 0b11,
+        2 => (palette >> 4) & 0b11,
+        3 => (palette >> 6) & 0b11,
         _ => panic!("Invalid value for pixel bits: {}", pixel_bits),
     }
 }
@@ -44,7 +46,7 @@ pub fn get_tile_row(byte1: u8, byte2: u8, mmu: &mut Mmu) -> TileRow {
     let bgp = mmu.read_byte(BGP_ADDR);
     for (pixel_index, pixel) in row_pixels.iter_mut().enumerate() {
         let pixel_bits = get_pixel_bits(byte1, byte2, pixel_index);
-        *pixel = apply_palette_to_pixel(&pixel_bits, bgp)
+        *pixel = apply_palette_to_pixel(&pixel_bits, bgp, false)
     }
     row_pixels
 }
