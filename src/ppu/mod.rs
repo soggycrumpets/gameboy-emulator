@@ -263,10 +263,9 @@ impl Ppu {
     fn overlay_object_display(&mut self) {
         for (y, row) in self.display.iter_mut().enumerate() {
             for (x, pixel) in row.iter_mut().enumerate() {
-                if let Some(object_pixel) = self.oam_data.object_display[y][x] {
-                    if object_pixel != 0 {
-                        *pixel = object_pixel;
-                    }
+                let object_pixel = self.oam_data.object_display[y][x];
+                if object_pixel != 0 {
+                    *pixel = object_pixel;
                 }
             }
         }
@@ -275,7 +274,7 @@ impl Ppu {
     fn clear_object_display(&mut self) {
         for row in self.oam_data.object_display.iter_mut() {
             for pixel in row.iter_mut() {
-                *pixel = None;
+                *pixel = 0;
             }
         }
     }

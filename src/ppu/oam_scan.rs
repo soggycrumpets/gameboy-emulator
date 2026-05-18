@@ -9,15 +9,13 @@ use crate::ppu::tiles::apply_palette_to_pixel;
 // OAM scan takes two dots/t-cycles per object, scanning 40 objects in total.
 
 // TODO:
-// - Implement 8x16 object mode
 // - Implement priority
-// - Fix nose in DMG acid
 
 const OBJECT_SIZE_BYTES: u32 = 4;
 const SCREEN_BUFFER_X: u32 = 8;
 const SCREEN_BUFFER_Y: u32 = 16;
 
-type ObjectDisplay = [[Option<u8>; DISPLAY_WIDTH]; DISPLAY_HEIGHT];
+type ObjectDisplay = [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT];
 pub struct OamData {
     pub object_display: ObjectDisplay,
 }
@@ -25,7 +23,7 @@ pub struct OamData {
 impl OamData {
     pub fn new() -> Self {
         OamData {
-            object_display: [[None; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
+            object_display: [[0; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
         }
     }
 }
@@ -53,7 +51,7 @@ impl Ppu {
         // An object will only be displayed if a part of it is present at the current scanline
         let object_number = (self.mode_dots / 2) - 1;
         let object_addr = OAM_START + (object_number * OBJECT_SIZE_BYTES) as u16;
-        let (y_position, x_position, tile_index, flags) = self.get_oam_bytes(&object_addr, mmu);
+        let (y_position, x_position, mut tile_index, flags) = self.get_oam_bytes(&object_addr, mmu);
         let screen_x = x_position as i32 - SCREEN_BUFFER_X as i32;
         let screen_y = y_position as i32 - SCREEN_BUFFER_Y as i32;
         let tall_object = self.get_lcdc_flag(OBJ_SIZE_BIT, mmu);
@@ -63,8 +61,15 @@ impl Ppu {
             return;
         }
 
+        // According to DMG acid, bit 0 of the tile index should be ignored for 8x16 objects
+        if tall_object {
+            tile_index &= 0b1111_1110;
+        }
+
         let tile_start_addr = self.get_tile_start_addr(tile_index, true, mmu);
         let mut tile_row_index: i32 = ly - screen_y;
+
+        
 
         // TODO: Add proper logging here
         if tile_row_index < 0 {
@@ -134,9 +139,9 @@ impl Ppu {
     ) {
         let screen_y = self.ly;
         for pixel in row {
-            let pixel_colored = apply_palette_to_pixel(pixel, palette, false);
+            let pixel_colored = apply_palette_to_pixel(pixel, palette, true);
             if screen_x >= 0 && screen_x < (DISPLAY_WIDTH as i32) {
-                self.oam_data.object_display[screen_y as usize][screen_x as usize] = Some(pixel_colored);
+                self.oam_data.object_display[screen_y as usize][screen_x as usize] = pixel_colored;
             }
             screen_x += 1;
         }
