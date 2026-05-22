@@ -1,19 +1,16 @@
 use crate::Mmu;
 use crate::mmu::memmap::{OBJ_ENABLE_BIT, OBJ_SIZE_BIT, OBP0_ADDR, OBP1_ADDR};
 use crate::ppu::tiles::apply_palette_to_pixel;
-use crate::ppu::tiles::{TILE_HEIGHT_IN_PIXELS, TILE_WIDTH_IN_PIXELS, get_tile_row};
+use crate::ppu::tiles::{TILE_SIDE_LENGTH_PIXELS, get_tile_row};
 use crate::ppu::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use crate::util::get_bit;
 use crate::{Ppu, mmu::memmap::OAM_START};
 
 // OAM scan takes two dots/t-cycles per object, scanning 40 objects in total.
 
-// TODO:
-// - Implement priority
-
 const OBJECT_SIZE_BYTES: u32 = 4;
-const SCREEN_BUFFER_X: u32 = 8;
-const SCREEN_BUFFER_Y: u32 = 16;
+const SCREEN_BUFFER_X: i32 = 8;
+const SCREEN_BUFFER_Y: i32 = 16;
 
 type ObjectDisplay = [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT];
 pub struct OamData {
@@ -49,11 +46,11 @@ impl Ppu {
         }
 
         // An object will only be displayed if a part of it is present at the current scanline
-        let object_number = (self.mode_dots / 2) - 1;
+        let object_number: u32 = (self.mode_dots / 2) - 1;
         let object_addr = OAM_START + (object_number * OBJECT_SIZE_BYTES) as u16;
         let (y_position, x_position, mut tile_index, flags) = self.get_oam_bytes(&object_addr, mmu);
-        let screen_x = x_position as i32 - SCREEN_BUFFER_X as i32;
-        let screen_y = y_position as i32 - SCREEN_BUFFER_Y as i32;
+        let screen_x = x_position as i32 - SCREEN_BUFFER_X;
+        let screen_y = y_position as i32 - SCREEN_BUFFER_Y;
         let tall_object = self.get_lcdc_flag(OBJ_SIZE_BIT, mmu);
         // TODO: It seems that obj size bit is not being enabled early enough.
         // In DMG acid, one row of three 8x16 objects are scanned before the bit is enabled.
@@ -93,7 +90,6 @@ impl Ppu {
             return;
         }
         self.objects_x[object_number as usize] = x_position as i32;
-
         // If the program reaches this point, the object will be drawn
         
 
@@ -109,7 +105,7 @@ impl Ppu {
             object_row.reverse();
         }
 
-        // the palette bit of the object determines which address to get the palette from
+        // Palette selection
         let palette: u8 = if flags.palette {
             self.read_byte(OBP1_ADDR, mmu)
         } else {
@@ -137,7 +133,7 @@ impl Ppu {
 
     fn write_row_to_display(
         &mut self,
-        row: &[u8; TILE_WIDTH_IN_PIXELS],
+        row: &[u8; TILE_SIDE_LENGTH_PIXELS],
         mut screen_x: i32,
         palette: u8,
     ) {

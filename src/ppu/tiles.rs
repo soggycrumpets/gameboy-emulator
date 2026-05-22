@@ -7,10 +7,9 @@ use crate::mmu::Mmu;
 
 // A tile is represented by an 8x8 grid of 2-bit integers, laid out
 // as 16 consecutive bytes in memory in a very particular format.
-type TileRow = [u8; TILE_WIDTH_IN_PIXELS];
+type TileRow = [u8; TILE_SIDE_LENGTH_PIXELS];
 
-pub const TILE_WIDTH_IN_PIXELS: usize = 8;
-pub const TILE_HEIGHT_IN_PIXELS: usize = TILE_WIDTH_IN_PIXELS;
+pub const TILE_SIDE_LENGTH_PIXELS: usize = 8;
 const TILE_SIZE_IN_BYTES: usize = 16;
 
 const SIGNED_ADDRESSING_BASE_POINTER: u16 = 0x9000;
@@ -42,7 +41,7 @@ pub fn apply_palette_to_pixel(pixel_bits: &u8, palette: u8, is_obj: bool) -> u8 
 }
 
 pub fn get_tile_row(byte1: u8, byte2: u8, mmu: &mut Mmu) -> TileRow {
-    let mut row_pixels: TileRow = [0; TILE_WIDTH_IN_PIXELS];
+    let mut row_pixels: TileRow = [0; TILE_SIDE_LENGTH_PIXELS];
     let bgp = mmu.read_byte(BGP_ADDR);
     for (pixel_index, pixel) in row_pixels.iter_mut().enumerate() {
         let pixel_bits = get_pixel_bits(byte1, byte2, pixel_index);

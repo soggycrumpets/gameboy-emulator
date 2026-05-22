@@ -1,5 +1,5 @@
 use super::{
-    tiles::{TILE_HEIGHT_IN_PIXELS, TILE_WIDTH_IN_PIXELS, get_tile_row},
+    tiles::{TILE_SIDE_LENGTH_PIXELS, get_tile_row},
     *,
 };
 
@@ -87,7 +87,7 @@ impl Ppu {
             FetcherState::Push => {
                 self.fetcher_push(mmu);
                 self.fetcher.state = FetcherState::GetTile;
-                self.lx += TILE_WIDTH_IN_PIXELS as u8;
+                self.lx += TILE_SIDE_LENGTH_PIXELS as u8;
             }
         }
     }
@@ -143,7 +143,7 @@ impl Ppu {
 
     fn fetcher_get_tile_data(&mut self, high: bool, mmu: &mut Mmu) {
         let tile_start_addr = self.fetcher.tile_addr;
-        let row_index = self.fetcher.y % TILE_HEIGHT_IN_PIXELS as u8;
+        let row_index = self.fetcher.y % TILE_SIDE_LENGTH_PIXELS as u8;
 
         if high {
             self.fetcher.tile_data_high =
