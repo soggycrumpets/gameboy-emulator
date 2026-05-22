@@ -4,7 +4,7 @@ use super::*;
 
 enum DebugCommand {
     Quit,
-    Step(u32),
+    Step(u64),
     PrintRegisters,
     PrintVram,
     PrintTimers,
@@ -12,21 +12,21 @@ enum DebugCommand {
 }
 
 pub fn run_debug(path: &str) {
-    println!("\nDebugging rom at: \"{}\"", path);
+  /*   println!("\nDebugging rom at: \"{}\"", path);
 
-    let (mmu, mut cpu, mut ppu) = create_gameboy_components();
+    let (mut mmu, mut cpu, mut ppu) = create_gameboy_components();
 
     cpu.reg.set16(R16::PC, PROGRAM_START_ADDR);
     cpu.reg.set16(R16::SP, TOP_OF_STACK_ADDRESS);
 
-    if !mmu.borrow_mut().load_rom(path) {
+    if !mmu.load_rom(path) {
         println!("Failed to load rom at \"{}\"", path);
         return;
     }
 
-    initialize_memory(&mmu, &mut cpu);
+    initialize_memory(&mut mmu, &mut cpu);
 
-    let mut ui = UserInterface::new();
+    let mut ui = Renderer::new();
     let mut running = true;
 
     while running {
@@ -38,13 +38,13 @@ pub fn run_debug(path: &str) {
 
         match command {
             DebugCommand::Quit => running = false,
-            DebugCommand::Step(count) => step_gameboy(count, &mut cpu, &mut ppu),
-            DebugCommand::PrintVram => mmu.borrow().print_vram(),
+            DebugCommand::Step(count) => tick_gameboy(&mut cpu, &mut ppu, &mut mmu),
+            DebugCommand::PrintVram => mmu.print_vram(),
             DebugCommand::PrintRegisters => cpu.reg.print(),
             DebugCommand::PrintTimers => unimplemented!(),
             DebugCommand::None => println!("Unrecognized Command"),
         }
-    }
+    } */
 }
 
 fn parse_user_input(inputs: String) -> DebugCommand {
@@ -86,7 +86,7 @@ fn parse_step_arg(mut args: Vec<String>) -> DebugCommand {
         return DebugCommand::Step(1);
     }
 
-    let steps: Option<u32> = arg.unwrap().parse().ok();
+    let steps: Option<u64> = arg.unwrap().parse().ok();
 
     if let Some(value) = steps {
         DebugCommand::Step(value)
@@ -95,19 +95,4 @@ fn parse_step_arg(mut args: Vec<String>) -> DebugCommand {
     }
 }
 
-fn step_gameboy(count: u32, cpu: &mut Cpu, ppu: &mut Ppu) {
-    for _i in 0..count {
-        cpu.tick();
-    }
-    if count != 1 {
-        println!("Stepped {} cycles", count);
-    }
-    let pc = cpu.reg.get16(R16::PC);
-    let mut next_instruction = cpu.mmu.borrow().read_byte(pc) as u16;
-    // Account for prefixed instructions
-    if next_instruction == 0xCB {
-        let prefixed_instruction = cpu.mmu.borrow().read_byte(pc.wrapping_add(1)) as u16;
-        next_instruction |= prefixed_instruction << 4;
-    }
-    println!("Next Instruction: {:04x} at {:04x}", next_instruction, pc);
-}
+

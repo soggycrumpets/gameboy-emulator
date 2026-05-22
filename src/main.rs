@@ -1,9 +1,9 @@
-// #![allow(dead_code)]
-// #![allow(unused)]
+#![allow(dead_code)]
+#![allow(unused)]
 
 mod cli;
 mod cpu;
-// mod debugger;
+mod debugger;
 mod mmu;
 mod ppu;
 mod ui;
@@ -13,14 +13,16 @@ use cli::{Command, parse_cli_inputs};
 
 use cpu::registers::R16;
 use cpu::{Cpu, registers::R8};
-// use debugger::run_debug;
+use debugger::run_debug;
 use mmu::{Mmu, memmap::*};
 use ppu::Ppu;
 use sdl2::keyboard::Scancode;
+use sdl2::render;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
-use ui::UserInterface;
+use ui::Renderer;
 
+use crate::ppu::FRAME_DOTS;
 use crate::ui::Inputs;
 
 const SYSTEM_CLOCK_FREQUENCY: f64 = (1 << 22) as f64; // Hz
@@ -32,7 +34,7 @@ fn main() {
     let input = parse_cli_inputs();
     match input {
         Command::Rom(path) => run_rom(&path),
-        // Command::Debug(path) => run_debug(&path),
+        Command::Debug(path) => run_debug(&path),
         _ => (),
     }
 }
@@ -49,22 +51,21 @@ fn run_rom(path: &str) {
 
     initialize_memory(&mut mmu, &mut cpu);
 
-    let mut ui = UserInterface::new();
+    let (canvas, event_pump) = Renderer::init_window();
+    let texture_creator = canvas.texture_creator();
+    let mut renderer = Renderer::new(canvas, event_pump, &texture_creator);
 
     let framerate = Duration::from_secs_f64(GAMEBOY_FRAMERATE);
     let mut last_render_time = Instant::now();
-    let mut time_elapsed: Duration;
+    let mut time_elapsed: Duration = Duration::from_secs_f64(0.0);
 
-    // One loop represents one t-cycle
-    while ui.running {
-        loop {
-            cpu.tick(&mut mmu);
-            mmu.tick_timers();
-            mmu.tick_dma();
-
-            if ppu.tick(&mut mmu) {
-                break; // frame complete
-            };
+    while renderer.running {
+        // compute one frame worth of cycles
+        for i in 0..FRAME_DOTS {
+            tick_gameboy(&mut cpu, &mut ppu, &mut mmu);
+            if ppu.frame_complete {
+                renderer.update_frame_from_display(&ppu.display, &mut ppu.frame_complete);
+            }
         }
 
         // TODO: Sleeping saves significant CPU power, but often oversleeps
@@ -72,12 +73,11 @@ fn run_rom(path: &str) {
         if time_elapsed < framerate {
             sleep(framerate - time_elapsed);
         }
+
         last_render_time += framerate;
-
-        ui.render_display(&ppu.display);
-
-        ui.process_inputs();
-        update_joypad(&mut mmu, &ui.inputs);
+        renderer.render_display(&ppu.display);
+        renderer.process_inputs();
+        update_joypad(&mut mmu, &renderer.inputs);
     }
 }
 
@@ -86,6 +86,13 @@ fn create_gameboy_components() -> (Mmu, Cpu, Ppu) {
     let cpu = Cpu::new();
     let ppu = Ppu::new();
     (mmu, cpu, ppu)
+}
+
+fn tick_gameboy(cpu: &mut Cpu, ppu: &mut Ppu, mmu: &mut Mmu) {
+    cpu.tick(mmu);
+    mmu.tick_timers();
+    mmu.tick_dma();
+    ppu.tick(mmu);
 }
 
 /// While you technically can obtain a copy of the original gameboy bootrom online,

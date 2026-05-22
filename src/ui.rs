@@ -1,6 +1,11 @@
 use crate::ppu::{DISPLAY_HEIGHT, DISPLAY_WIDTH, GbDisplay};
 
-use sdl2::{EventPump, event::Event, render::Canvas, video::Window};
+use sdl2::{
+    EventPump,
+    event::Event,
+    render::{Canvas, Texture, TextureCreator},
+    video::{Window, WindowContext},
+};
 
 pub const WINDOW_WIDTH: usize = 160;
 pub const WINDOW_HEIGHT: usize = 144;
@@ -32,26 +37,33 @@ impl Inputs {
     }
 }
 
-pub struct UserInterface {
-    pub inputs: Inputs,
-
+pub struct Renderer<'a> {
     canvas: Canvas<Window>,
     event_pump: EventPump,
+
+    pub inputs: Inputs,
+    pub frame: Texture<'a>,
+    pub frame_ready: bool,
     pub running: bool,
 }
 
-impl UserInterface {
-    pub fn new() -> Self {
-        let (canvas, event_pump) = UserInterface::init_window();
-        UserInterface {
+impl<'a> Renderer<'a> {
+    pub fn new(
+        canvas: Canvas<Window>,
+        event_pump: EventPump,
+        texture_creator: &'a TextureCreator<WindowContext>,
+    ) -> Self {
+        Renderer {
             canvas,
             event_pump,
+            frame: create_texture(texture_creator),
+            frame_ready: false,
             inputs: Inputs::new(),
             running: true,
         }
     }
 
-    fn init_window() -> (Canvas<Window>, EventPump) {
+    pub fn init_window() -> (Canvas<Window>, EventPump) {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
 
@@ -74,10 +86,9 @@ impl UserInterface {
         (canvas, event_pump)
     }
 
-    pub fn render_display(&mut self, display: &GbDisplay) {
-        self.canvas.clear();
-
-        // Each pixel is a u32 RGBA value, but SDL wants an array of bytes
+    pub fn update_frame_from_display(&mut self, display: &GbDisplay, frame_complete: &mut bool) {
+        *frame_complete = false;
+        self.frame_ready = true;
         let mut pixels_rgb: [u8; DISPLAY_BYTES] = [0; DISPLAY_BYTES];
 
         // This loop unpacks our 2d 4-color pixel array into the 1d RGBA byte array format that SDL wants.
@@ -95,19 +106,16 @@ impl UserInterface {
             }
         }
 
-        let texture_creator = self.canvas.texture_creator();
-        let mut texture = texture_creator
-            .create_texture_streaming(
-                sdl2::pixels::PixelFormatEnum::RGBA32,
-                DISPLAY_WIDTH as u32,
-                DISPLAY_HEIGHT as u32,
-            )
-            .unwrap();
-        texture
+        self.frame
             .update(None, &pixels_rgb, DISPLAY_WIDTH_BYTES)
             .unwrap();
+    }
 
-        let _ = self.canvas.copy(&texture, None, None);
+    pub fn render_display(&mut self, display: &GbDisplay) {
+        self.frame_ready = false;
+        
+        self.canvas.clear();
+        let _ = self.canvas.copy(&self.frame, None, None);
         self.canvas.present();
     }
 
@@ -134,4 +142,14 @@ impl UserInterface {
             self.inputs.key_was_down[i] = self.inputs.key_down[i];
         }
     }
+}
+
+fn create_texture<'a>(texture_creator: &'a TextureCreator<WindowContext>) -> Texture<'a> {
+    texture_creator
+        .create_texture_streaming(
+            sdl2::pixels::PixelFormatEnum::RGBA32,
+            DISPLAY_WIDTH as u32,
+            DISPLAY_HEIGHT as u32,
+        )
+        .unwrap()
 }

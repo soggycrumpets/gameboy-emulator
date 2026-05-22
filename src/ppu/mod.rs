@@ -48,7 +48,7 @@ pub enum PpuMode {
 
 pub struct Ppu {
     was_enabled: bool,
-    frame_complete: bool,
+    pub frame_complete: bool,
 
     pub display: GbDisplay,
     oam_data: OamData,
@@ -98,7 +98,7 @@ impl Ppu {
     }
 
     /// This function progresses the state of the PPU by one t-cycle.
-    pub fn tick(&mut self, mmu: &mut Mmu) -> bool {
+    pub fn tick(&mut self, mmu: &mut Mmu) {
         let ppu_mode = self.get_mode(mmu);
         let enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT, mmu);
 
@@ -110,7 +110,7 @@ impl Ppu {
         self.was_enabled = enabled;
 
         if !enabled {
-            return false;
+            return
         }
 
         self.scanline_dots += 1;
@@ -123,15 +123,11 @@ impl Ppu {
             PpuMode::VBlank => self.vblank(mmu),
         }
 
-        let frame_complete = self.frame_complete;
-        self.frame_complete = false;
-
-        if frame_complete {
+        if self.frame_complete {
             self.overlay_object_display();
             self.clear_object_display();
         }
 
-        frame_complete
     }
 
     fn inc_ly(&mut self, mmu: &mut Mmu) {
