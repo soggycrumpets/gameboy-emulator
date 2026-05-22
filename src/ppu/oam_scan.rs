@@ -1,10 +1,10 @@
 use crate::Mmu;
 use crate::mmu::memmap::{OBJ_ENABLE_BIT, OBJ_SIZE_BIT, OBP0_ADDR, OBP1_ADDR};
+use crate::ppu::tiles::apply_palette_to_pixel;
 use crate::ppu::tiles::{TILE_HEIGHT_IN_PIXELS, TILE_WIDTH_IN_PIXELS, get_tile_row};
 use crate::ppu::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use crate::util::get_bit;
 use crate::{Ppu, mmu::memmap::OAM_START};
-use crate::ppu::tiles::apply_palette_to_pixel;
 
 // OAM scan takes two dots/t-cycles per object, scanning 40 objects in total.
 
@@ -55,21 +55,31 @@ impl Ppu {
         let screen_x = x_position as i32 - SCREEN_BUFFER_X as i32;
         let screen_y = y_position as i32 - SCREEN_BUFFER_Y as i32;
         let tall_object = self.get_lcdc_flag(OBJ_SIZE_BIT, mmu);
+        // TODO: It seems that obj size bit is not being enabled early enough.
+        // In DMG acid, one row of three 8x16 objects are scanned before the bit is enabled.
+        // In particular, during ly == 88, the obj size is not enabled when it should be.
+        // I have confirmed in the DMG acid source code that the bit is supposed to be enabled precisely on line 88
+        // It seems that the bit is being enabled partyway through line 88
         let object_height = if tall_object { 16 } else { 8 };
         let ly: i32 = self.ly as i32;
         if !((ly >= screen_y) && (ly < screen_y + object_height)) {
             return;
         }
 
-        // According to DMG acid, bit 0 of the tile index should be ignored for 8x16 objects
+        // Hardware ignores bit 0 of the index for 8x16 objects
         if tall_object {
-            tile_index &= 0b1111_1110;
+            tile_index &= 0xFE;
         }
 
-        let tile_start_addr = self.get_tile_start_addr(tile_index, true, mmu);
+        if object_addr == 0xFE5C {
+            // println!("{} : {}", tall_object, ly);
+        }
+
         let mut tile_row_index: i32 = ly - screen_y;
 
-        
+        if flags.yflip {
+            tile_row_index = (object_height - 1) - tile_row_index
+        }
 
         // TODO: Add proper logging here
         if tile_row_index < 0 {
@@ -77,9 +87,17 @@ impl Ppu {
             return;
         }
 
-        if flags.yflip {
-            tile_row_index = (object_height - 1) - tile_row_index
+        // Objects gain rendering priority if they have a lower x-position
+        // Or, if they have the same x-position, the first object in memory gets priority
+        if self.objects_x.contains(&(x_position as i32)) {
+            return;
         }
+        self.objects_x[object_number as usize] = x_position as i32;
+
+        // If the program reaches this point, the object will be drawn
+        
+
+        let tile_start_addr = self.get_tile_start_addr(tile_index, true, mmu);
 
         let tile_row_high_byte =
             self.get_tile_row_high_byte(tile_start_addr, tile_row_index as u8, mmu);
@@ -93,26 +111,12 @@ impl Ppu {
 
         // the palette bit of the object determines which address to get the palette from
         let palette: u8 = if flags.palette {
-            mmu.read_byte(OBP1_ADDR)
+            self.read_byte(OBP1_ADDR, mmu)
         } else {
-            mmu.read_byte(OBP0_ADDR)
+            self.read_byte(OBP0_ADDR, mmu)
         };
 
         self.write_row_to_display(&object_row, screen_x, palette);
-
-        // println!(
-        //     "{}: {:0x}-{:0x} | x: {}, y: {}, idx: {}, tile addr: 0x{:0x} priority: {}, xflip: {}, yflip: {}",
-        //     object_number,
-        //     object_addr,
-        //     object_addr + OBJECT_SIZE_BYTES as u16 - 1,
-        //     x_position,
-        //     y_position,
-        //     tile_index,
-        //     tile_start_addr,
-        //     flags.priority,
-        //     flags.xflip,
-        //     flags.yflip,
-        // );
     }
 
     fn get_oam_bytes(&mut self, addr: &u16, mmu: &mut Mmu) -> (u8, u8, u8, ObjectFlags) {

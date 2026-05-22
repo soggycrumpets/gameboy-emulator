@@ -4,12 +4,14 @@ use super::{
 };
 use crate::mmu::Mmu;
 use crate::mmu::memmap::VBLANK_INTERRUPT_BIT;
+use crate::ppu::OBJECTS_PER_SCANLINE;
 
 impl Ppu {
     pub fn oam_scan(&mut self, mmu: &mut Mmu) {
         self.tick_oam_scan(mmu);
         // OAMSCAN -> PIXELDRAW
         if OAM_SCAN_DOTS == self.mode_dots {
+            self.objects_x = [0; OBJECTS_PER_SCANLINE as usize];
             self.set_mode(PpuMode::PixelDraw, mmu);
 
             mmu.vram_lock = true;

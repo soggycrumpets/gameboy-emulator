@@ -10,6 +10,7 @@ mod tiles;
 pub const FRAME_DOTS: u32 = 70224;
 const SCANLINES_PER_FRAME: u32 = 154;
 const DOTS_PER_SCANLINE: u32 = FRAME_DOTS / SCANLINES_PER_FRAME;
+const OBJECTS_PER_SCANLINE: i32 = 40;
 
 const OAM_SCAN_DOTS: u32 = 80;
 const PIXEL_DRAW_MIN_DOTS: u32 = 172;
@@ -51,6 +52,7 @@ pub struct Ppu {
 
     pub display: GbDisplay,
     oam_data: OamData,
+    objects_x: [i32; OBJECTS_PER_SCANLINE as usize],
 
     fetcher: Fetcher,
 
@@ -74,8 +76,9 @@ impl Ppu {
             was_enabled: false,
             frame_complete: false,
 
-            display: [[0; 160]; 144],
+            display: [[0; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
             oam_data: OamData::new(),
+            objects_x: [0; OBJECTS_PER_SCANLINE as usize],
 
             fetcher: Fetcher::new(),
 
