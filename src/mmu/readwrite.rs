@@ -8,6 +8,7 @@ impl Mmu {
     /// Read a byte from memory. There are many side-effects and special cases that determine
     /// how exactly the read is processed.
     pub fn read_byte(&self, addr: u16) -> u8 {
+        // TODO: Maybe inline or remove one or both of these functions; this is a very hot path
         let mem_region = map_region(addr);
         let index = map_addr(addr);
 

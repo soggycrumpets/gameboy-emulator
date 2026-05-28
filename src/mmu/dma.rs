@@ -49,7 +49,7 @@ impl Mmu {
 
         // This is to account for the delay in starting DMA transfer
         // And to limit its byte transfer rate to one per m-cycle
-        if self.dma.timer > DMA_TRANSFER_T_CYCLES || self.dma.timer % (M_CYCLE_DURATION as u16) != 0
+        if self.dma.timer > DMA_TRANSFER_T_CYCLES || !self.dma.timer.is_multiple_of(M_CYCLE_DURATION as u16)
         {
             return;
         }
