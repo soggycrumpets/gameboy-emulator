@@ -16,7 +16,6 @@ use cpu::{Cpu, registers::R8};
 use mmu::{Mmu, memmap::*};
 use ppu::Ppu;
 use sdl2::keyboard::Scancode;
-use sdl2::render;
 use sdl2::sys::SDL_Scancode::{SDL_SCANCODE_C, SDL_SCANCODE_LCTRL};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
@@ -58,8 +57,7 @@ fn run_rom(path: &str, mut debug_mode: bool) {
 
     let framerate = Duration::from_secs_f64(GAMEBOY_FRAMERATE);
     let mut last_render_time = Instant::now();
-    let mut time_elapsed: Duration = Duration::from_secs_f64(0.0);
-    let mut awaiting_debug_command: bool = false;
+    let mut time_elapsed: Duration;
     let mut frame_cycles: u32 = 0;
     let mut debug_state: DebugState = DebugState::None;
 
@@ -67,9 +65,12 @@ fn run_rom(path: &str, mut debug_mode: bool) {
         // TODO: for ppu object size bug, 8x16 mode should be set at pc = $026b
 
         debug_state = match debug_state {
-            DebugState::Pause => DebugState::Pause,
+            DebugState::Pause => debug_prompt(&cpu, &ppu, &mmu),
             DebugState::Step => DebugState::Step,
-            DebugState::Continue => DebugState::Continue,
+            DebugState::Continue => {
+                tick_gameboy(&mut cpu, &mut ppu, &mut mmu, &mut renderer);
+                DebugState::Continue
+            }
             DebugState::None => {
                 tick_gameboy(&mut cpu, &mut ppu, &mut mmu, &mut renderer);
                 DebugState::None
@@ -88,6 +89,15 @@ fn run_rom(path: &str, mut debug_mode: bool) {
                 sleep(framerate - time_elapsed);
             }
             frame_cycles = 0;
+
+            // TODO: Entering and exiting debug mode causes the framerate timer to lag behind,
+            //       and the game speed will temporarily increase to catch up
+            if renderer.inputs.key_down[SDL_SCANCODE_LCTRL as usize]
+                && renderer.inputs.keypress_unique[SDL_SCANCODE_C as usize]
+            {
+                debug_state = DebugState::Pause;
+                println!("Debug mode");
+            }
         }
     }
 }

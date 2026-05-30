@@ -6,6 +6,7 @@ mod instructions;
 mod interrupts;
 mod jumps;
 mod loads;
+mod instruction_data;
 pub mod registers;
 
 use crate::mmu::Mmu;

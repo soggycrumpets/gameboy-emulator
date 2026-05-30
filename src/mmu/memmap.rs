@@ -104,6 +104,9 @@ pub const OBP0_ADDR: u16 = 0xFF48;
 pub const OBP1_ADDR: u16 = 0xFF49;
 pub const WY_ADDR: u16 = 0xFF4A;
 pub const WX_ADDR: u16 = 0xFF4B;
+// PPU Tilemap Addresses
+pub const TILEMAP_1_ADDR: u16 = 0x9800;
+pub const TILEMAP_0_ADDR: u16 = 0x9C00;
 
 // Interrupt (besides IE, which counts but is also its own memory region)
 pub const IF_ADDR: u16 = 0xFF0F;

@@ -47,6 +47,7 @@ pub enum PpuMode {
 }
 
 pub struct Ppu {
+    enabled: bool,
     was_enabled: bool,
     pub frame_complete: bool,
 
@@ -73,6 +74,7 @@ pub struct Ppu {
 impl Ppu {
     pub fn new() -> Self {
         Ppu {
+            enabled: false,
             was_enabled: false,
             frame_complete: false,
 
@@ -100,17 +102,17 @@ impl Ppu {
     /// This function progresses the state of the PPU by one t-cycle.
     pub fn tick(&mut self, mmu: &mut Mmu) {
         let ppu_mode = self.get_mode(mmu);
-        let enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT, mmu);
+        self.enabled = self.get_lcdc_flag(LCD_AND_PPU_ENABLE_BIT, mmu);
 
         // You're not supposed to turn off the PPU outside of vblank mode, but from
         // what I can tell, the hardware won't prevent it
-        if self.was_enabled && !enabled {
+        if self.was_enabled && !self.enabled {
             self.turn_off(mmu);
         }
-        self.was_enabled = enabled;
+        self.was_enabled = self.enabled;
 
-        if !enabled {
-            return
+        if !self.enabled {
+            return;
         }
 
         self.scanline_dots += 1;
@@ -127,7 +129,6 @@ impl Ppu {
             self.overlay_object_display();
             self.clear_object_display();
         }
-
     }
 
     fn inc_ly(&mut self, mmu: &mut Mmu) {
@@ -199,7 +200,7 @@ impl Ppu {
         self.prev_stat_interrupt_signal = stat_interrupt_signal;
     }
 
-    pub fn get_mode(&mut self, mmu: &mut Mmu) -> PpuMode {
+    pub fn get_mode(&self, mmu: &Mmu) -> PpuMode {
         let byte = self.read_byte(STAT_ADDR, mmu);
         let mode_number = byte & 0b_0000_0011;
 
@@ -240,7 +241,7 @@ impl Ppu {
     }
 
     /// The PPU is not write-locked from VRAM or OAM, so it gets a special write function
-    fn read_byte(&self, addr: u16, mmu: &mut Mmu) -> u8 {
+    fn read_byte(&self, addr: u16, mmu: &Mmu) -> u8 {
         let region = map_region(addr);
         match region {
             MemRegion::Vram | MemRegion::Oam => mmu.read_byte_override(addr),

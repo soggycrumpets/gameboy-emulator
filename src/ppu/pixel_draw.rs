@@ -3,8 +3,6 @@ use super::{
     *,
 };
 
-const TILEMAP_1_ADDR: u16 = 0x9800;
-const TILEMAP_2_ADDR: u16 = 0x9C00;
 const TILEMAP_WIDTH: u16 = 32;
 
 #[derive(Debug)]
@@ -109,7 +107,7 @@ impl Ppu {
         let tilemap_base_addr = if !self.fetcher.drawing_window && bg_tile_map
             || self.fetcher.drawing_window && window_tile_map
         {
-            TILEMAP_2_ADDR
+            TILEMAP_0_ADDR
         } else {
             TILEMAP_1_ADDR
         };
