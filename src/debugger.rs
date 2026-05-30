@@ -11,6 +11,13 @@ enum Command {
     None,
 }
 
+pub enum DebugState {
+    Continue,
+    Step,
+    Pause,
+    None,
+}
+
 pub fn debug_prompt(cpu: &Cpu, ppu: &Ppu, mmu: &Mmu, renderer: &Renderer) {
     println!("Debug mode");
     let command = get_user_input().to_lowercase();
@@ -30,9 +37,7 @@ pub fn debug_prompt(cpu: &Cpu, ppu: &Ppu, mmu: &Mmu, renderer: &Renderer) {
     }
 }
 
-pub fn debug_step() {
 
-}
 
 fn parse_user_input(inputs: String) -> Command {
     let mut args = inputs

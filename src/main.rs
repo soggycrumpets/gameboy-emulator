@@ -22,7 +22,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 use ui::Renderer;
 
-use crate::debugger::debug_prompt;
+use crate::debugger::{DebugState, debug_prompt};
 use crate::ppu::FRAME_DOTS;
 use crate::ui::Inputs;
 
@@ -61,10 +61,20 @@ fn run_rom(path: &str, mut debug_mode: bool) {
     let mut time_elapsed: Duration = Duration::from_secs_f64(0.0);
     let mut awaiting_debug_command: bool = false;
     let mut frame_cycles: u32 = 0;
+    let mut debug_state: DebugState = DebugState::None;
 
     while renderer.running {
         // TODO: for ppu object size bug, 8x16 mode should be set at pc = $026b
-        tick_gameboy(&mut cpu, &mut ppu, &mut mmu, &mut renderer);
+
+        debug_state = match debug_state {
+            DebugState::Pause => DebugState::Pause,
+            DebugState::Step => DebugState::Step,
+            DebugState::Continue => DebugState::Continue,
+            DebugState::None => {
+                tick_gameboy(&mut cpu, &mut ppu, &mut mmu, &mut renderer);
+                DebugState::None
+            }
+        };
         frame_cycles += 1;
 
         // TODO: Sleeping saves significant CPU power, but often causes oversleep
@@ -149,8 +159,8 @@ fn initialize_memory(mmu: &mut Mmu, cpu: &mut Cpu) {
     mmu.write_byte_override(LYC_ADDR, 0x00);
     mmu.write_byte_override(DMA_ADDR, 0xFF);
     mmu.write_byte_override(BGP_ADDR, 0xFC);
-    mmu.write_byte_override(OBP0_ADDR, 0x00); // Uninitialized
-    mmu.write_byte_override(OBP1_ADDR, 0x00); // Uninitialized
+    mmu.write_byte_override(OBP0_ADDR, 0x00);
+    mmu.write_byte_override(OBP1_ADDR, 0x00);
     mmu.write_byte_override(WY_ADDR, 0x00);
     mmu.write_byte_override(WX_ADDR, 0x00);
     mmu.write_byte_override(IE_ADDR, 0x00);
