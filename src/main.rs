@@ -17,11 +17,11 @@ use mmu::{Mmu, memmap::*};
 use ppu::Ppu;
 use sdl2::keyboard::Scancode;
 use sdl2::sys::SDL_Scancode::{SDL_SCANCODE_C, SDL_SCANCODE_LCTRL};
-use std::thread::sleep;
+use std::sync::mpsc::channel;
 use std::time::{Duration, Instant};
 use ui::Renderer;
 
-use crate::debugger::{DebugState, debug_prompt};
+use crate::debugger::{DebugState, debug_prompt, run_debug_console};
 use crate::ppu::FRAME_DOTS;
 use crate::ui::Inputs;
 
@@ -51,6 +51,11 @@ fn run_rom(path: &str, mut debug_mode: bool) {
 
     initialize_memory(&mut mmu, &mut cpu);
 
+    let (tx, rx) = channel::<String>();
+    let _console_thread = std::thread::spawn(move || {
+        run_debug_console(tx);
+    });
+
     let (canvas, event_pump) = Renderer::init_window();
     let texture_creator = canvas.texture_creator();
     let mut renderer = Renderer::new(canvas, event_pump, &texture_creator);
@@ -65,7 +70,7 @@ fn run_rom(path: &str, mut debug_mode: bool) {
         // TODO: for ppu object size bug, 8x16 mode should be set at pc = $026b
 
         debug_state = match debug_state {
-            DebugState::Pause => debug_prompt(&cpu, &ppu, &mmu),
+            DebugState::Pause => debug_prompt(&cpu, &ppu, &mmu, &rx),
             DebugState::Step => DebugState::Step,
             DebugState::Continue => {
                 tick_gameboy(&mut cpu, &mut ppu, &mut mmu, &mut renderer);
@@ -78,15 +83,15 @@ fn run_rom(path: &str, mut debug_mode: bool) {
         };
         frame_cycles += 1;
 
-        // TODO: Sleeping saves significant CPU power, but often causes oversleep
         if frame_cycles >= FRAME_DOTS {
             time_elapsed = last_render_time.elapsed();
             last_render_time += framerate;
             renderer.render_display(&ppu.display);
             renderer.process_inputs();
             update_joypad(&mut mmu, &renderer.inputs);
+            // TODO: Sleeping saves significant CPU power, but often causes oversleep
             if time_elapsed < framerate {
-                sleep(framerate - time_elapsed);
+                std::thread::sleep(framerate - time_elapsed);
             }
             frame_cycles = 0;
 

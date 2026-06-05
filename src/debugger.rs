@@ -1,4 +1,8 @@
-use std::thread::current;
+use std::{
+    io::stdin,
+    sync::mpsc::{Receiver, Sender},
+    thread::current,
+};
 
 use crate::util::get_bit;
 
@@ -11,8 +15,25 @@ pub enum DebugState {
     None,
 }
 
-pub fn debug_prompt(cpu: &Cpu, ppu: &Ppu, mmu: &Mmu) -> DebugState {
-    let command = get_user_input().to_lowercase();
+pub fn run_debug_console(sender: Sender<String>) {
+    let stdin = stdin();
+    loop {
+        let mut buffer = String::new();
+        stdin
+            .read_line(&mut buffer)
+            .expect("failed to read from stdin");
+        buffer = buffer.trim().to_string();
+        sender.send(buffer).expect("Unable to send on channel");
+    }
+}
+
+pub fn debug_prompt(cpu: &Cpu, ppu: &Ppu, mmu: &Mmu, rx: &Receiver<String>) -> DebugState {
+    let command = if let Ok(message) = rx.try_recv() {
+        message
+    } else {
+        return DebugState::Pause;
+    };
+
     match command.as_str() {
         "step" | "s" => DebugState::Step,
         "continue" | "c" => DebugState::Continue,
@@ -23,7 +44,7 @@ pub fn debug_prompt(cpu: &Cpu, ppu: &Ppu, mmu: &Mmu) -> DebugState {
         "unwatch" | "uw" => DebugState::Pause,
         "list" | "l" => DebugState::Pause,
         "lcd" => {
-            debug_lcd(cpu, ppu, mmu);
+            debug_lcd(ppu, mmu);
             DebugState::Pause
         }
         "dma" => DebugState::Pause,
@@ -35,7 +56,7 @@ pub fn debug_prompt(cpu: &Cpu, ppu: &Ppu, mmu: &Mmu) -> DebugState {
     }
 }
 
-pub fn debug_lcd(cpu: &Cpu, ppu: &Ppu, mmu: &Mmu) {
+pub fn debug_lcd(ppu: &Ppu, mmu: &Mmu) {
     // LCDC
     let lcdc = mmu.read_byte_override(LCDC_ADDR);
     let lcd_enabled = get_bit(lcdc, LCD_AND_PPU_ENABLE_BIT);
