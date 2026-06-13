@@ -42,11 +42,11 @@ pub struct Cpu {
     current_interrupt_bit: u8,
     current_interrupt_handler_addr: u16,
 
-    prev_instruction: u8,
-    current_instruction: u8,
+    pub prev_instruction: u8,
+    pub current_instruction: u8,
     prefixed_instruction_mode: bool,
     pub instruction_t_cycles_remaining: u8,
-    instruction_m_cycles_remaining: u8,
+    pub instruction_m_cycles_remaining: u8,
 
     byte_buf: u8,
     word_buf_low: u8,
@@ -91,7 +91,6 @@ impl Cpu {
     }
 
     fn step(&mut self, mmu: &mut Mmu) {
-      
 
         self.update_interrupt_status(mmu);
         if self.ime_pending {

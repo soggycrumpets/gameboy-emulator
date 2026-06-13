@@ -21,7 +21,7 @@ use std::sync::mpsc::channel;
 use std::time::{Duration, Instant};
 use ui::Renderer;
 
-use crate::debugger::{DebugState, debug_prompt, run_debug_console};
+use crate::debugger::{DebugInfo, DebugState, debug_prompt, print_next_instruction, run_debug_console};
 use crate::ppu::FRAME_DOTS;
 use crate::ui::Inputs;
 
@@ -64,14 +64,22 @@ fn run_rom(path: &str, mut debug_mode: bool) {
     let mut last_render_time = Instant::now();
     let mut time_elapsed: Duration;
     let mut frame_cycles: u32 = 0;
-    let mut debug_state: DebugState = DebugState::None;
+    let mut debug = DebugInfo::new();
 
     while renderer.running {
         // TODO: for ppu object size bug, 8x16 mode should be set at pc = $026b
 
-        debug_state = match debug_state {
-            DebugState::Pause => debug_prompt(&cpu, &ppu, &mmu, &rx),
-            DebugState::Step => DebugState::Step,
+        debug.state = match debug.state {
+            DebugState::Pause => debug_prompt(&mut debug, &cpu, &ppu, &mmu, &rx),
+            DebugState::Step => {
+                tick_gameboy(&mut cpu, &mut ppu, &mut mmu, &mut renderer);
+                if cpu.instruction_t_cycles_remaining == 1 {
+                    print_next_instruction(&mmu, cpu.reg.pc);
+                    DebugState::Pause
+                } else {
+                    DebugState::Step
+                }
+            }
             DebugState::Continue => {
                 tick_gameboy(&mut cpu, &mut ppu, &mut mmu, &mut renderer);
                 DebugState::Continue
@@ -100,7 +108,7 @@ fn run_rom(path: &str, mut debug_mode: bool) {
             if renderer.inputs.key_down[SDL_SCANCODE_LCTRL as usize]
                 && renderer.inputs.keypress_unique[SDL_SCANCODE_C as usize]
             {
-                debug_state = DebugState::Pause;
+                debug.state = DebugState::Pause;
                 println!("Debug mode");
             }
         }

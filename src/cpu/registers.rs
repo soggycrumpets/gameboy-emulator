@@ -39,16 +39,16 @@ pub enum Flag {
 }
 
 pub struct Registers {
-    a: u8,
-    b: u8,
-    c: u8,
-    d: u8,
-    e: u8,
-    f: Flags,
-    h: u8,
-    l: u8,
-    sp: u16, // Stack pointer
-    pc: u16, // Program counter
+    pub a: u8,
+    pub b: u8,
+    pub c: u8,
+    pub d: u8,
+    pub e: u8,
+    pub f: Flags,
+    pub h: u8,
+    pub l: u8,
+    pub sp: u16, // Stack pointer
+    pub pc: u16, // Program counter
 }
 
 impl Registers {
@@ -130,7 +130,7 @@ impl Registers {
     }
 
     pub fn set16_high(&mut self, register: R16, byte: u8) {
-        let high_register= match register {
+        let high_register = match register {
             R16::AF => R8::A,
             R16::BC => R8::B,
             R16::DE => R8::D,

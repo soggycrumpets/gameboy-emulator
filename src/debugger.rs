@@ -1,4 +1,5 @@
 use std::{
+    fmt::Debug,
     io::stdin,
     sync::mpsc::{Receiver, Sender},
     thread::current,
@@ -15,6 +16,24 @@ pub enum DebugState {
     None,
 }
 
+pub struct DebugInfo {
+    pub state: DebugState,
+    pub cpu_instruction_current: u8,
+    pub cpu_instruction_prefix: bool,
+}
+
+impl DebugInfo {
+    pub fn new() -> Self {
+        DebugInfo {
+            state: DebugState::None,
+            cpu_instruction_current: 0x00,
+            cpu_instruction_prefix: false,
+        }
+    }
+
+    fn get_step_info(&mut self, pc: u16, mmu: &Mmu) {}
+}
+
 pub fn run_debug_console(sender: Sender<String>) {
     let stdin = stdin();
     loop {
@@ -27,7 +46,13 @@ pub fn run_debug_console(sender: Sender<String>) {
     }
 }
 
-pub fn debug_prompt(cpu: &Cpu, ppu: &Ppu, mmu: &Mmu, rx: &Receiver<String>) -> DebugState {
+pub fn debug_prompt(
+    debug: &mut DebugInfo,
+    cpu: &Cpu,
+    ppu: &Ppu,
+    mmu: &Mmu,
+    rx: &Receiver<String>,
+) -> DebugState {
     let command = if let Ok(message) = rx.try_recv() {
         message
     } else {
@@ -44,11 +69,11 @@ pub fn debug_prompt(cpu: &Cpu, ppu: &Ppu, mmu: &Mmu, rx: &Receiver<String>) -> D
         "unwatch" | "uw" => DebugState::Pause,
         "list" | "l" => DebugState::Pause,
         "lcd" => {
-            debug_lcd(ppu, mmu);
+            debug_print_lcd(ppu, mmu);
             DebugState::Pause
         }
         "dma" => DebugState::Pause,
-        "registers" | "reg" => DebugState::Pause,
+        "registers" | "r" => DebugState::Pause,
         _ => {
             println!("Unrecognized Command: \"{}\"", command);
             DebugState::Pause
@@ -56,7 +81,12 @@ pub fn debug_prompt(cpu: &Cpu, ppu: &Ppu, mmu: &Mmu, rx: &Receiver<String>) -> D
     }
 }
 
-pub fn debug_lcd(ppu: &Ppu, mmu: &Mmu) {
+pub fn print_next_instruction(mmu: &Mmu, pc: u16) {
+    let instruction = mmu.read_byte_override(pc.wrapping_add(1));
+    println!("Next instruction: {:02x}\n", instruction);
+}
+
+fn debug_print_lcd(ppu: &Ppu, mmu: &Mmu) {
     // LCDC
     let lcdc = mmu.read_byte_override(LCDC_ADDR);
     let lcd_enabled = get_bit(lcdc, LCD_AND_PPU_ENABLE_BIT);
@@ -79,9 +109,9 @@ pub fn debug_lcd(ppu: &Ppu, mmu: &Mmu) {
     };
 
     let background_tilemap = if get_bit(lcdc, BG_TILE_MAP_BIT) {
-        format!("${:0x}", TILEMAP_1_ADDR)
+        format!("${:04x}", TILEMAP_1_ADDR)
     } else {
-        format!("${:0x}", TILEMAP_0_ADDR)
+        format!("${:04x}", TILEMAP_0_ADDR)
     };
 
     let window = if get_bit(lcdc, WINDOW_ENABLE_BIT) {

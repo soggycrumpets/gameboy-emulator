@@ -118,7 +118,7 @@ impl Mmu {
     }
 
     /// Write one byte from memory, bypassing all of the special cases
-    /// and side-effects of the standard read_byte function. Use this with caution!
+    /// and side-effects of the standard read_byte function.
     pub fn write_byte_override(&mut self, addr: u16, byte: u8) {
         let index = map_addr(addr);
         let region = map_region(addr);
